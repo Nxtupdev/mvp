@@ -426,10 +426,12 @@ static void onButtonTap(int idx) {
 }
 
 static void handleTap(int rawX, int rawY) {
-  // The GT911 panel reports Y flipped on this Waveshare board — a tap on
-  // the bottom row (where the buttons are, y≈420) comes in as y≈60.
-  // Mirror Y so the screen and touch share the same coordinate space.
-  const int x = rawX;
+  // The GT911 panel on this Waveshare 4.3 board is mounted 180° rotated
+  // vs the display, so both X and Y come in mirrored. Confirmed by
+  // tapping the physically-leftmost button (green ACTIVE) and getting
+  // idx=2 (right-third) before this fix. Mirroring both axes lines the
+  // touch coordinate space up with what the framebuffer drew.
+  const int x = LCD_WIDTH  - 1 - rawX;
   const int y = LCD_HEIGHT - 1 - rawY;
 
   Serial.printf("[NXTUP] handleTap (%d, %d)  raw(%d,%d)  buttonZone=[%d..%d]\n",
