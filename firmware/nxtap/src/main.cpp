@@ -17,6 +17,7 @@
 
 #include "board_pins.h"
 #include "nxtup_colors.h"
+#include "nxtup_net.h"
 
 // ── Display ────────────────────────────────────────────────────────
 //
@@ -336,7 +337,33 @@ void setup() {
   Serial.println("[NXTUP] step 3: touch ready");
   Serial.flush();
 
-  Serial.println("[NXTUP] step 4: render");
+  // ── Phase D.2: prove network connectivity to getnxtup.com ────
+  // Best-effort. If WiFi or the snapshot fetch fails, we log the failure
+  // to Serial and continue running the local-only Phase C state machine
+  // so the device stays usable even without internet.
+  Serial.println("[NXTUP] step 4: network");
+  Serial.flush();
+  if (nxtup::connectWiFi()) {
+    nxtup::Snapshot snap;
+    if (nxtup::fetchSnapshot(snap)) {
+      Serial.printf(
+        "[NXTUP] snapshot OK · barber=%s status=%s fifo=%d held=%d "
+        "called=%s current=%s\n",
+        snap.barberName.c_str(),
+        snap.status.c_str(),
+        snap.fifoPosition,
+        snap.heldPosition,
+        snap.calledClient.length() ? snap.calledClient.c_str() : "—",
+        snap.currentClient.length() ? snap.currentClient.c_str() : "—");
+    } else {
+      Serial.println("[NXTUP] snapshot fetch FAILED (check token / barber_id)");
+    }
+  } else {
+    Serial.println("[NXTUP] WiFi unavailable — running OFFLINE");
+  }
+  Serial.flush();
+
+  Serial.println("[NXTUP] step 5: render");
   Serial.flush();
   renderAll();
   Serial.println("[NXTUP] running — tap any button");
