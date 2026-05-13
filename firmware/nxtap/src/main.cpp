@@ -377,18 +377,33 @@ static void networkTask(void * /*arg*/) {
     BaseType_t got = xQueueReceive(g_actionQueue, action, kPollIntervalTicks);
 
     if (got == pdTRUE) {
+      // The previous iteration may have published a snapshot fetched
+      // BEFORE this tap was queued. Invalidate it now so the main loop
+      // can't drain stale data while we work.
+      xSemaphoreTake(g_snapMutex, portMAX_DELAY);
+      g_pendingSnapReady = false;
+      xSemaphoreGive(g_snapMutex);
+
       Serial.printf("[net-task] POST status=%s\n", action);
       if (!nxtup::postState(action)) {
         Serial.println("[net-task] postState FAILED");
       }
-      // Action processed — decrement the pending counter so the main
-      // loop is allowed to apply snapshots again once everything settles.
-      if (g_actionsPending > 0) g_actionsPending--;
     }
 
+    // Always fetch + publish. For a tap iteration this gives main the
+    // fresh post-action state; for a periodic iteration it's the regular
+    // sync.
     nxtup::Snapshot snap;
     if (nxtup::fetchSnapshot(snap)) {
       publishSnapshot(snap);
+    }
+
+    // Only NOW decrement actionsPending — the fresh snapshot is sitting
+    // in the slot, so when main next sees actionsPending == 0 it will
+    // drain the up-to-date snapshot, not a stale one from a publish that
+    // raced ahead of our POST.
+    if (got == pdTRUE) {
+      if (g_actionsPending > 0) g_actionsPending--;
     }
   }
 }
