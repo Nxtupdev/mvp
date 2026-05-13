@@ -65,7 +65,8 @@ bool fetchSnapshot(Snapshot& out) {
   // 307 + "Redirecting..." HTML instead of our JSON.
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   http.addHeader("x-device-token", DEVICE_API_TOKEN);
-  http.setTimeout(8000);
+  // 3s timeout — keep the LCD freeze short if the network gets flaky.
+  http.setTimeout(3000);
 
   const int code = http.GET();
   if (code != 200) {
@@ -117,7 +118,8 @@ bool postState(const char* newStatus) {
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-token", DEVICE_API_TOKEN);
-  http.setTimeout(8000);
+  // 3s timeout — keep the LCD freeze short if the network gets flaky.
+  http.setTimeout(3000);
 
   String body = String("{\"status\":\"") + newStatus + "\"}";
   const int code = http.sendRequest("PATCH", (uint8_t*)body.c_str(), body.length());

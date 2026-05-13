@@ -337,18 +337,46 @@ static void onButtonTap(int idx) {
   // 1 = BUSY   → "busy"
   // 2 = BREAK  → "break"
   const char *target = (idx == 0) ? "available" : (idx == 1) ? "busy" : "break";
+  BarberState predicted = (idx == 0) ? ST_ACTIVE
+                          : (idx == 1) ? ST_BUSY
+                                       : ST_BREAK;
 
-  Serial.printf("[NXTUP] tap → POST status=%s\n", target);
-  Serial.flush();
-
-  if (!nxtup::postState(target)) {
-    Serial.println("[NXTUP] postState FAILED — UI not changing");
+  // Local idempotent guard — saves a full network round trip if the
+  // barber re-taps the button matching their current state.
+  if (predicted == g_state) {
+    Serial.println("[NXTUP] tap ignored — already in this state");
     return;
   }
 
-  // Fetch the fresh state right after the write so the screen reflects
-  // exactly what the server now believes, including any side effects
-  // like auto-calling the next client.
+  // ── Optimistic UI ───────────────────────────────────────────────
+  // Update the screen RIGHT NOW with the predicted state instead of
+  // waiting ~2-3s for the POST + re-fetch to complete. If the server
+  // disagrees for any reason, the next 3s poll will reconcile.
+  if (predicted == ST_BREAK) {
+    g_breakStartMs    = millis();
+    g_lastCountdownMs = millis();
+    // g_breakDurationSec stays as last snapshotted from the server.
+  } else {
+    // Leaving busy / break / etc → no called client locally.
+    g_clientNameBuf[0] = '\0';
+  }
+  g_state = predicted;
+  drawInfo();
+  drawAllButtons();
+
+  Serial.printf("[NXTUP] tap → optimistic %s · POST follows\n", target);
+  Serial.flush();
+
+  // ── Server write + reconcile ────────────────────────────────────
+  if (!nxtup::postState(target)) {
+    Serial.println("[NXTUP] postState FAILED — forcing immediate poll");
+    g_lastPollMs = 0;  // makes the loop poll on the very next tick
+    return;
+  }
+
+  // Re-fetch immediately so we pick up server-side effects we couldn't
+  // predict locally (auto-calling the next client when going active,
+  // position restored from break, etc.).
   nxtup::Snapshot snap;
   if (nxtup::fetchSnapshot(snap)) {
     if (applySnapshot(snap)) {
