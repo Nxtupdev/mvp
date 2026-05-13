@@ -16,10 +16,12 @@ export default async function ActivityPage() {
     .maybeSingle()
   if (!shop) redirect('/onboarding')
 
-  // Today (UTC) by default — covers most dispute cases. Filters on the
-  // client allow widening to the full 90-day retention window.
+  // "Today" = local midnight, NOT UTC midnight. For owners in UTC-offsets
+  // (most of LatAm/US) a UTC cutoff would chop their morning into yesterday.
+  // The client component re-fetches with the local midnight too when the
+  // user keeps the default range, so SSR and CSR stay consistent.
   const sinceMidnight = new Date()
-  sinceMidnight.setUTCHours(0, 0, 0, 0)
+  sinceMidnight.setHours(0, 0, 0, 0)
 
   const [{ data: barbers }, { data: events }] = await Promise.all([
     supabase

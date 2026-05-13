@@ -299,8 +299,9 @@ export async function PATCH(
     })
   }
 
-  // Flush activity log entries. Best-effort — if logging fails for any
-  // reason (RLS, network) we don't fail the user-facing operation.
+  // Flush activity log entries. Best-effort — failure here doesn't break
+  // the user-facing state change, but we surface the error to Vercel logs
+  // so we can diagnose silent RLS / schema issues.
   if (logs.length > 0) {
     const rows = logs.map(l => ({
       shop_id: barber.shop_id,
@@ -310,7 +311,18 @@ export async function PATCH(
       to_status: l.to_status ?? null,
       metadata: l.metadata ?? {},
     }))
-    await supabase.from('activity_log').insert(rows)
+    const { error: logError } = await supabase.from('activity_log').insert(rows)
+    if (logError) {
+      console.error('[activity_log] insert failed', {
+        shop_id: barber.shop_id,
+        barber_id,
+        action_count: rows.length,
+        code: logError.code,
+        message: logError.message,
+        details: logError.details,
+        hint: logError.hint,
+      })
+    }
   }
 
   const { data: updated } = await supabase
