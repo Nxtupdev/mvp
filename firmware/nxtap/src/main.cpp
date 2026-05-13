@@ -15,6 +15,11 @@
 #include <Wire.h>
 #include <TAMC_GT911.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+
 #include "board_pins.h"
 #include "nxtup_colors.h"
 #include "nxtup_net.h"
@@ -80,10 +85,15 @@ static bool        g_wasTouched       = false;
 static uint32_t    g_lastTapMs        = 0;
 constexpr uint32_t kDebounceMs        = 200;
 
-// Polling cadence — re-fetch the snapshot every 3s while idle so the
-// device stays in sync with whatever the dashboard / TV / web app do.
-static uint32_t    g_lastPollMs       = 0;
-constexpr uint32_t kPollIntervalMs    = 3000;
+// ── Networking — runs on a dedicated FreeRTOS task on core 0 so the
+// HTTP round-trips never block the main loop (which handles touch and
+// rendering on core 1).
+constexpr TickType_t kPollIntervalTicks = pdMS_TO_TICKS(3000);
+
+static QueueHandle_t     g_actionQueue   = nullptr;  // pending state changes
+static SemaphoreHandle_t g_snapMutex     = nullptr;  // guards g_pendingSnap
+static nxtup::Snapshot   g_pendingSnap;
+static volatile bool     g_pendingSnapReady = false;
 
 // ── Layout zones (800x480 landscape) ───────────────────────────────
 //
@@ -332,6 +342,38 @@ static bool applySnapshot(const nxtup::Snapshot &snap) {
   return changed;
 }
 
+// Hand a fresh snapshot to the main loop. Called only from the network
+// task. Main loop picks it up via g_pendingSnapReady and applies it.
+static void publishSnapshot(const nxtup::Snapshot &snap) {
+  xSemaphoreTake(g_snapMutex, portMAX_DELAY);
+  g_pendingSnap      = snap;
+  g_pendingSnapReady = true;
+  xSemaphoreGive(g_snapMutex);
+}
+
+// Network task. Lives on core 0 (Arduino main loop runs on core 1).
+// Blocks on the action queue with a 3s timeout — so it either:
+//   * wakes up when the user taps a button (POST + fetch + publish)
+//   * times out and does a regular periodic snapshot fetch.
+static void networkTask(void * /*arg*/) {
+  for (;;) {
+    char action[16] = {0};
+    BaseType_t got = xQueueReceive(g_actionQueue, action, kPollIntervalTicks);
+
+    if (got == pdTRUE) {
+      Serial.printf("[net-task] POST status=%s\n", action);
+      if (!nxtup::postState(action)) {
+        Serial.println("[net-task] postState FAILED");
+      }
+    }
+
+    nxtup::Snapshot snap;
+    if (nxtup::fetchSnapshot(snap)) {
+      publishSnapshot(snap);
+    }
+  }
+}
+
 static void onButtonTap(int idx) {
   // 0 = ACTIVE → "available"
   // 1 = BUSY   → "busy"
@@ -341,48 +383,32 @@ static void onButtonTap(int idx) {
                           : (idx == 1) ? ST_BUSY
                                        : ST_BREAK;
 
-  // Local idempotent guard — saves a full network round trip if the
-  // barber re-taps the button matching their current state.
+  // Local idempotent guard — re-taps of the current state are a true
+  // no-op (no network call, no redraw).
   if (predicted == g_state) {
     Serial.println("[NXTUP] tap ignored — already in this state");
     return;
   }
 
   // ── Optimistic UI ───────────────────────────────────────────────
-  // Update the screen RIGHT NOW with the predicted state instead of
-  // waiting ~2-3s for the POST + re-fetch to complete. If the server
-  // disagrees for any reason, the next 3s poll will reconcile.
+  // Update the screen RIGHT NOW so the barber sees instant feedback.
+  // The network task will POST + fetch in parallel and the main loop
+  // will reconcile any divergence on the next snapshot publish.
   if (predicted == ST_BREAK) {
     g_breakStartMs    = millis();
     g_lastCountdownMs = millis();
-    // g_breakDurationSec stays as last snapshotted from the server.
   } else {
-    // Leaving busy / break / etc → no called client locally.
     g_clientNameBuf[0] = '\0';
   }
   g_state = predicted;
   drawInfo();
   drawAllButtons();
 
-  Serial.printf("[NXTUP] tap → optimistic %s · POST follows\n", target);
-  Serial.flush();
-
-  // ── Server write + reconcile ────────────────────────────────────
-  if (!nxtup::postState(target)) {
-    Serial.println("[NXTUP] postState FAILED — forcing immediate poll");
-    g_lastPollMs = 0;  // makes the loop poll on the very next tick
-    return;
-  }
-
-  // Re-fetch immediately so we pick up server-side effects we couldn't
-  // predict locally (auto-calling the next client when going active,
-  // position restored from break, etc.).
-  nxtup::Snapshot snap;
-  if (nxtup::fetchSnapshot(snap)) {
-    if (applySnapshot(snap)) {
-      drawInfo();
-      drawAllButtons();
-    }
+  // Hand off to the network task — non-blocking, returns instantly.
+  char buf[16] = {0};
+  strncpy(buf, target, sizeof(buf) - 1);
+  if (xQueueSend(g_actionQueue, buf, 0) != pdTRUE) {
+    Serial.println("[NXTUP] action queue full — dropped");
   }
 }
 
@@ -467,16 +493,28 @@ void setup() {
         snap.heldPosition,
         snap.calledClient.length() ? snap.calledClient.c_str() : "—",
         snap.currentClient.length() ? snap.currentClient.c_str() : "—");
-      // Seed local state from the live server view BEFORE the first
-      // renderAll() so the very first frame already shows reality.
       applySnapshot(snap);
-      g_lastPollMs = millis();
     } else {
       Serial.println("[NXTUP] snapshot fetch FAILED (check token / barber_id)");
     }
   } else {
     Serial.println("[NXTUP] WiFi unavailable — running OFFLINE");
   }
+  Serial.flush();
+
+  // ── Spawn the network task ──────────────────────────────────────
+  // Action queue: up to 4 pending button taps, each a short status name.
+  g_actionQueue = xQueueCreate(4, 16);
+  g_snapMutex   = xSemaphoreCreateMutex();
+  // Pin to core 0 so HTTPS round trips never steal CPU from touch+render
+  // on the main Arduino core (1).
+  xTaskCreatePinnedToCore(networkTask, "nxtup-net",
+                          /* stack */ 12288,
+                          /* arg   */ nullptr,
+                          /* prio  */ 1,
+                          /* hndl  */ nullptr,
+                          /* core  */ 0);
+  Serial.println("[NXTUP] network task started on core 0");
   Serial.flush();
 
   Serial.println("[NXTUP] step 5: render");
@@ -511,17 +549,19 @@ void loop() {
     drawBreakCountdown();
   }
 
-  // Periodic snapshot poll — keeps the device in sync with any state
-  // change made from the dashboard, simulator, TV, or another device.
-  // Blocking call, brief LCD freeze acceptable for MVP.
-  if (now - g_lastPollMs >= kPollIntervalMs) {
-    g_lastPollMs = now;
+  // ── Drain any snapshot the network task published ───────────────
+  // Cheap check (no mutex contention unless something's actually ready)
+  // followed by a short critical section to copy the snapshot out.
+  if (g_pendingSnapReady) {
     nxtup::Snapshot snap;
-    if (nxtup::fetchSnapshot(snap)) {
-      if (applySnapshot(snap)) {
-        drawInfo();
-        drawAllButtons();
-      }
+    xSemaphoreTake(g_snapMutex, portMAX_DELAY);
+    snap = g_pendingSnap;
+    g_pendingSnapReady = false;
+    xSemaphoreGive(g_snapMutex);
+
+    if (applySnapshot(snap)) {
+      drawInfo();
+      drawAllButtons();
     }
   }
 
