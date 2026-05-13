@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
 type Status = (typeof VALID)[number]
@@ -16,7 +17,19 @@ export async function PATCH(
     return Response.json({ error: 'Estado inválido' }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  // Auth: either the request carries owner cookies (web flow) OR an
+  // x-device-token header that matches the global DEVICE_API_TOKEN (hardware
+  // NXT TAP devices that have no cookies). Device-token requests use a
+  // service-role client to bypass RLS — gated entirely by the token check.
+  const deviceToken = request.headers.get('x-device-token')
+  const expectedDeviceToken = process.env.DEVICE_API_TOKEN
+  const isDeviceRequest = Boolean(
+    deviceToken && expectedDeviceToken && deviceToken === expectedDeviceToken,
+  )
+  if (deviceToken && !isDeviceRequest) {
+    return Response.json({ error: 'Token de device inválido' }, { status: 401 })
+  }
+  const supabase = isDeviceRequest ? createAdminClient() : await createClient()
 
   // Read the barber + their shop's config in parallel so we have everything
   // needed for the keep-position-on-break logic in one round trip.
