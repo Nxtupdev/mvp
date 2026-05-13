@@ -65,49 +65,49 @@ const SIZE: Record<
   }
 > = {
   lg: {
-    avatar: 56,
+    avatar: 44,
     posText: 'text-4xl',
     arrowText: 'text-3xl',
     nameSingle: 'text-3xl',
     nameDouble: 'text-2xl',
     subtitle: 'text-sm',
-    cardPad: 'px-5 py-4',
-    cardGap: 'gap-5',
+    cardPad: 'px-4 py-3',
+    cardGap: 'gap-3',
     listGap: 'gap-3',
-    colPad: 'px-6 pb-8',
+    colPad: 'px-5 pb-8',
     colHeaderPad: 'pt-8 pb-4',
     breakTimer: 'text-3xl',
-    posWidth: 'w-12',
+    posWidth: 'w-10',
   },
   md: {
-    avatar: 44,
+    avatar: 36,
     posText: 'text-3xl',
     arrowText: 'text-2xl',
     nameSingle: 'text-2xl',
     nameDouble: 'text-xl',
     subtitle: 'text-xs',
-    cardPad: 'px-4 py-3',
-    cardGap: 'gap-4',
+    cardPad: 'px-3 py-2.5',
+    cardGap: 'gap-2.5',
     listGap: 'gap-2',
-    colPad: 'px-5 pb-6',
+    colPad: 'px-4 pb-6',
     colHeaderPad: 'pt-6 pb-3',
     breakTimer: 'text-2xl',
-    posWidth: 'w-10',
+    posWidth: 'w-9',
   },
   sm: {
-    avatar: 32,
+    avatar: 28,
     posText: 'text-2xl',
     arrowText: 'text-xl',
     nameSingle: 'text-lg',
     nameDouble: 'text-base',
     subtitle: 'text-[10px]',
-    cardPad: 'px-3 py-2',
-    cardGap: 'gap-3',
+    cardPad: 'px-2.5 py-2',
+    cardGap: 'gap-2',
     listGap: 'gap-1.5',
-    colPad: 'px-4 pb-5',
+    colPad: 'px-3 pb-5',
     colHeaderPad: 'pt-5 pb-2',
     breakTimer: 'text-xl',
-    posWidth: 'w-9',
+    posWidth: 'w-8',
   },
 }
 
@@ -483,7 +483,9 @@ function ActiveCard({
         #{position}
       </span>
       <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
-      <span className={`text-white font-bold flex-1 truncate ${s.nameSingle}`}>
+      <span
+        className={`text-white font-bold flex-1 min-w-0 truncate ${s.nameSingle}`}
+      >
         {barber.name}
       </span>
     </li>
