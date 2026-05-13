@@ -148,7 +148,19 @@ export default function DisplayBoard({
 }) {
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
+  const [connected, setConnected] = useState(true)
   const now = useClock()
+
+  // Kiosk auto-refresh: blow the page away every 6h. Some smart-TV browsers
+  // accumulate memory / lose realtime quietly after long sessions; a clean
+  // reload during slow hours guarantees the day starts fresh.
+  useEffect(() => {
+    const id = window.setTimeout(
+      () => window.location.reload(),
+      6 * 60 * 60 * 1000,
+    )
+    return () => window.clearTimeout(id)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -194,7 +206,12 @@ export default function DisplayBoard({
         { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shop.id}` },
         fetchBarbers,
       )
-      .subscribe()
+      .subscribe(status => {
+        // 'SUBSCRIBED' is the healthy state. Anything else means we lost
+        // the connection (network blip, server restart) and the data on
+        // screen may be stale until reconnect.
+        setConnected(status === 'SUBSCRIBED')
+      })
 
     return () => {
       supabase.removeChannel(channel)
@@ -205,7 +222,7 @@ export default function DisplayBoard({
 
   if (!shop.is_open) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-12">
+      <main className="min-h-screen flex flex-col items-center justify-center px-12 cursor-none select-none">
         {shop.logo_url ? (
           <ShopLogo
             url={shop.logo_url}
@@ -293,7 +310,7 @@ export default function DisplayBoard({
     : null
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="min-h-screen flex flex-col cursor-none select-none">
       {/* Header */}
       <header className="flex items-center justify-between px-12 py-5 border-b border-nxtup-line gap-8">
         <div className="flex items-center gap-5 min-w-0">
@@ -304,9 +321,20 @@ export default function DisplayBoard({
           )}
           <span className="text-white text-2xl font-bold truncate">{shop.name}</span>
         </div>
-        <span className="text-nxtup-muted text-xl font-medium tabular-nums flex-shrink-0">
-          {now ? formatClock(now) : ''}
-        </span>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {/* Connection status — subtle. Green when realtime is healthy,
+              amber pulse when we lost the channel and are reconnecting. */}
+          <span
+            className={`w-2 h-2 rounded-full transition-colors ${
+              connected ? 'bg-nxtup-active' : 'bg-nxtup-break animate-pulse'
+            }`}
+            aria-label={connected ? 'En línea' : 'Reconectando'}
+            title={connected ? 'En línea' : 'Reconectando…'}
+          />
+          <span className="text-nxtup-muted text-xl font-medium tabular-nums">
+            {now ? formatClock(now) : ''}
+          </span>
+        </div>
       </header>
 
       {/* 3 columns */}
