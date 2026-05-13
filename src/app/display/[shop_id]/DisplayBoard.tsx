@@ -65,19 +65,19 @@ const SIZE: Record<
   }
 > = {
   lg: {
-    avatar: 44,
+    avatar: 32,
     posText: 'text-4xl',
     arrowText: 'text-3xl',
     nameSingle: 'text-3xl',
     nameDouble: 'text-2xl',
     subtitle: 'text-sm',
-    cardPad: 'px-4 py-3',
-    cardGap: 'gap-3',
+    cardPad: 'px-3 py-3',
+    cardGap: 'gap-2',
     listGap: 'gap-3',
-    colPad: 'px-5 pb-8',
+    colPad: 'px-4 pb-8',
     colHeaderPad: 'pt-8 pb-4',
     breakTimer: 'text-3xl',
-    posWidth: 'w-10',
+    posWidth: 'w-9',
   },
   md: {
     avatar: 36,
