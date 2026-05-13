@@ -94,6 +94,13 @@ static QueueHandle_t     g_actionQueue   = nullptr;  // pending state changes
 static SemaphoreHandle_t g_snapMutex     = nullptr;  // guards g_pendingSnap
 static nxtup::Snapshot   g_pendingSnap;
 static volatile bool     g_pendingSnapReady = false;
+// Outstanding-action counter. Incremented by onButtonTap BEFORE the
+// optimistic UI is committed, decremented by the network task AFTER it
+// has finished POST + fetch for that action. Main loop refuses to
+// apply incoming snapshots while this is > 0 — otherwise a stale
+// snapshot published from a periodic poll could clobber the optimistic
+// state set by a fresh tap.
+static volatile uint32_t g_actionsPending = 0;
 
 // ── Layout zones (800x480 landscape) ───────────────────────────────
 //
@@ -365,6 +372,9 @@ static void networkTask(void * /*arg*/) {
       if (!nxtup::postState(action)) {
         Serial.println("[net-task] postState FAILED");
       }
+      // Action processed — decrement the pending counter so the main
+      // loop is allowed to apply snapshots again once everything settles.
+      if (g_actionsPending > 0) g_actionsPending--;
     }
 
     nxtup::Snapshot snap;
@@ -404,11 +414,14 @@ static void onButtonTap(int idx) {
   drawInfo();
   drawAllButtons();
 
-  // Hand off to the network task — non-blocking, returns instantly.
+  // Increment pending BEFORE enqueuing so the network task or main loop
+  // see the up-to-date count consistently with the queued action.
+  g_actionsPending++;
   char buf[16] = {0};
   strncpy(buf, target, sizeof(buf) - 1);
   if (xQueueSend(g_actionQueue, buf, 0) != pdTRUE) {
     Serial.println("[NXTUP] action queue full — dropped");
+    if (g_actionsPending > 0) g_actionsPending--;  // rollback
   }
 }
 
@@ -550,9 +563,12 @@ void loop() {
   }
 
   // ── Drain any snapshot the network task published ───────────────
-  // Cheap check (no mutex contention unless something's actually ready)
-  // followed by a short critical section to copy the snapshot out.
-  if (g_pendingSnapReady) {
+  // Only apply when there are no taps in flight — otherwise a stale
+  // snapshot published right before a fresh user tap could clobber the
+  // optimistic UI and confuse the next tap (e.g. the idempotent guard
+  // rejecting a legitimate transition because g_state was just reverted
+  // to the server's previous-cycle value).
+  if (g_pendingSnapReady && g_actionsPending == 0) {
     nxtup::Snapshot snap;
     xSemaphoreTake(g_snapMutex, portMAX_DELAY);
     snap = g_pendingSnap;
