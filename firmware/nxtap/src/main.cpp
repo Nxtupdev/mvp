@@ -193,16 +193,25 @@ static void drawInfoActive() {
 
   drawCenteredText(kInfoY + 10, nxtup::kActive, 2, "EN FILA");
 
-  char posBuf[8];
-  snprintf(posBuf, sizeof(posBuf), "#%d", g_position);
-  drawCenteredText(kInfoY + 50, nxtup::kFg, 12, posBuf);
-
-  if (g_position == 1) {
-    drawCenteredText(kInfoY + 200, nxtup::kMuted, 2, "Eres el siguiente");
+  // g_position <= 0 means we don't have a confirmed position yet —
+  // either we just went active optimistically and are waiting on the
+  // snapshot, or the server hasn't placed us in FIFO (e.g. someone got
+  // matched to us already and we're 'available' but out of queue).
+  if (g_position <= 0) {
+    drawCenteredText(kInfoY + 50, nxtup::kMuted, 12, "...");
+    drawCenteredText(kInfoY + 200, nxtup::kDim, 2, "Sincronizando posicion");
   } else {
-    char hint[40];
-    snprintf(hint, sizeof(hint), "Posicion %d en la fila", g_position);
-    drawCenteredText(kInfoY + 200, nxtup::kMuted, 2, hint);
+    char posBuf[8];
+    snprintf(posBuf, sizeof(posBuf), "#%d", g_position);
+    drawCenteredText(kInfoY + 50, nxtup::kFg, 12, posBuf);
+
+    if (g_position == 1) {
+      drawCenteredText(kInfoY + 200, nxtup::kMuted, 2, "Eres el siguiente");
+    } else {
+      char hint[40];
+      snprintf(hint, sizeof(hint), "Posicion %d en la fila", g_position);
+      drawCenteredText(kInfoY + 200, nxtup::kMuted, 2, hint);
+    }
   }
 }
 
@@ -410,6 +419,12 @@ static void onButtonTap(int idx) {
   } else {
     g_clientNameBuf[0] = '\0';
   }
+  // We don't yet know the new FIFO position (the server will tell us in
+  // the snapshot a moment later). Reset it so the "#N" placeholder shows
+  // "..." instead of the value from the previous state — otherwise a
+  // barber who was #1 before going busy would briefly see "#1" again
+  // on the way back to active, even though they could now be #3.
+  g_position = -1;
   g_state = predicted;
   drawInfo();
   drawAllButtons();
