@@ -320,7 +320,6 @@ export default function CheckInForm({
   // ── Walk-in mode (zero friction) ────────────────────────────
   if (walkInMode) {
     const nextBarber = fifoBarbers[0]
-    const others = fifoBarbers.slice(1)
 
     return (
       <main className="min-h-screen flex flex-col px-6 pt-10 pb-12 max-w-sm mx-auto w-full">
@@ -331,50 +330,18 @@ export default function CheckInForm({
             size={64}
             className="mb-4"
           />
-          <p className="text-nxtup-active text-[10px] uppercase tracking-[0.4em] font-bold">
-            Sin espera
+          <h1 className="text-3xl font-black tracking-tight">{shop.name}</h1>
+          <p className="text-nxtup-active text-[10px] uppercase tracking-[0.4em] font-bold mt-2">
+            Next Available
           </p>
-          <h1 className="text-3xl font-black tracking-tight mt-1">{shop.name}</h1>
         </header>
 
         <section className="mt-12 flex flex-col items-center text-center">
           <Avatar avatar={nextBarber.avatar} name={nextBarber.name} size={120} />
-          <p className="text-nxtup-muted text-sm uppercase tracking-[0.3em] mt-5 mb-1 font-bold">
-            Pasá con
-          </p>
-          <h2 className="text-5xl font-black tracking-tight">{nextBarber.name}</h2>
-          <p className="text-nxtup-dim text-sm mt-3 leading-relaxed max-w-[280px]">
-            Sentate en su silla. {nextBarber.name} te recibe ahora — no necesitas
-            registrarte.
-          </p>
+          <h2 className="text-5xl font-black tracking-tight mt-6">
+            {nextBarber.name}
+          </h2>
         </section>
-
-        {others.length > 0 && (
-          <section className="mt-10">
-            <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-3 text-center">
-              También disponibles
-            </p>
-            <ul className="flex flex-col gap-2">
-              {others.map(b => (
-                <li
-                  key={b.id}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-nxtup-line"
-                >
-                  <span className="text-nxtup-active text-sm font-black tabular-nums w-6 text-center">
-                    #{fifoOrder.get(b.id)}
-                  </span>
-                  <Avatar avatar={b.avatar} name={b.name} size={36} />
-                  <span className="text-white font-medium flex-1 truncate">
-                    {b.name}
-                  </span>
-                  <span className="text-nxtup-active text-[10px] uppercase tracking-widest font-bold">
-                    Libre
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         <footer className="mt-auto pt-12 flex flex-col items-center gap-3">
           <button
