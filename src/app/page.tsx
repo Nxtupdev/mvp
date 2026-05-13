@@ -1,65 +1,216 @@
-import Image from "next/image";
+import Link from 'next/link'
+import Logo from '@/components/Logo'
+import { createClient } from '@/lib/supabase/server'
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let shop:
+    | { id: string; name: string }
+    | null = null
+  let barbers: { id: string; name: string }[] = []
+
+  if (user) {
+    const { data: s } = await supabase
+      .from('shops')
+      .select('id, name')
+      .eq('owner_id', user.id)
+      .maybeSingle()
+    shop = s ?? null
+
+    if (shop) {
+      const { data: b } = await supabase
+        .from('barbers')
+        .select('id, name')
+        .eq('shop_id', shop.id)
+        .order('name')
+        .limit(8)
+      barbers = b ?? []
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className="min-h-screen flex flex-col items-center px-6 py-12">
+      <Logo className="h-14 w-auto mb-6" tone="dark" />
+      <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-2">
+        Test console — temporary
+      </p>
+      <h1 className="text-2xl sm:text-3xl font-black tracking-tight mb-1 text-center">
+        Simple. Fast. Fair.
+      </h1>
+      <p className="text-nxtup-dim text-sm text-center mb-10 max-w-md">
+        Atajos a todas las superficies del producto para probar el flow.
+      </p>
+
+      <div className="w-full max-w-2xl flex flex-col gap-8">
+        {!user && (
+          <Section title="Auth">
+            <LinkRow
+              href="/login"
+              label="Login"
+              hint="Iniciar sesión con email + password"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+            <LinkRow
+              href="/signup"
+              label="Sign up"
+              hint="Crear cuenta de dueño"
+            />
+          </Section>
+        )}
+
+        {user && !shop && (
+          <Section title="Onboarding">
+            <LinkRow
+              href="/onboarding"
+              label="Crear shop"
+              hint="Aún no has creado tu barbería"
+            />
+          </Section>
+        )}
+
+        {user && shop && (
+          <>
+            <Section title="Owner — Dashboard">
+              <LinkRow
+                href="/dashboard"
+                label="Live queue"
+                hint="Cola activa, barberos, abrir/cerrar shop"
+              />
+              <LinkRow
+                href="/dashboard/barbers"
+                label="Barbers"
+                hint="Crear, editar, asignar avatares"
+              />
+              <LinkRow
+                href="/dashboard/activity"
+                label="Activity log"
+                hint="Bitácora de acciones (state changes, asignaciones, posición)"
+              />
+              <LinkRow
+                href="/dashboard/settings"
+                label="Settings"
+                hint="Logo, breaks, reglas de cola, gracia"
+              />
+            </Section>
+
+            <Section title="Cliente — Check-in">
+              <LinkRow
+                href={`/q/${shop.id}`}
+                label="QR check-in público"
+                hint={`Lo que ve el cliente al escanear el QR (${shop.name})`}
+              />
+            </Section>
+
+            <Section title="TV display">
+              <LinkRow
+                href={`/display/${shop.id}`}
+                label="Pantalla pública"
+                hint="Para Fire TV / monitor de la barbería"
+              />
+            </Section>
+
+            <Section title="Devices simulator">
+              <LinkRow
+                href={`/devices/${shop.id}`}
+                label="Simulador de pantallas físicas"
+                hint="Una pantalla por barbero, todas en la misma página — para probar el flujo end-to-end sin comprar hardware"
+              />
+            </Section>
+
+            <Section title="Barber app — pantalla individual">
+              <LinkRow
+                href={`/barber/${shop.id}`}
+                label="Selector de barbero"
+                hint="Pantalla de '¿quién eres?' — el barbero elige quien es y entra a su dashboard"
+              />
+              {barbers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {barbers.map(b => (
+                    <Link
+                      key={b.id}
+                      href={`/barber/${shop.id}/${b.id}`}
+                      className="text-xs px-3 py-1.5 bg-nxtup-line border border-nxtup-dim hover:border-white rounded-md text-white transition-colors"
+                    >
+                      {b.name} →
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <p className="text-nxtup-dim text-[11px] mt-3 leading-relaxed">
+                Cada barbero puede abrir su link directo en el celular o tablet y
+                tener la misma pantalla NXTUP que el hardware físico.
+              </p>
+            </Section>
+
+            <Section title="Sesión">
+              <p className="text-nxtup-dim text-xs leading-relaxed">
+                Sesión activa: <span className="text-nxtup-muted">{user.email}</span>
+                {shop && <> · Shop: <span className="text-nxtup-muted">{shop.name}</span></>}
+              </p>
+              <p className="text-nxtup-dim text-xs leading-relaxed">
+                Shop ID: <code className="font-mono text-nxtup-muted text-[11px]">{shop.id}</code>
+              </p>
+              <form action="/auth/signout" method="POST" className="mt-3">
+                <button
+                  type="submit"
+                  className="text-nxtup-muted hover:text-nxtup-busy text-xs transition-colors"
+                >
+                  Sign out
+                </button>
+              </form>
+            </Section>
+          </>
+        )}
+      </div>
+    </main>
+  )
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-3 font-bold">
+        {title}
+      </p>
+      <div className="flex flex-col gap-2">{children}</div>
+    </section>
+  )
+}
+
+function LinkRow({
+  href,
+  label,
+  hint,
+}: {
+  href: string
+  label: string
+  hint?: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-4 px-4 py-3 border border-nxtup-line hover:border-nxtup-muted rounded-xl transition-colors group"
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-medium text-sm">{label}</p>
+        {hint && (
+          <p className="text-nxtup-dim text-xs mt-0.5 leading-relaxed truncate">
+            {hint}
+          </p>
+        )}
+      </div>
+      <span className="text-nxtup-dim group-hover:text-white transition-colors flex-shrink-0">
+        →
+      </span>
+    </Link>
+  )
 }

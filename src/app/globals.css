@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* Brand colors (logo, accents) */
+  --color-nxtup-blue: #1e3aff;
+  --color-nxtup-red: #ef2424;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Surfaces */
+  --color-nxtup-bg: #000000;
+  --color-nxtup-fg: #ffffff;
+  --color-nxtup-muted: #71717a;
+  --color-nxtup-dim: #3f3f46;
+  --color-nxtup-line: #18181b;
+
+  /* Status (LED-style queue states) */
+  --color-nxtup-active: #22c55e;
+  --color-nxtup-busy: #ef4444;
+  --color-nxtup-break: #eab308;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Custom animations — used by the TapButton hero CTA */
+  --animate-tap-glow: tap-glow 2.6s ease-in-out infinite;
+  --animate-tap-ripple: tap-ripple 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  --animate-tap-dot: tap-dot 1.8s ease-in-out infinite;
+  --animate-tap-spin: tap-spin 6s linear infinite;
+  --animate-tap-aura: tap-aura 4s ease-in-out infinite;
+  --animate-tap-chromatic: tap-chromatic 260ms ease-out;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  background: var(--color-nxtup-bg);
+  color: var(--color-nxtup-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-nxtup-active);
+  color: var(--color-nxtup-bg);
+}
+
+/* ── TapButton keyframes ─────────────────────────────────────────────────── */
+
+/* Soft outer aura that breathes — invites the tap without being aggressive */
+@keyframes tap-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0),
+      0 12px 40px -12px rgba(255, 255, 255, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 14px rgba(255, 255, 255, 0.04),
+      0 18px 60px -14px rgba(255, 255, 255, 0.4);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Material-style ripple radiating from the tap point */
+@keyframes tap-ripple {
+  0%   { opacity: 0.45; transform: scale(0); }
+  60%  { opacity: 0.25; }
+  100% { opacity: 0;    transform: scale(14); }
+}
+
+/* The tiny "live" status dot — slow pulse to suggest the system is awake */
+@keyframes tap-dot {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.8); }
+}
+
+/* Outer brand-tinted aura — slow breath, blue/red wash */
+@keyframes tap-aura {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.06); }
+}
+
+/* Conic-gradient outer ring — slow rotation (continuous like a hardware LED ring) */
+@keyframes tap-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Chromatic aberration flash — RGB channels split briefly on press */
+@keyframes tap-chromatic {
+  0% {
+    filter:
+      drop-shadow(0 0 0 transparent)
+      drop-shadow(0 0 0 transparent);
+  }
+  20% {
+    filter:
+      drop-shadow(3px 0 0 #ef2424)
+      drop-shadow(-3px 0 0 #1e3aff);
+    transform: translateX(0.5px);
+  }
+  60% {
+    filter:
+      drop-shadow(1.5px 0 0 #ef2424)
+      drop-shadow(-1.5px 0 0 #1e3aff);
+    transform: translateX(-0.5px);
+  }
+  100% {
+    filter:
+      drop-shadow(0 0 0 transparent)
+      drop-shadow(0 0 0 transparent);
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tap-glow,
+  .animate-tap-ripple,
+  .animate-tap-dot,
+  .animate-tap-aura,
+  .animate-tap-spin,
+  .animate-tap-chromatic {
+    animation: none !important;
+  }
 }

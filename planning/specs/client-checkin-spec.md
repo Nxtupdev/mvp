@@ -1,7 +1,7 @@
 # Client Check-in Spec
 
-Status: draft
-Last updated: 2026-04-27
+Status: final
+Last updated: 2026-04-28
 
 ## Purpose
 

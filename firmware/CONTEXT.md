@@ -1,74 +1,92 @@
 # Firmware — NXT TAP
 
-Last updated: 2026-04-27
+Last updated: 2026-05-04
 
 ## What This Folder Is
 
-Firmware del **NXT TAP**, el botón físico de NXTUP. Este es el **diferenciador core del producto** — el hardware-driven UX que separa a NXTUP de Squire/Booksy.
+Firmware del **NXT TAP**, la pantalla touch que el barbero monta en su estación. El hardware-driven UX que diferencia a NXTUP de Squire/Booksy.
 
-**Hardware MVP**: M5Stack **AtomS3R** (ESP32-S3 + LCD 0.85" + WiFi).
-**Toolchain**: Arduino IDE o **PlatformIO** (recomendado para CI y dependency management).
-**Lenguaje**: C++ (Arduino framework) — alternativa MicroPython si el equipo lo prefiere.
+**Hardware actual (development + MVP):**
+- **Waveshare ESP32-S3-Touch-LCD-4.3** — pantalla 4.3" 800×480 RGB LCD con touch capacitivo GT911, ESP32-S3-WROOM-1-N16R8 (16MB flash, 8MB PSRAM), USB-C
+- Cap touch + display = **toda la cara del device es el botón**, no se necesitan buttons físicos ni LED ring externo
 
-## How Work Gets Here
+**Toolchain:** PlatformIO + Arduino framework + **LVGL 9** para gráficos.
+**Lenguaje:** C++.
 
-1. Spec del firmware vive en `/planning/specs/firmware-<feature>-spec.md`.
-2. Cualquier cambio de protocolo o schema con webapp se coordina vía ADR en `/planning/adr/`.
-3. Build (.bin) se prueba en al menos 1 unidad real antes de flash a unidades de pilotos.
+## Cambio respecto a la spec original
 
-## UX del botón (canónico — implementar exacto)
+La spec original asumía **3 botones físicos discretos** (Active / Busy / Break) tipo magnet. Con la pantalla 4.3" touch, el approach cambia:
 
-| Gesto | Acción | Display |
-|-------|--------|---------|
-| **Tap corto** desde `ACTIVE` | → `BUSY` | Fondo amarillo + texto `BUSY` (+ nombre cliente opcional) |
-| **Tap corto** desde `BUSY` o `BREAK` | → `ACTIVE` | Fondo verde + texto `ACTIVE` + posición en cola |
-| **Long-press 1.5s** | → `BREAK` | Fondo rojo + texto `BREAK` + tiempo transcurrido |
-| **Hold 5s** | → `OFFLINE` (fin de turno) | Pantalla apagada |
+- ✅ **Toda la pantalla cambia de color/contenido** según el estado (verde / rojo / amarillo / negro)
+- ✅ **Tap anywhere** = avanza al siguiente estado natural (active ↔ busy)
+- ✅ **Botones secundarios pequeños en esquina** para BREAK y END SHIFT
+- ✅ **Mucha más información visible** — nombre del cliente, posición #N, countdown del break, todo en pantalla
 
-**Regla clave** (de business plan): *"If a barber finishes a cut and still sees [BUSY] — they'll instinctively press it."* El tap debe ser instantáneo y idempotente.
+El render del NXT TAP-3 con 3 botones queda como **referencia visual del producto final empaquetado** (Fase 2 — diseño industrial custom). Para development y los primeros pilotos: Waveshare 4.3" hace el trabajo y lleva más rápido al mercado.
+
+## UX del display (canónico — implementar exacto)
+
+| Estado | Pantalla | Tap anywhere | Botón corner |
+|--------|----------|--------------|--------------|
+| `ACTIVE` (idle) | Verde · "ACTIVE" + #posición + nombre del barbero | → BUSY | BREAK / END |
+| `ACTIVE` (called) | Verde · "TU CLIENTE" + nombre del cliente + posición | → BUSY (start cut) | BREAK / END |
+| `BUSY` | Rojo · "BUSY" + nombre del cliente actual | → ACTIVE (finish cut) | BREAK / END |
+| `BREAK` | Amarillo · "BREAK" + countdown grande (60min/30min) | → ACTIVE (back to queue) | END |
+| `OFFLINE` | Negro · NXTUP logo + "Tap to start shift" | → ACTIVE | — |
+
+**Regla clave:** el tap es instantáneo. El `delay()` bloqueante está prohibido en el loop principal.
 
 ## Comunicación con backend
 
-- **Network**: WiFi del shop (credentials guardadas en NVS / SPIFFS).
-- **Protocol**: HTTPS POST a Supabase REST API (endpoint `barbers/state`). Sin servidor intermedio.
-- **Auth**: API key del device (uno por NXT TAP, asignado durante setup).
+- **Network**: WiFi del shop (credentials guardadas en NVS persistente).
+- **Protocol**: HTTPS REST a Supabase. Sin servidor intermedio.
+  - `PATCH /api/barbers/[barber_id]/state` cuando cambia el estado
+  - `GET /rest/v1/barbers?id=eq.{barber_id}&select=...` polling cada 3s para recibir updates (cliente asignado, etc.)
+  - `GET /rest/v1/queue_entries?barber_id=eq.{barber_id}&status=eq.called` para nombre del cliente llamado
+- **Auth**: Supabase anon key + RLS policies (las mismas que usa la webapp).
 - **Latency target**: <500ms desde tap hasta TV display actualizado.
-- **Offline**: si pierde WiFi, queue local (FIFO) y reintenta. Después de N reintentos, muestra `OFFLINE` en display.
+- **Offline**: si pierde WiFi, queue local de transitions y reintenta. Display muestra `OFFLINE • RECONECTANDO` con icono.
 
-## Setup flow (primera vez)
+## Setup flow (primera vez que enciende el device)
 
-1. Device arranca en modo AP (`NXTUP-XXXX`).
-2. Owner se conecta desde phone, ingresa WiFi credentials + shop ID.
-3. Device guarda en NVS, reinicia, conecta a shop WiFi.
-4. Device pide API key a backend con shop ID + device ID, queda paired.
+1. Device arranca en modo AP (`NXTUP-XXXX-Setup`, sin password).
+2. Owner se conecta desde su phone → captive portal con form.
+3. Form pide:
+   - WiFi SSID + password del shop
+   - Shop ID (UUID, copy-paste desde el dashboard)
+   - Selección del barbero (lista llamada del shop después de validar shop_id)
+4. Device guarda en NVS, reinicia, conecta a shop WiFi.
+5. Boot subsequente: salta directo al estado del barbero.
 
 ## Token Management
 
 Cuando trabajes en este workspace, carga:
 1. **Siempre**: este `CONTEXT.md`
 2. **Siempre**: `CLAUDE.md` raíz
-3. **A demanda**: spec de firmware en `/planning/specs/`
+3. **A demanda**: spec de firmware en `/planning/specs/firmware-*-spec.md`
 4. **A demanda**: ADRs de protocolo o schema
 5. **A demanda**: archivos de firmware
 
-**NO cargar**: `/src/*` desde aquí (el firmware solo necesita conocer el contrato REST, no la implementación de la webapp). Tampoco `/planning/business/` ni `/planning/ip/`.
+**NO cargar**: `/src/*` desde aquí. El firmware solo necesita el contrato REST, no la implementación de la webapp.
 
 ## Quality Checklist
 
 - [ ] Compila sin warnings en PlatformIO
-- [ ] Tap corto: latencia <100ms desde release hasta cambio de display
-- [ ] Tap corto: latencia <500ms desde release hasta TV display actualizado
-- [ ] Long-press requiere 1.5s exactos (no se dispara accidentalmente)
-- [ ] Reconecta a WiFi automáticamente después de pérdida temporal
-- [ ] Setup en modo AP funciona en iOS y Android phone
-- [ ] Display nunca queda en estado inconsistente con backend
-- [ ] Power cycle no pierde shop ID ni API key (NVS persistente)
+- [ ] Boot to ready: <3s desde power-on
+- [ ] Tap → display reacciona en <100ms
+- [ ] Tap → estado en Supabase actualizado en <500ms
+- [ ] Polling no bloquea touch (running on FreeRTOS task separado)
+- [ ] Reconecta a WiFi automáticamente
+- [ ] Captive portal funciona en iOS y Android
+- [ ] Power cycle no pierde shop ID, barber ID, ni WiFi credentials
+- [ ] Display nunca queda en estado inconsistente con backend (last-write-wins desde server)
 
 ## What NOT to Do
 
-- No agregar Bluetooth/BLE para sync con phone (rompe el diferenciador "no phone dependency").
+- No agregar Bluetooth/BLE (rompe diferenciador "no phone dependency").
 - No agregar audio/buzzer sin spec (sound pollution en barbershop).
-- No exponer API key en logs serial cuando el device esté en producción.
-- No usar `delay()` bloqueante en el loop principal — el botón debe responder instantáneo.
-- No commit con WiFi credentials hardcoded (use NVS o config file ignorado por git).
-- No flashear unidades de pilotos sin test de regresión en device de desarrollo.
+- No exponer credentials en logs serial en producción.
+- No usar `delay()` bloqueante en el loop principal.
+- No commit con credentials hardcoded.
+- No flashear pilotos sin test de regresión en device de desarrollo.
+- No usar polling más rápido que cada 2s (rate limit Supabase + battery).

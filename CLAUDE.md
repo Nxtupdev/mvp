@@ -26,12 +26,12 @@ Directo y pro. Frases cortas. Sin jargon corporativo. Sin "powered by AI".
 | Client Check-in (QR) | `/q/[shop_id]` | Phone del cliente | Cliente walk-in |
 
 ## Routing
-| Task | Go to | Read |
-|------|-------|------|
-| Definir spec de feature/página | `/planning` | `CONTEXT.md` |
-| Construir UI/lógica de webapp | `/src` | `CONTEXT.md` |
-| Firmware del NXT TAP | `/firmware` | `CONTEXT.md` |
-| Decisiones de negocio / IP / patentes | `/planning` | `CONTEXT.md` |
+| Task | Go to | Read | Skills |
+|------|-------|------|--------|
+| Definir spec de feature/página | `/planning` | `CONTEXT.md` | — |
+| Construir UI/lógica de webapp | `/src` | `CONTEXT.md` | `ui-ux-pro-max` |
+| Firmware del NXT TAP | `/firmware` | `CONTEXT.md` | — |
+| Decisiones de negocio / IP / patentes | `/planning` | `CONTEXT.md` | — |
 
 ## Naming Conventions
 
