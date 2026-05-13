@@ -386,13 +386,22 @@ static void onButtonTap(int idx) {
   }
 }
 
-static void handleTap(int x, int y) {
-  Serial.printf("[NXTUP] handleTap (%d, %d)  buttonZone=[%d..%d]\n",
-                x, y, kBtnY, kBtnY + kBtnH);
+static void handleTap(int rawX, int rawY) {
+  // The GT911 panel reports Y flipped on this Waveshare board — a tap on
+  // the bottom row (where the buttons are, y≈420) comes in as y≈60.
+  // Mirror Y so the screen and touch share the same coordinate space.
+  const int x = rawX;
+  const int y = LCD_HEIGHT - 1 - rawY;
 
-  // Pick button by horizontal third of the screen, regardless of vertical
-  // position. (Temporary debug behaviour — once we confirm coords match the
-  // physical buttons we'll restrict to the bottom band again.)
+  Serial.printf("[NXTUP] handleTap (%d, %d)  raw(%d,%d)  buttonZone=[%d..%d]\n",
+                x, y, rawX, rawY, kBtnY, kBtnY + kBtnH);
+
+  // Only accept taps inside the bottom button band.
+  if (y < kBtnY) {
+    Serial.println("[NXTUP] tap outside button zone — ignored");
+    return;
+  }
+
   int idx;
   if (x < LCD_WIDTH / 3)            idx = 0;  // ACTIVE
   else if (x < 2 * LCD_WIDTH / 3)   idx = 1;  // BUSY
