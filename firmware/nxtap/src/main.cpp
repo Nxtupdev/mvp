@@ -64,10 +64,13 @@ static TAMC_GT911 tp(TOUCH_SDA_PIN, TOUCH_SCL_PIN,
 enum BarberState { ST_ACTIVE, ST_BUSY, ST_BREAK };
 
 static BarberState g_state            = ST_ACTIVE;
-static const char *g_barberName       = "Carlos";
-static const char *g_clientName       = "Marcus";
-static int         g_position         = 1;
-static int         g_breaksTakenToday = 0;
+// Persistent storage for strings that come from the server. Backed by
+// fixed buffers so the pointers handed to render code never dangle.
+static char        g_barberNameBuf[48] = "...";
+static char        g_clientNameBuf[48] = "";
+static const char *g_barberName       = g_barberNameBuf;
+static const char *g_clientName       = g_clientNameBuf;
+static int         g_position         = -1;
 static int         g_breakDurationSec = 60 * 60;
 static uint32_t    g_breakStartMs     = 0;
 static uint32_t    g_lastCountdownMs  = 0;
@@ -76,6 +79,11 @@ static uint32_t    g_lastCountdownMs  = 0;
 static bool        g_wasTouched       = false;
 static uint32_t    g_lastTapMs        = 0;
 constexpr uint32_t kDebounceMs        = 200;
+
+// Polling cadence — re-fetch the snapshot every 3s while idle so the
+// device stays in sync with whatever the dashboard / TV / web app do.
+static uint32_t    g_lastPollMs       = 0;
+constexpr uint32_t kPollIntervalMs    = 3000;
 
 // ── Layout zones (800x480 landscape) ───────────────────────────────
 //
@@ -230,9 +238,10 @@ static void drawInfoBreak() {
 
   drawBreakCountdown();
 
+  // The server is authoritative on which break this is (first or next);
+  // we just display the duration that was snapshotted at break start.
   char sub[40];
-  snprintf(sub, sizeof(sub), "Break #%d  -  %d min",
-           g_breaksTakenToday, g_breakDurationSec / 60);
+  snprintf(sub, sizeof(sub), "%d min", g_breakDurationSec / 60);
   drawCenteredText(kInfoY + 200, nxtup::kMuted, 2, sub);
 }
 
@@ -253,34 +262,100 @@ static void renderAll() {
 
 // ── Touch routing ──────────────────────────────────────────────────
 
-static void enterBreak() {
-  g_breaksTakenToday++;
-  g_breakDurationSec = (g_breaksTakenToday == 1) ? 60 * 60 : 30 * 60;
-  g_breakStartMs = millis();
-  g_lastCountdownMs = millis();
-  g_state = ST_BREAK;
+// Copy a String into a fixed buffer safely (always null-terminated).
+static void copyToBuf(char *dst, size_t dstSize, const String &src) {
+  size_t n = src.length() < dstSize ? src.length() : dstSize - 1;
+  memcpy(dst, src.c_str(), n);
+  dst[n] = '\0';
+}
+
+// Translate the server's status string into our local enum. Offline maps
+// to ACTIVE for rendering purposes — buttons stay usable.
+static BarberState statusToState(const String &s) {
+  if (s == "busy")  return ST_BUSY;
+  if (s == "break") return ST_BREAK;
+  return ST_ACTIVE; // available, offline, anything else
+}
+
+// Pull the relevant client name out of the snapshot depending on state.
+// When called/in_progress, the client name lives in different fields.
+static void pickClientName(const nxtup::Snapshot &snap, BarberState state, char *out, size_t outSize) {
+  if (state == ST_BUSY) {
+    copyToBuf(out, outSize, snap.currentClient);
+  } else if (state == ST_ACTIVE && snap.calledClient.length()) {
+    copyToBuf(out, outSize, snap.calledClient);
+  } else {
+    out[0] = '\0';
+  }
+}
+
+// Apply a server snapshot to local state. Returns true if anything that
+// affects the rendered screen changed, so the caller can decide whether
+// to redraw.
+static bool applySnapshot(const nxtup::Snapshot &snap) {
+  bool changed = false;
+
+  BarberState newState = statusToState(snap.status);
+  if (newState != g_state) {
+    // Entering break: start the local countdown clock. The duration we
+    // use is whatever the server snapshotted at the start of THIS break
+    // (avoids races if the shop config changes mid-break).
+    if (newState == ST_BREAK) {
+      g_breakStartMs    = millis();
+      g_lastCountdownMs = millis();
+      g_breakDurationSec = (snap.breakMinutesAtStart > 0)
+                             ? snap.breakMinutesAtStart * 60
+                             : 60 * 60;
+    }
+    g_state = newState;
+    changed = true;
+  }
+
+  if (snap.barberName.length() &&
+      strncmp(g_barberNameBuf, snap.barberName.c_str(), sizeof(g_barberNameBuf)) != 0) {
+    copyToBuf(g_barberNameBuf, sizeof(g_barberNameBuf), snap.barberName);
+    changed = true;
+  }
+
+  if (snap.fifoPosition != g_position) {
+    g_position = snap.fifoPosition;
+    changed = true;
+  }
+
+  char nextClient[sizeof(g_clientNameBuf)];
+  pickClientName(snap, g_state, nextClient, sizeof(nextClient));
+  if (strncmp(g_clientNameBuf, nextClient, sizeof(g_clientNameBuf)) != 0) {
+    memcpy(g_clientNameBuf, nextClient, sizeof(g_clientNameBuf));
+    changed = true;
+  }
+
+  return changed;
 }
 
 static void onButtonTap(int idx) {
-  // 0 = ACTIVE, 1 = BUSY, 2 = BREAK
-  BarberState target =
-      (idx == 0) ? ST_ACTIVE :
-      (idx == 1) ? ST_BUSY   : ST_BREAK;
+  // 0 = ACTIVE → "available"
+  // 1 = BUSY   → "busy"
+  // 2 = BREAK  → "break"
+  const char *target = (idx == 0) ? "available" : (idx == 1) ? "busy" : "break";
 
-  if (target == g_state) return;  // already in this state, ignore
+  Serial.printf("[NXTUP] tap → POST status=%s\n", target);
+  Serial.flush();
 
-  if (target == ST_BREAK) {
-    enterBreak();
-  } else {
-    g_state = target;
+  if (!nxtup::postState(target)) {
+    Serial.println("[NXTUP] postState FAILED — UI not changing");
+    return;
   }
 
-  Serial.printf("[NXTUP] state -> %s\n",
-                target == ST_ACTIVE ? "ACTIVE" :
-                target == ST_BUSY   ? "BUSY"   : "BREAK");
-
-  drawInfo();
-  drawAllButtons();
+  // Fetch the fresh state right after the write so the screen reflects
+  // exactly what the server now believes, including any side effects
+  // like auto-calling the next client.
+  nxtup::Snapshot snap;
+  if (nxtup::fetchSnapshot(snap)) {
+    if (applySnapshot(snap)) {
+      drawInfo();
+      drawAllButtons();
+    }
+  }
 }
 
 static void handleTap(int x, int y) {
@@ -355,6 +430,10 @@ void setup() {
         snap.heldPosition,
         snap.calledClient.length() ? snap.calledClient.c_str() : "—",
         snap.currentClient.length() ? snap.currentClient.c_str() : "—");
+      // Seed local state from the live server view BEFORE the first
+      // renderAll() so the very first frame already shows reality.
+      applySnapshot(snap);
+      g_lastPollMs = millis();
     } else {
       Serial.println("[NXTUP] snapshot fetch FAILED (check token / barber_id)");
     }
@@ -377,7 +456,7 @@ void loop() {
   // Heartbeat every 10s — keep-alive only, much quieter
   if (now - g_lastHeartbeatMs >= 10000) {
     g_lastHeartbeatMs = now;
-    Serial.printf("[NXTUP] hb state=%d\n", g_state);
+    Serial.printf("[NXTUP] hb state=%d pos=%d\n", g_state, g_position);
   }
 
   if (tp.isTouched) {
@@ -393,6 +472,20 @@ void loop() {
   if (g_state == ST_BREAK && (now - g_lastCountdownMs) >= 1000) {
     g_lastCountdownMs = now;
     drawBreakCountdown();
+  }
+
+  // Periodic snapshot poll — keeps the device in sync with any state
+  // change made from the dashboard, simulator, TV, or another device.
+  // Blocking call, brief LCD freeze acceptable for MVP.
+  if (now - g_lastPollMs >= kPollIntervalMs) {
+    g_lastPollMs = now;
+    nxtup::Snapshot snap;
+    if (nxtup::fetchSnapshot(snap)) {
+      if (applySnapshot(snap)) {
+        drawInfo();
+        drawAllButtons();
+      }
+    }
   }
 
   delay(10);

@@ -60,6 +60,10 @@ bool fetchSnapshot(Snapshot& out) {
     Serial.println("[net] http.begin failed (snapshot)");
     return false;
   }
+  // Vercel redirects apex↔www at the domain level (HTTP 307). Without
+  // FOLLOW_REDIRECTS the HTTPClient stops at the first hop and returns
+  // 307 + "Redirecting..." HTML instead of our JSON.
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   http.addHeader("x-device-token", DEVICE_API_TOKEN);
   http.setTimeout(8000);
 
@@ -110,6 +114,7 @@ bool postState(const char* newStatus) {
     Serial.println("[net] http.begin failed (state)");
     return false;
   }
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-token", DEVICE_API_TOKEN);
   http.setTimeout(8000);
