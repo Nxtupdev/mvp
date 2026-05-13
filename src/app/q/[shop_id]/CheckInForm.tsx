@@ -170,10 +170,25 @@ export default function CheckInForm({
           .maybeSingle(),
       ])
       setPosition(count ?? 1)
-      if (live) {
-        setEntry(live as Entry)
-        setAssignedBarberId(live.barber_id)
+
+      // If the entry left the active pipeline (client sat down, finished,
+      // or was cancelled), wipe the local state so the kiosk/page is
+      // immediately ready for the next walk-in or check-in. Also clear
+      // the cached name so a different client doesn't see someone else's
+      // pre-filled.
+      if (!live || ['in_progress', 'done', 'cancelled'].includes(live.status)) {
+        setStage('form')
+        setEntry(null)
+        setAssignedBarberId(null)
+        setName('')
+        try {
+          localStorage.removeItem(STORAGE_KEY)
+        } catch {}
+        return
       }
+
+      setEntry(live as Entry)
+      setAssignedBarberId(live.barber_id)
     }
 
     refresh()
