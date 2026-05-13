@@ -39,6 +39,78 @@ type Shop = {
   break_position_grace_minutes: number
 }
 
+// ── Density tiers ─────────────────────────────────────────────────
+// The TV display has to scale: a barbershop with 2 barbers should look
+// premium and spacious; one with 12 should still fit everyone without
+// scrolling. We pick a tier based on the largest column count, then
+// every card on the screen uses the same tier so the grid stays even.
+type Density = 'lg' | 'md' | 'sm'
+
+const SIZE: Record<
+  Density,
+  {
+    avatar: number
+    posText: string
+    arrowText: string
+    nameSingle: string
+    nameDouble: string
+    subtitle: string
+    cardPad: string
+    cardGap: string
+    listGap: string
+    colPad: string
+    colHeaderPad: string
+    breakTimer: string
+    posWidth: string
+  }
+> = {
+  lg: {
+    avatar: 56,
+    posText: 'text-4xl',
+    arrowText: 'text-3xl',
+    nameSingle: 'text-3xl',
+    nameDouble: 'text-2xl',
+    subtitle: 'text-sm',
+    cardPad: 'px-5 py-4',
+    cardGap: 'gap-5',
+    listGap: 'gap-3',
+    colPad: 'px-6 pb-8',
+    colHeaderPad: 'pt-8 pb-4',
+    breakTimer: 'text-3xl',
+    posWidth: 'w-12',
+  },
+  md: {
+    avatar: 44,
+    posText: 'text-3xl',
+    arrowText: 'text-2xl',
+    nameSingle: 'text-2xl',
+    nameDouble: 'text-xl',
+    subtitle: 'text-xs',
+    cardPad: 'px-4 py-3',
+    cardGap: 'gap-4',
+    listGap: 'gap-2',
+    colPad: 'px-5 pb-6',
+    colHeaderPad: 'pt-6 pb-3',
+    breakTimer: 'text-2xl',
+    posWidth: 'w-10',
+  },
+  sm: {
+    avatar: 32,
+    posText: 'text-2xl',
+    arrowText: 'text-xl',
+    nameSingle: 'text-lg',
+    nameDouble: 'text-base',
+    subtitle: 'text-[10px]',
+    cardPad: 'px-3 py-2',
+    cardGap: 'gap-3',
+    listGap: 'gap-1.5',
+    colPad: 'px-4 pb-5',
+    colHeaderPad: 'pt-5 pb-2',
+    breakTimer: 'text-xl',
+    posWidth: 'w-9',
+  },
+}
+
 function useClock() {
   const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
@@ -188,6 +260,19 @@ export default function DisplayBoard({
       return ta - tb
     })
 
+  // ── Density tier ──────────────────────────────────────────────
+  // The TV is shown across a barbershop floor — text must stay readable
+  // from across the room. With few barbers we render big premium cards;
+  // when a column starts filling up, we drop to denser layouts so 10-12
+  // barbers still fit without scroll.
+  const maxColumnCount = Math.max(
+    activeFifo.length + activeCalledBarbers.length,
+    busyBarbers.length,
+    breakBarbers.length,
+  )
+  const density: Density =
+    maxColumnCount <= 4 ? 'lg' : maxColumnCount <= 8 ? 'md' : 'sm'
+
   // ── Next client strip ─────────────────────────────────────────
   // The "siguiente" event we want to surface: a called pair (most urgent),
   // OR the first waiting client + the FIFO #1 barber who'd take them.
@@ -230,12 +315,18 @@ export default function DisplayBoard({
           title="Active"
           tone="active"
           count={activeFifo.length + activeCalledBarbers.length}
+          density={density}
         >
           {activeFifo.length === 0 && activeCalledBarbers.length === 0 && (
             <Empty />
           )}
           {activeFifo.map((b, idx) => (
-            <ActiveCard key={b.id} barber={b} position={idx + 1} />
+            <ActiveCard
+              key={b.id}
+              barber={b}
+              position={idx + 1}
+              density={density}
+            />
           ))}
           {activeCalledBarbers.map(b => {
             const call = calledEntries.find(e => e.barber_id === b.id)
@@ -244,12 +335,18 @@ export default function DisplayBoard({
                 key={b.id}
                 barber={b}
                 clientName={call?.client_name ?? '—'}
+                density={density}
               />
             )
           })}
         </Column>
 
-        <Column title="Busy" tone="busy" count={busyBarbers.length}>
+        <Column
+          title="Busy"
+          tone="busy"
+          count={busyBarbers.length}
+          density={density}
+        >
           {busyBarbers.length === 0 ? (
             <Empty />
           ) : (
@@ -260,13 +357,19 @@ export default function DisplayBoard({
                   key={b.id}
                   barber={b}
                   clientName={c?.client_name ?? null}
+                  density={density}
                 />
               )
             })
           )}
         </Column>
 
-        <Column title="Break" tone="break" count={breakBarbers.length}>
+        <Column
+          title="Break"
+          tone="break"
+          count={breakBarbers.length}
+          density={density}
+        >
           {breakBarbers.length === 0 ? (
             <Empty />
           ) : (
@@ -276,6 +379,7 @@ export default function DisplayBoard({
                 barber={b}
                 shop={shop}
                 heldPosition={heldPositions.get(b.id)}
+                density={density}
               />
             ))
           )}
@@ -301,11 +405,13 @@ function Column({
   title,
   tone,
   count,
+  density,
   children,
 }: {
   title: string
   tone: 'active' | 'busy' | 'break'
   count: number
+  density: Density
   children: React.ReactNode
 }) {
   const dot: Record<typeof tone, string> = {
@@ -318,9 +424,10 @@ function Column({
     busy: 'text-nxtup-busy',
     break: 'text-nxtup-break',
   }
+  const s = SIZE[density]
   return (
     <div className="bg-nxtup-bg flex flex-col">
-      <div className="flex items-center justify-between px-8 pt-8 pb-4">
+      <div className={`flex items-center justify-between px-8 ${s.colHeaderPad}`}>
         <div className="flex items-center gap-3">
           <span
             className={`w-3 h-3 rounded-full ${dot[tone]}`}
@@ -336,7 +443,9 @@ function Column({
           {count}
         </span>
       </div>
-      <ul className="flex flex-col gap-3 px-6 pb-8 flex-1">{children}</ul>
+      <ul className={`flex flex-col flex-1 ${s.listGap} ${s.colPad}`}>
+        {children}
+      </ul>
     </div>
   )
 }
@@ -353,17 +462,28 @@ function Empty() {
 // Cards — one per state
 // ──────────────────────────────────────────────────────────────
 
-function ActiveCard({ barber, position }: { barber: Barber; position: number }) {
+function ActiveCard({
+  barber,
+  position,
+  density,
+}: {
+  barber: Barber
+  position: number
+  density: Density
+}) {
+  const s = SIZE[density]
   return (
-    <li className="flex items-center gap-5 bg-nxtup-line rounded-2xl px-5 py-4">
+    <li
+      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
+    >
       <span
-        className="text-nxtup-active text-4xl font-black tabular-nums w-12 text-center"
+        className={`text-nxtup-active font-black tabular-nums text-center ${s.posText} ${s.posWidth}`}
         aria-label={`Posición ${position}`}
       >
         #{position}
       </span>
-      <Avatar avatar={barber.avatar} name={barber.name} size={56} />
-      <span className="text-white text-3xl font-bold flex-1 truncate">
+      <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
+      <span className={`text-white font-bold flex-1 truncate ${s.nameSingle}`}>
         {barber.name}
       </span>
     </li>
@@ -373,22 +493,31 @@ function ActiveCard({ barber, position }: { barber: Barber; position: number }) 
 function ActiveCalledCard({
   barber,
   clientName,
+  density,
 }: {
   barber: Barber
   clientName: string
+  density: Density
 }) {
+  const s = SIZE[density]
   return (
-    <li className="flex items-center gap-5 bg-nxtup-line rounded-2xl px-5 py-4 ring-2 ring-nxtup-active/40">
+    <li
+      className={`flex items-center bg-nxtup-line rounded-2xl ring-2 ring-nxtup-active/40 ${s.cardPad} ${s.cardGap}`}
+    >
       <span
-        className="text-nxtup-active text-3xl font-black w-12 text-center"
+        className={`text-nxtup-active font-black text-center ${s.arrowText} ${s.posWidth}`}
         aria-hidden
       >
         →
       </span>
-      <Avatar avatar={barber.avatar} name={barber.name} size={56} />
+      <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
       <div className="flex-1 min-w-0">
-        <p className="text-white text-2xl font-bold truncate">{barber.name}</p>
-        <p className="text-nxtup-active text-sm uppercase tracking-widest font-bold truncate">
+        <p className={`text-white font-bold truncate ${s.nameDouble}`}>
+          {barber.name}
+        </p>
+        <p
+          className={`text-nxtup-active uppercase tracking-widest font-bold truncate ${s.subtitle}`}
+        >
           → {clientName}
         </p>
       </div>
@@ -399,17 +528,28 @@ function ActiveCalledCard({
 function BusyCard({
   barber,
   clientName,
+  density,
 }: {
   barber: Barber
   clientName: string | null
+  density: Density
 }) {
+  const s = SIZE[density]
   return (
-    <li className="flex items-center gap-5 bg-nxtup-line rounded-2xl px-5 py-4">
-      <Avatar avatar={barber.avatar} name={barber.name} size={56} />
+    <li
+      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
+    >
+      <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
       <div className="flex-1 min-w-0">
-        <p className="text-white text-2xl font-bold truncate">{barber.name}</p>
+        <p
+          className={`text-white font-bold truncate ${clientName ? s.nameDouble : s.nameSingle}`}
+        >
+          {barber.name}
+        </p>
         {clientName && (
-          <p className="text-nxtup-muted text-sm truncate">con {clientName}</p>
+          <p className={`text-nxtup-muted truncate ${s.subtitle}`}>
+            con {clientName}
+          </p>
         )}
       </div>
     </li>
@@ -420,11 +560,14 @@ function BreakCard({
   barber,
   shop,
   heldPosition,
+  density,
 }: {
   barber: Barber
   shop: Shop
   heldPosition: number | undefined
+  density: Density
 }) {
+  const s = SIZE[density]
   const now = useTickingNow()
 
   const startedMs = barber.break_started_at
@@ -457,22 +600,30 @@ function BreakCard({
     shop.keep_position_on_break && heldPosition !== undefined && !overGrace
 
   return (
-    <li className="flex items-center gap-5 bg-nxtup-line rounded-2xl px-5 py-4">
-      <Avatar avatar={barber.avatar} name={barber.name} size={56} />
+    <li
+      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
+    >
+      <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
       <div className="flex-1 min-w-0">
-        <p className="text-white text-2xl font-bold truncate">{barber.name}</p>
+        <p className={`text-white font-bold truncate ${s.nameDouble}`}>
+          {barber.name}
+        </p>
         {showHeld ? (
-          <p className="text-nxtup-active text-sm uppercase tracking-widest font-bold">
+          <p
+            className={`text-nxtup-active uppercase tracking-widest font-bold ${s.subtitle}`}
+          >
             Vuelve a #{heldPosition}
           </p>
         ) : overGrace && shop.keep_position_on_break ? (
-          <p className="text-nxtup-busy text-sm uppercase tracking-widest font-bold">
+          <p
+            className={`text-nxtup-busy uppercase tracking-widest font-bold ${s.subtitle}`}
+          >
             Posición perdida
           </p>
         ) : null}
       </div>
       <span
-        className={`text-3xl font-black tabular-nums ${timerColor}`}
+        className={`font-black tabular-nums ${s.breakTimer} ${timerColor}`}
         aria-label={`Tiempo restante de break: ${formatted}`}
       >
         {formatted}
