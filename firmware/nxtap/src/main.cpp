@@ -414,6 +414,16 @@ static void onButtonTap(int idx) {
   drawInfo();
   drawAllButtons();
 
+  // Invalidate any snapshot that the network task already published but
+  // hasn't been drained yet — it was fetched BEFORE this tap, so it's
+  // stale by definition. Without this, the main loop could drain it
+  // after our POST settles (actionsPending dropped to 0 briefly between
+  // post-decrement and the next fetch) and momentarily revert g_state
+  // to the pre-tap value before the new snapshot arrives.
+  xSemaphoreTake(g_snapMutex, portMAX_DELAY);
+  g_pendingSnapReady = false;
+  xSemaphoreGive(g_snapMutex);
+
   // Increment pending BEFORE enqueuing so the network task or main loop
   // see the up-to-date count consistently with the queued action.
   g_actionsPending++;
