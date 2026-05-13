@@ -16,13 +16,11 @@ export default async function ActivityPage() {
     .maybeSingle()
   if (!shop) redirect('/onboarding')
 
-  // "Today" = local midnight, NOT UTC midnight. For owners in UTC-offsets
-  // (most of LatAm/US) a UTC cutoff would chop their morning into yesterday.
-  // The client component re-fetches with the local midnight too when the
-  // user keeps the default range, so SSR and CSR stay consistent.
-  const sinceMidnight = new Date()
-  sinceMidnight.setHours(0, 0, 0, 0)
-
+  // We do NOT filter by date on the server because Vercel runs in UTC and
+  // would chop a Caribbean/US owner's morning into "yesterday". The client
+  // component knows the real local timezone and re-fetches with the right
+  // local-midnight cutoff on mount, so the initial paint is just the most
+  // recent N events as a quick preview.
   const [{ data: barbers }, { data: events }] = await Promise.all([
     supabase
       .from('barbers')
@@ -35,9 +33,8 @@ export default async function ActivityPage() {
         'id, barber_id, action, from_status, to_status, metadata, created_at',
       )
       .eq('shop_id', shop.id)
-      .gte('created_at', sinceMidnight.toISOString())
       .order('created_at', { ascending: false })
-      .limit(500),
+      .limit(100),
   ])
 
   return (
