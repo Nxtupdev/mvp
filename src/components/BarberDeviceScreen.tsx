@@ -86,18 +86,19 @@ export default function BarberDeviceScreen({
     }
   }
 
-  // Mirrors how the physical device would highlight the "next expected
-  // action" button so the barber knows what to tap.
-  const primary: StatusButton =
-    barber.status === 'busy'
+  // Highlight = current state. Universal "filled means you are here"
+  // mental model — flipping this from the previous "next action" semantic
+  // because it was visually confusing (a filled BUSY button looked like
+  // the barber was busy when he was actually in line). The body text
+  // above handles the guidance about what to tap next.
+  const currentHighlight: StatusButton | null =
+    barber.status === 'available'
       ? 'available'
-      : barber.status === 'break'
-        ? 'available'
-        : barber.status === 'offline'
-          ? 'available'
-          : calledClient
-            ? 'busy'
-            : 'busy'
+      : barber.status === 'busy'
+        ? 'busy'
+        : barber.status === 'break'
+          ? 'break'
+          : null // offline → no button highlighted
 
   const isStandalone = variant === 'standalone'
 
@@ -161,7 +162,7 @@ export default function BarberDeviceScreen({
         <DeviceButton
           label="ACTIVE"
           tone="active"
-          highlighted={primary === 'available'}
+          highlighted={currentHighlight === 'available'}
           loading={pending === 'available'}
           onClick={() => press('available')}
           disabled={!!pending && pending !== 'available'}
@@ -170,7 +171,7 @@ export default function BarberDeviceScreen({
         <DeviceButton
           label="BUSY"
           tone="busy"
-          highlighted={primary === 'busy'}
+          highlighted={currentHighlight === 'busy'}
           loading={pending === 'busy'}
           onClick={() => press('busy')}
           disabled={!!pending && pending !== 'busy'}
@@ -179,7 +180,7 @@ export default function BarberDeviceScreen({
         <DeviceButton
           label="BREAK"
           tone="break"
-          highlighted={false}
+          highlighted={currentHighlight === 'break'}
           loading={pending === 'break'}
           onClick={() => press('break')}
           disabled={!!pending && pending !== 'break'}
