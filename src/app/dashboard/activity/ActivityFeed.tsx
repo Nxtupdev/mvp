@@ -30,7 +30,8 @@ type Barber = {
 type Shop = { id: string; name: string }
 
 const RANGE_OPTIONS = [
-  { value: 'today', label: 'Hoy' },
+  { value: '24h', label: 'Últimas 24h' },
+  { value: 'today', label: 'Hoy (desde 0:00)' },
   { value: '7d', label: '7 días' },
   { value: '30d', label: '30 días' },
   { value: '90d', label: '90 días' },
@@ -63,7 +64,10 @@ export default function ActivityFeed({
   initialEvents: Event[]
 }) {
   const [events, setEvents] = useState<Event[]>(initialEvents)
-  const [range, setRange] = useState<Range>('today')
+  // Default to '24h' (rolling) instead of 'today' (since 0:00 local).
+  // Barbershops often work past midnight; "today" can end up empty even
+  // when the owner just did things 20 minutes ago across the date line.
+  const [range, setRange] = useState<Range>('24h')
   const [barberFilter, setBarberFilter] = useState<string>('all')
   const [actionFilter, setActionFilter] = useState<Action | 'all'>('all')
   const [loading, setLoading] = useState(false)
@@ -368,7 +372,10 @@ function formatTime(iso: string): string {
 
 function computeSince(range: Range): string {
   const d = new Date()
-  if (range === 'today') {
+  if (range === '24h') {
+    d.setHours(d.getHours() - 24)
+  } else if (range === 'today') {
+    // Local midnight today — strict calendar-day filter.
     d.setHours(0, 0, 0, 0)
   } else {
     const days = range === '7d' ? 7 : range === '30d' ? 30 : 90
