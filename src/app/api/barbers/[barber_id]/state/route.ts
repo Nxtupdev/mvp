@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getClientIp } from '@/lib/client-ip'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
 type Status = (typeof VALID)[number]
@@ -59,12 +60,40 @@ export async function PATCH(
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes',
+      'id, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip',
     )
     .eq('id', barber.shop_id)
     .single()
 
   if (!shop) return Response.json({ error: 'Shop no encontrado' }, { status: 404 })
+
+  // ── Anti-cheat: only ACTIVE transitions need a presence check ──
+  // Going TO 'available' is the cheating vector — that's how a barber
+  // claims a FIFO position. Going TO busy/break/offline loses position,
+  // so we let those happen from anywhere.
+  //
+  // Bypasses (in order):
+  //   1. The physical NXT TAP device — its token+shop_id pair is its
+  //      presence proof (the device is bolted to the shop).
+  //   2. The shop hasn't configured trusted_public_ip yet (null) — we
+  //      keep the legacy behavior so existing shops don't break.
+  //
+  // Otherwise: the request's public IP must match shop.trusted_public_ip
+  // exactly. The owner registers that IP from inside the shop in Settings.
+  if (newStatus === 'available' && !isDeviceRequest && shop.trusted_public_ip) {
+    const clientIp = getClientIp(request)
+    if (!clientIp || clientIp !== shop.trusted_public_ip) {
+      return Response.json(
+        {
+          error:
+            'Conectate al WiFi de la barbería para entrar a la fila',
+          code: 'not_in_shop',
+          client_ip: clientIp,
+        },
+        { status: 403 },
+      )
+    }
+  }
 
   let nextClient: { id: string; client_name: string; position: number } | null = null
   let currentClient: { id: string; client_name: string; position: number } | null = null

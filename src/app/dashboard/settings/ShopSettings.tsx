@@ -12,6 +12,7 @@ type Shop = {
   next_break_minutes: number
   keep_position_on_break: boolean
   break_position_grace_minutes: number
+  trusted_public_ip: string | null
   is_open: boolean
   logo_url: string | null
 }
@@ -22,9 +23,11 @@ const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
 export default function ShopSettings({
   shop: initial,
   userEmail,
+  currentIp,
 }: {
   shop: Shop
   userEmail: string
+  currentIp: string | null
 }) {
   const router = useRouter()
   const [shop, setShop] = useState(initial)
@@ -87,7 +90,7 @@ export default function ShopSettings({
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
       )
       .single()
 
@@ -239,6 +242,14 @@ export default function ShopSettings({
 
       <hr className="border-nxtup-line my-10" />
 
+      <AntiCheatSection
+        shop={shop}
+        currentIp={currentIp}
+        onUpdated={(s) => { setShop(s); router.refresh() }}
+      />
+
+      <hr className="border-nxtup-line my-10" />
+
       <LogoSection shop={shop} onUpdated={(s) => { setShop(s); router.refresh() }} />
 
       <hr className="border-nxtup-line my-10" />
@@ -343,7 +354,7 @@ function LogoSection({
       .update({ logo_url: cacheBusted })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
       )
       .single()
 
@@ -374,7 +385,7 @@ function LogoSection({
       .update({ logo_url: null })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
       )
       .single()
 
@@ -519,5 +530,132 @@ function Field({
       {children}
       {hint && <p className="text-nxtup-dim text-xs mt-1.5">{hint}</p>}
     </div>
+  )
+}
+
+function AntiCheatSection({
+  shop,
+  currentIp,
+  onUpdated,
+}: {
+  shop: Shop
+  currentIp: string | null
+  onUpdated: (next: Shop) => void
+}) {
+  const [busy, setBusy] = useState<'save' | 'clear' | null>(null)
+  const [error, setError] = useState('')
+
+  const trusted = shop.trusted_public_ip
+  const enabled = Boolean(trusted)
+  const isHereNow = enabled && currentIp && currentIp === trusted
+
+  async function save() {
+    if (busy) return
+    setBusy('save')
+    setError('')
+    const res = await fetch('/api/shops/refresh-ip', { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setError(data.error ?? 'Error al guardar')
+    } else {
+      onUpdated({ ...shop, trusted_public_ip: data.trusted_public_ip })
+    }
+    setBusy(null)
+  }
+
+  async function clear() {
+    if (busy) return
+    if (
+      !confirm(
+        'Desactivar la protección? Los barberos podrán entrar a la fila desde cualquier red.',
+      )
+    )
+      return
+    setBusy('clear')
+    setError('')
+    const res = await fetch('/api/shops/refresh-ip', { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? 'Error al desactivar')
+    } else {
+      onUpdated({ ...shop, trusted_public_ip: null })
+    }
+    setBusy(null)
+  }
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold mb-2">
+          Anti-trampa por ubicación
+        </h2>
+        <p className="text-nxtup-dim text-xs leading-relaxed max-w-prose">
+          Solo se permite entrar a la fila desde la conexión WiFi de la
+          barbería. Registrá la IP del shop una vez parado adentro y conectado
+          al WiFi. Si tu internet cambia (raro pero pasa), volvé a tocar
+          &quot;Registrar IP actual&quot;.
+        </p>
+      </div>
+
+      <div className="border border-nxtup-line rounded-xl p-4 flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-nxtup-muted text-[10px] uppercase tracking-widest mb-1">
+              IP registrada del shop
+            </p>
+            <p className="text-white font-mono tabular-nums">
+              {trusted ?? <span className="text-nxtup-dim">No registrada</span>}
+            </p>
+          </div>
+          <div>
+            <p className="text-nxtup-muted text-[10px] uppercase tracking-widest mb-1">
+              Tu IP ahora mismo
+            </p>
+            <p className="text-white font-mono tabular-nums">
+              {currentIp ?? <span className="text-nxtup-dim">—</span>}
+            </p>
+          </div>
+        </div>
+
+        {enabled && (
+          <p
+            className={`text-xs font-medium ${
+              isHereNow ? 'text-nxtup-active' : 'text-nxtup-break'
+            }`}
+          >
+            {isHereNow
+              ? '✓ Estás conectado desde la red del shop'
+              : 'No estás conectado desde la red del shop'}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy !== null || !currentIp}
+            className="px-4 py-2 bg-white text-black text-sm font-semibold rounded-md disabled:opacity-40 transition-opacity active:scale-[0.98]"
+          >
+            {busy === 'save'
+              ? 'Guardando…'
+              : enabled
+                ? 'Refrescar IP del shop'
+                : 'Registrar IP actual'}
+          </button>
+          {enabled && (
+            <button
+              type="button"
+              onClick={clear}
+              disabled={busy !== null}
+              className="px-4 py-2 border border-nxtup-dim text-nxtup-muted hover:text-nxtup-busy hover:border-nxtup-busy text-sm rounded-md disabled:opacity-40 transition-colors"
+            >
+              {busy === 'clear' ? 'Desactivando…' : 'Desactivar protección'}
+            </button>
+          )}
+        </div>
+
+        {error && <p className="text-nxtup-busy text-sm">{error}</p>}
+      </div>
+    </section>
   )
 }
