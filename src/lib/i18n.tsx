@@ -1,15 +1,17 @@
 'use client'
 
 import { createContext, useCallback, useContext, useState } from 'react'
+import { DEFAULT_LOCALE, type Locale } from './i18n-types'
 
 // ============================================================
 // Lightweight bilingual support. Cookie-backed, no URL routing,
 // no external dependency. Future pages just call useLocale() and
 // pull strings out of MESSAGES below — or use the helper t().
+//
+// Server-safe utilities (Locale type, DEFAULT_LOCALE, isLocale)
+// live in ./i18n-types so the root layout can import them
+// without crossing the 'use client' boundary.
 // ============================================================
-
-export type Locale = 'es' | 'en'
-export const DEFAULT_LOCALE: Locale = 'es'
 
 type Messages = Record<string, string>
 
@@ -229,7 +231,5 @@ export function useLocale() {
   return ctx
 }
 
-// Convenience for server-side cookie reads (used in root layout).
-export function isLocale(value: unknown): value is Locale {
-  return value === 'es' || value === 'en'
-}
+// Re-export the server-safe utilities so existing imports keep working.
+export { DEFAULT_LOCALE, isLocale, type Locale } from './i18n-types'

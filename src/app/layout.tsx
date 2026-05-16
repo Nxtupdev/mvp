@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
-import { LocaleProvider, isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
+import { LocaleProvider } from "@/lib/i18n";
+import { isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-types";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
