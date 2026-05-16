@@ -19,6 +19,7 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-instrument-serif);
 
   /* Custom animations — used by the TapButton hero CTA */
   --animate-tap-glow: tap-glow 2.6s ease-in-out infinite;
