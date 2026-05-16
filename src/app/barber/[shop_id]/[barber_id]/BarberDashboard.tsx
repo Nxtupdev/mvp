@@ -4,7 +4,12 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ShopLogo from '@/components/ShopLogo'
-import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import {
+  Avatar,
+  AvatarPicker,
+  isAvatarId,
+  type AvatarId,
+} from '@/components/avatars'
 import { buildBarberOrder, buildHeldPositions } from '@/lib/queue-order'
 
 // ──────────────────────────────────────────────────────────────
@@ -56,7 +61,6 @@ export default function BarberDashboard({
   initialPeers,
   initialCalledClient,
   initialCurrentClient,
-  initialCutsToday,
 }: {
   shopId: string
   shop: Shop
@@ -64,7 +68,9 @@ export default function BarberDashboard({
   initialPeers: Peer[]
   initialCalledClient: DeviceClient
   initialCurrentClient: DeviceClient
-  initialCutsToday: number
+  // initialCutsToday kept in the page-level fetch for forward compat;
+  // we just don't surface it on screen right now.
+  initialCutsToday?: number
 }) {
   const [barber, setBarber] = useState<Barber>({
     ...initialBarber,
@@ -80,16 +86,14 @@ export default function BarberDashboard({
     useState<DeviceClient>(initialCalledClient)
   const [currentClient, setCurrentClient] =
     useState<DeviceClient>(initialCurrentClient)
-  const [cutsToday, setCutsToday] = useState(initialCutsToday)
   const [pending, setPending] = useState<ActionTone | null>(null)
   const [error, setError] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [savingAvatar, setSavingAvatar] = useState(false)
 
   // ── Live updates ────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient()
-    const sinceMidnight = new Date()
-    sinceMidnight.setHours(0, 0, 0, 0)
-    const sinceIso = sinceMidnight.toISOString()
 
     const fetchBarber = async () => {
       const { data } = await supabase
@@ -105,6 +109,8 @@ export default function BarberDashboard({
       }
     }
 
+    // We still fetch peers to compute FIFO position locally — we just don't
+    // render the peer list anymore.
     const fetchPeers = async () => {
       const { data } = await supabase
         .from('barbers')
@@ -143,16 +149,6 @@ export default function BarberDashboard({
       setCurrentClient(current)
     }
 
-    const fetchCuts = async () => {
-      const { count } = await supabase
-        .from('queue_entries')
-        .select('*', { count: 'exact', head: true })
-        .eq('barber_id', barber.id)
-        .eq('status', 'done')
-        .gte('completed_at', sinceIso)
-      setCutsToday(count ?? 0)
-    }
-
     const channel = supabase
       .channel(`barber-dashboard-${barber.id}`)
       .on(
@@ -178,7 +174,6 @@ export default function BarberDashboard({
         },
         () => {
           fetchClients()
-          fetchCuts()
         },
       )
       .subscribe()
@@ -196,8 +191,6 @@ export default function BarberDashboard({
   const heldPosition = useMemo(() => {
     return buildHeldPositions(peers).get(barber.id)
   }, [peers, barber.id])
-
-  const otherPeers = peers.filter(p => p.id !== barber.id)
 
   // ── Action handler ──────────────────────────────────────────────
   async function press(target: ActionTone) {
@@ -223,37 +216,69 @@ export default function BarberDashboard({
     }
   }
 
+  // ── Avatar picker save ──────────────────────────────────────────
+  async function saveAvatar(next: AvatarId | null) {
+    if (savingAvatar) return
+    setSavingAvatar(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/barbers/${barber.id}/avatar`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: next }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'No se pudo guardar el icono')
+      } else {
+        // Optimistic local update — realtime will confirm.
+        setBarber(b => ({ ...b, avatar: next }))
+        setPickerOpen(false)
+      }
+    } catch {
+      setError('Error de red')
+    } finally {
+      setSavingAvatar(false)
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────
   return (
     <main className="min-h-[100dvh] flex flex-col px-5 pt-8 pb-10 max-w-md mx-auto w-full">
       {/* Top — shop name */}
-      <header className="flex items-center gap-3 mb-6">
+      <header className="flex items-center gap-3 mb-8">
         {shop.logo_url && <ShopLogo url={shop.logo_url} name={shop.name} size={32} />}
         <span className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
           {shop.name}
         </span>
       </header>
 
-      {/* Hero — who am I, what state */}
-      <section className="flex items-center gap-4 mb-6">
-        <Avatar avatar={barber.avatar} name={barber.name} size={64} />
-        <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-black tracking-tight truncate">
-            {barber.name}
-          </h1>
-          <StatusLine
-            barber={barber}
-            shop={shop}
-            fifoPosition={fifoPosition}
-            heldPosition={heldPosition}
-            calledClient={calledClient}
-            currentClient={currentClient}
-          />
-        </div>
+      {/* Hero — clickable avatar opens picker, name, status */}
+      <section className="flex flex-col items-center text-center gap-3 mb-10">
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          aria-label="Cambiar mi icono"
+          className="relative rounded-full transition-transform active:scale-95 hover:opacity-90"
+        >
+          <Avatar avatar={barber.avatar} name={barber.name} size={96} />
+          <span className="absolute bottom-0 right-0 bg-nxtup-line border border-nxtup-dim rounded-full w-7 h-7 flex items-center justify-center text-nxtup-muted text-xs">
+            ✎
+          </span>
+        </button>
+        <h1 className="text-3xl font-black tracking-tight">{barber.name}</h1>
+        <StatusLine
+          barber={barber}
+          shop={shop}
+          fifoPosition={fifoPosition}
+          heldPosition={heldPosition}
+          calledClient={calledClient}
+          currentClient={currentClient}
+        />
       </section>
 
       {/* Action buttons */}
-      <section className="grid grid-cols-3 gap-2 mb-6">
+      <section className="grid grid-cols-3 gap-2 mb-2">
         <ActionButton
           label="ACTIVE"
           tone="active"
@@ -281,52 +306,30 @@ export default function BarberDashboard({
       </section>
 
       {error && (
-        <p className="text-nxtup-busy text-sm mb-4 text-center" role="alert">
+        <p className="text-nxtup-busy text-sm mt-4 text-center" role="alert">
           {error}
         </p>
       )}
 
-      {/* Today's stats */}
-      <section className="grid grid-cols-2 gap-3 mb-6">
-        <Stat label="Cortes hoy" value={cutsToday.toString()} />
-        <Stat
-          label="Breaks hoy"
-          value={(barber.breaks_taken_today ?? 0).toString()}
-        />
-      </section>
-
-      {/* Other barbers */}
-      <section className="mb-6">
-        <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
-          Otros barberos
-        </p>
-        {otherPeers.length === 0 ? (
-          <p className="text-nxtup-dim text-sm">Sos el único activo hoy</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {otherPeers.map(p => (
-              <PeerRow
-                key={p.id}
-                peer={p}
-                fifoPosition={buildBarberOrder(peers).get(p.id)}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
       {/* Kiosk link footer */}
-      <footer className="mt-auto pt-6 flex flex-col items-center gap-1">
+      <footer className="mt-auto pt-10 flex flex-col items-center gap-1">
         <Link
           href={`/barber/${shopId}/${barber.id}/kiosk`}
           className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"
         >
           Abrir modo pantalla completa →
         </Link>
-        <p className="text-nxtup-dim text-[10px] text-center max-w-[280px] leading-relaxed">
-          Para tablet en tu estación. Mismos 3 botones, sin distracciones.
-        </p>
       </footer>
+
+      {/* Avatar picker modal */}
+      {pickerOpen && (
+        <AvatarPickerModal
+          value={barber.avatar}
+          onChange={saveAvatar}
+          onClose={() => setPickerOpen(false)}
+          saving={savingAvatar}
+        />
+      )}
     </main>
   )
 }
@@ -351,11 +354,11 @@ function StatusLine({
   currentClient: DeviceClient
 }) {
   if (barber.status === 'offline') {
-    return <p className="text-nxtup-dim text-sm mt-1">Off · sin turno</p>
+    return <p className="text-nxtup-dim text-sm">Off · sin turno</p>
   }
   if (barber.status === 'busy' && currentClient) {
     return (
-      <p className="text-nxtup-busy text-sm mt-1 font-medium">
+      <p className="text-nxtup-busy text-sm font-medium">
         Con {currentClient.client_name}
       </p>
     )
@@ -371,20 +374,20 @@ function StatusLine({
   }
   if (barber.status === 'available' && calledClient) {
     return (
-      <p className="text-nxtup-active text-sm mt-1 font-medium">
+      <p className="text-nxtup-active text-sm font-medium">
         → Llamado: {calledClient.client_name}
       </p>
     )
   }
   if (barber.status === 'available' && fifoPosition !== undefined) {
     return (
-      <p className="text-nxtup-active text-sm mt-1 font-medium">
+      <p className="text-nxtup-active text-sm font-medium">
         En fila #{fifoPosition}
         {fifoPosition === 1 ? ' · Eres el siguiente' : ''}
       </p>
     )
   }
-  return <p className="text-nxtup-muted text-sm mt-1">Active</p>
+  return <p className="text-nxtup-muted text-sm">Active</p>
 }
 
 function BreakStatus({
@@ -403,7 +406,7 @@ function BreakStatus({
   }, [])
 
   if (!barber.break_started_at) {
-    return <p className="text-nxtup-break text-sm mt-1 font-medium">Break</p>
+    return <p className="text-nxtup-break text-sm font-medium">Break</p>
   }
   const startedMs = new Date(barber.break_started_at).getTime()
   const elapsedSec = Math.max(0, Math.floor((now - startedMs) / 1000))
@@ -419,10 +422,12 @@ function BreakStatus({
   const formatted = `${sign}${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 
   const willHold =
-    shop.keep_position_on_break && heldPosition !== undefined && remaining > -shop.break_position_grace_minutes * 60
+    shop.keep_position_on_break &&
+    heldPosition !== undefined &&
+    remaining > -shop.break_position_grace_minutes * 60
 
   return (
-    <p className="text-nxtup-break text-sm mt-1 font-medium tabular-nums">
+    <p className="text-nxtup-break text-sm font-medium tabular-nums">
       Break · {formatted}
       {willHold && (
         <span className="text-nxtup-active ml-2">Vuelve a #{heldPosition}</span>
@@ -475,7 +480,7 @@ function ActionButton({
       disabled={disabled}
       className={`
         flex items-center justify-center
-        rounded-lg py-4 text-sm font-black tracking-widest
+        rounded-lg py-5 text-base font-black tracking-widest
         transition-all active:scale-[0.97]
         ${
           current
@@ -491,51 +496,48 @@ function ActionButton({
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-nxtup-line rounded-xl px-4 py-3">
-      <p className="text-nxtup-muted text-[10px] uppercase tracking-widest mb-1">
-        {label}
-      </p>
-      <p className="text-3xl font-black tabular-nums">{value}</p>
-    </div>
-  )
-}
-
-const PEER_STATUS_TEXT: Record<Status, string> = {
-  available: 'Libre',
-  busy: 'Ocupado',
-  break: 'Break',
-  offline: 'Off',
-}
-
-const PEER_DOT: Record<Status, string> = {
-  available: 'bg-nxtup-active',
-  busy: 'bg-nxtup-busy',
-  break: 'bg-nxtup-break',
-  offline: 'bg-nxtup-dim',
-}
-
-function PeerRow({
-  peer,
-  fifoPosition,
+function AvatarPickerModal({
+  value,
+  onChange,
+  onClose,
+  saving,
 }: {
-  peer: Peer
-  fifoPosition: number | undefined
+  value: AvatarId | null
+  onChange: (next: AvatarId | null) => void
+  onClose: () => void
+  saving: boolean
 }) {
   return (
-    <li className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-nxtup-line">
-      <span className="text-nxtup-active text-sm font-black tabular-nums w-7 text-center">
-        {fifoPosition !== undefined ? `#${fifoPosition}` : '—'}
-      </span>
-      <Avatar avatar={peer.avatar} name={peer.name} size={28} />
-      <span className="text-white text-sm font-medium flex-1 truncate">
-        {peer.name}
-      </span>
-      <span className="flex items-center gap-2 text-nxtup-muted text-[10px] uppercase tracking-widest">
-        <span className={`w-1.5 h-1.5 rounded-full ${PEER_DOT[peer.status]}`} />
-        {PEER_STATUS_TEXT[peer.status]}
-      </span>
-    </li>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Elegir icono"
+      className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-nxtup-bg border border-nxtup-line rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-md max-h-[80vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
+            Elegí tu icono
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-nxtup-muted hover:text-white text-sm"
+          >
+            Cerrar
+          </button>
+        </div>
+        <AvatarPicker value={value} onChange={onChange} size={48} />
+        {saving && (
+          <p className="text-nxtup-muted text-xs mt-4 text-center">
+            Guardando...
+          </p>
+        )}
+      </div>
+    </div>
   )
 }
