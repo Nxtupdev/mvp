@@ -13,9 +13,22 @@ type Shop = {
   keep_position_on_break: boolean
   break_position_grace_minutes: number
   trusted_public_ip: string | null
+  timezone: string
   is_open: boolean
   logo_url: string | null
 }
+
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern (NY, Miami) — DST' },
+  { value: 'America/Santo_Domingo', label: 'Santo Domingo (RD) — UTC-4 fijo' },
+  { value: 'America/Chicago', label: 'Central (Chicago, CDMX*) — DST' },
+  { value: 'America/Mexico_City', label: 'Ciudad de México — DST' },
+  { value: 'America/Denver', label: 'Mountain (Denver) — DST' },
+  { value: 'America/Los_Angeles', label: 'Pacific (LA) — DST' },
+  { value: 'America/Bogota', label: 'Bogotá — UTC-5 fijo' },
+  { value: 'America/Lima', label: 'Lima — UTC-5 fijo' },
+  { value: 'America/Caracas', label: 'Caracas — UTC-4 fijo' },
+] as const
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
@@ -37,6 +50,7 @@ export default function ShopSettings({
   const [nextBreak, setNextBreak] = useState(initial.next_break_minutes)
   const [keepPosition, setKeepPosition] = useState(initial.keep_position_on_break)
   const [graceMinutes, setGraceMinutes] = useState(initial.break_position_grace_minutes)
+  const [timezone, setTimezone] = useState(initial.timezone || 'America/New_York')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
@@ -47,7 +61,8 @@ export default function ShopSettings({
     firstBreak !== shop.first_break_minutes ||
     nextBreak !== shop.next_break_minutes ||
     keepPosition !== shop.keep_position_on_break ||
-    graceMinutes !== shop.break_position_grace_minutes
+    graceMinutes !== shop.break_position_grace_minutes ||
+    timezone !== shop.timezone
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -77,6 +92,8 @@ export default function ShopSettings({
         from: shop.break_position_grace_minutes,
         to: graceMinutes,
       }
+    if (timezone !== shop.timezone)
+      changes.timezone = { from: shop.timezone, to: timezone }
 
     const { data, error: updateErr } = await supabase
       .from('shops')
@@ -87,10 +104,11 @@ export default function ShopSettings({
         next_break_minutes: nextBreak,
         keep_position_on_break: keepPosition,
         break_position_grace_minutes: graceMinutes,
+        timezone,
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
       )
       .single()
 
@@ -224,6 +242,29 @@ export default function ShopSettings({
           )}
         </div>
 
+        <Field
+          label="Zona horaria del shop"
+          hint="Define qué es 'hoy' para las stats, la bitácora y los resets diarios. Cambiala si el shop opera en otra ciudad."
+        >
+          <select
+            value={timezone}
+            onChange={e => setTimezone(e.target.value)}
+            className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none"
+          >
+            {TIMEZONE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value} className="bg-nxtup-bg">
+                {o.label}
+              </option>
+            ))}
+            {/* Allow the current value even if it's not in our preset list */}
+            {!TIMEZONE_OPTIONS.find(o => o.value === timezone) && (
+              <option value={timezone} className="bg-nxtup-bg">
+                {timezone}
+              </option>
+            )}
+          </select>
+        </Field>
+
         {error && <p className="text-nxtup-busy text-sm">{error}</p>}
 
         <div className="flex items-center gap-4">
@@ -354,7 +395,7 @@ function LogoSection({
       .update({ logo_url: cacheBusted })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
       )
       .single()
 
@@ -385,7 +426,7 @@ function LogoSection({
       .update({ logo_url: null })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
       )
       .single()
 

@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, is_open, logo_url',
+      'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
     )
     .eq('owner_id', user.id)
     .maybeSingle()

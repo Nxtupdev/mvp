@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import { shopDayStart } from '@/lib/shop-time'
 
 type Entry = {
   id: string
@@ -26,19 +27,18 @@ export default async function StatsPage() {
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name')
+    .select('id, name, timezone')
     .eq('owner_id', user.id)
     .maybeSingle()
   if (!shop) redirect('/onboarding')
 
-  // Today / yesterday boundaries. Vercel runtime is UTC so setHours(0,…)
-  // effectively gives UTC midnight. For DR / US-East users that's close
-  // enough — full timezone correctness lives in a follow-up.
+  // Use the shop's IANA timezone so 'today' means the owner's actual
+  // local day, not Vercel's UTC day. Falls back to America/New_York for
+  // legacy rows that haven't been migrated yet.
+  const timeZone = (shop as { timezone?: string }).timezone || 'America/New_York'
   const now = new Date()
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
-  const yesterdayStart = new Date(todayStart)
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+  const todayStart = shopDayStart(timeZone, 0)
+  const yesterdayStart = shopDayStart(timeZone, 1)
 
   const [{ data: todayEntries }, { data: yesterdayEntries }, { data: barbers }] =
     await Promise.all([
@@ -168,8 +168,13 @@ export default async function StatsPage() {
       </div>
 
       <p className="text-nxtup-dim text-xs mt-6 text-center">
-        Última actualización: {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ·
-        Recargá la página para ver datos frescos.
+        Última actualización:{' '}
+        {now.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone,
+        })}{' '}
+        ({timeZone}) · Recargá para datos frescos.
       </p>
     </main>
   )
