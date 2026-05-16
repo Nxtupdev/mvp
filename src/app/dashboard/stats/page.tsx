@@ -27,15 +27,25 @@ export default async function StatsPage() {
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name, timezone')
+    .select('id, name')
     .eq('owner_id', user.id)
     .maybeSingle()
   if (!shop) redirect('/onboarding')
 
-  // Use the shop's IANA timezone so 'today' means the owner's actual
-  // local day, not Vercel's UTC day. Falls back to America/New_York for
-  // legacy rows that haven't been migrated yet.
-  const timeZone = (shop as { timezone?: string }).timezone || 'America/New_York'
+  // Try to read timezone separately so the page still loads if the
+  // migration hasn't been applied yet.
+  let timeZone = 'America/New_York'
+  try {
+    const { data: tzRow } = await supabase
+      .from('shops')
+      .select('timezone')
+      .eq('id', shop.id)
+      .maybeSingle()
+    const value = (tzRow as { timezone?: string } | null)?.timezone
+    if (typeof value === 'string' && value.length > 0) timeZone = value
+  } catch {
+    // Column doesn't exist yet — default is fine.
+  }
   const now = new Date()
   const todayStart = shopDayStart(timeZone, 0)
   const yesterdayStart = shopDayStart(timeZone, 1)
