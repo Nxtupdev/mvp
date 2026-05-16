@@ -36,9 +36,17 @@ export default async function RootLayout({
 }>) {
   // Read the locale cookie server-side so the very first render already
   // has the correct language (no flash of default locale on hydration).
-  const c = await cookies();
-  const cookieValue = c.get("nxtup_locale")?.value;
-  const initialLocale: Locale = isLocale(cookieValue) ? cookieValue : DEFAULT_LOCALE;
+  // Wrapped in try/catch — if anything goes sideways reading cookies
+  // (edge runtime quirks, etc.), fall back to the default rather than
+  // 500'ing the entire site.
+  let initialLocale: Locale = DEFAULT_LOCALE;
+  try {
+    const c = await cookies();
+    const cookieValue = c.get("nxtup_locale")?.value;
+    if (isLocale(cookieValue)) initialLocale = cookieValue;
+  } catch {
+    // ignore — default locale is fine
+  }
 
   return (
     <html
