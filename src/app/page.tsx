@@ -120,7 +120,7 @@ export default async function Home() {
               />
             </Section>
 
-            <Section title="Barber app — pantalla individual">
+            <Section title="Barber app — dashboard individual">
               <LinkRow
                 href={`/barber/${shop.id}`}
                 label="Selector de barbero"
@@ -140,8 +140,11 @@ export default async function Home() {
                 </div>
               )}
               <p className="text-nxtup-dim text-[11px] mt-3 leading-relaxed">
-                Cada barbero puede abrir su link directo en el celular o tablet y
-                tener la misma pantalla NXTUP que el hardware físico.
+                El link directo del barbero abre su <strong>dashboard simple</strong>:
+                estado, 3 botones, stats del día y otros barberos. Para un tablet
+                montado en su estación (fullscreen NXTUP, sin distracciones),
+                agregale <code className="text-nxtup-muted">/kiosk</code> al final
+                del link.
               </p>
             </Section>
 

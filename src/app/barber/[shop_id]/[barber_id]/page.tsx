@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import BarberControl from './BarberControl'
+import BarberDashboard from './BarberDashboard'
 
 export default async function BarberPage({
   params,
@@ -10,29 +10,42 @@ export default async function BarberPage({
   const { shop_id, barber_id } = await params
   const supabase = await createClient()
 
-  const [{ data: barber }, { data: shop }, { data: peers }] = await Promise.all([
-    supabase
-      .from('barbers')
-      .select(
-        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
-      )
-      .eq('id', barber_id)
-      .eq('shop_id', shop_id)
-      .single(),
-    supabase
-      .from('shops')
-      .select(
-        'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes',
-      )
-      .eq('id', shop_id)
-      .single(),
-    supabase
-      .from('barbers')
-      .select(
-        'id, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
-      )
-      .eq('shop_id', shop_id),
-  ])
+  // Today (local midnight) — used for the "cortes hoy" counter.
+  const sinceMidnight = new Date()
+  sinceMidnight.setHours(0, 0, 0, 0)
+
+  const [{ data: barber }, { data: shop }, { data: peers }, { count: cutsToday }] =
+    await Promise.all([
+      supabase
+        .from('barbers')
+        .select(
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+        )
+        .eq('id', barber_id)
+        .eq('shop_id', shop_id)
+        .single(),
+      supabase
+        .from('shops')
+        .select(
+          'id, name, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes',
+        )
+        .eq('id', shop_id)
+        .single(),
+      supabase
+        .from('barbers')
+        .select(
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+        )
+        .eq('shop_id', shop_id)
+        .neq('status', 'offline')
+        .order('name'),
+      supabase
+        .from('queue_entries')
+        .select('*', { count: 'exact', head: true })
+        .eq('barber_id', barber_id)
+        .eq('status', 'done')
+        .gte('completed_at', sinceMidnight.toISOString()),
+    ])
 
   if (!barber || !shop) notFound()
 
@@ -52,13 +65,14 @@ export default async function BarberPage({
   ])
 
   return (
-    <BarberControl
+    <BarberDashboard
       shopId={shop_id}
       shop={shop}
       initialBarber={barber}
+      initialPeers={peers ?? []}
       initialCalledClient={calledClient}
       initialCurrentClient={currentClient}
-      initialPeers={peers ?? []}
+      initialCutsToday={cutsToday ?? 0}
     />
   )
 }
