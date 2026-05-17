@@ -245,14 +245,34 @@ export default function BarberDashboard({
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <main className="min-h-[100dvh] flex flex-col px-5 pt-8 pb-10 max-w-md mx-auto w-full">
-      {/* Top — shop name */}
-      <header className="flex items-center gap-3 mb-8">
-        {shop.logo_url && <ShopLogo url={shop.logo_url} name={shop.name} size={32} />}
-        <span className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-          {shop.name}
-        </span>
+    <main className="min-h-[100dvh] flex flex-col max-w-md mx-auto w-full">
+      {/* App bar — edge-to-edge "chrome" at the top of the standalone
+          PWA so it feels like a real installed app rather than a
+          floating web page. Sticky so it stays put if the viewport is
+          short and the barber has to scroll for the kiosk link. */}
+      <header className="sticky top-0 z-10 flex items-center gap-3 px-5 py-4 border-b border-nxtup-line bg-nxtup-bg/95 backdrop-blur-md">
+        {shop.logo_url ? (
+          <ShopLogo url={shop.logo_url} name={shop.name} size={32} />
+        ) : (
+          // Letter-mark fallback so the bar has a consistent left
+          // anchor even for shops that never uploaded a logo.
+          <div className="w-8 h-8 rounded-md bg-nxtup-line flex items-center justify-center text-white font-black text-sm">
+            {shop.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.25em] font-bold leading-none mb-1">
+            Mi panel
+          </p>
+          <h2 className="text-white text-sm font-bold tracking-tight truncate leading-none">
+            {shop.name}
+          </h2>
+        </div>
       </header>
+
+      {/* Body — the original content padding moved here so the app
+          bar above can extend to the screen edges. */}
+      <div className="flex-1 flex flex-col px-5 pt-8 pb-10">
 
       {/* Hero — clickable avatar opens picker, name, status */}
       <section className="flex flex-col items-center text-center gap-3 mb-10">
@@ -325,7 +345,10 @@ export default function BarberDashboard({
         </Link>
       </footer>
 
-      {/* Avatar picker modal */}
+      </div>
+
+      {/* Avatar picker modal — kept outside the body wrapper so the
+          fixed overlay doesn't inherit the px-5 padding. */}
       {pickerOpen && (
         <AvatarPickerModal
           value={barber.avatar}
