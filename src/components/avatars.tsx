@@ -271,10 +271,11 @@ export function Avatar({
   // circular wrapper as the built-in path so callers don't need to
   // know which family was selected.
   //
-  // object-contain (not -cover) because the source PNGs are slightly
-  // taller than wide (172x188) — cover would crop the top/bottom of
-  // every icon. contain shows the full circle and uses the wrapper's
-  // white background to fill the tiny gap on the sides.
+  // The img sits inside the wrapper at ~84% size so the source
+  // image's own circle (which goes nearly edge-to-edge of its
+  // 172x188 cell) gets visible margin and isn't clipped by the
+  // wrapper's rounded-full mask. object-contain on top guarantees
+  // the full source remains visible without cropping.
   if (typeof avatar === 'string' && (avatar.startsWith('/') || avatar.startsWith('http'))) {
     return (
       <span
@@ -286,9 +287,10 @@ export function Avatar({
         <img
           src={avatar}
           alt=""
-          width={size}
-          height={size}
-          className="w-full h-full object-contain"
+          width={Math.round(size * 0.84)}
+          height={Math.round(size * 0.84)}
+          className="object-contain"
+          style={{ width: '84%', height: '84%' }}
         />
       </span>
     )
@@ -400,13 +402,13 @@ export function AvatarPicker({
                   <img
                     src={av.image_url}
                     alt=""
-                    width={size}
-                    height={size}
-                    // contain (not cover) so the full circular icon is
-                    // visible — the source PNGs are 172x188, slightly
-                    // taller than wide, and cover was cropping the
-                    // top/bottom edges off every icon.
-                    className="w-full h-full object-contain"
+                    width={Math.round(size * 0.84)}
+                    height={Math.round(size * 0.84)}
+                    // Same trick as Avatar: image sits inside the
+                    // circular wrapper at ~84% so the source PNG's
+                    // own circle doesn't get clipped by rounded-full.
+                    className="object-contain"
+                    style={{ width: '84%', height: '84%' }}
                   />
                 </button>
               )
