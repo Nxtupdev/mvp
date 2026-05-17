@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/i18n'
+import InstallDemo from './InstallDemo'
 
 // ============================================================
 // InstallButton — the visible "Install app" affordance.
@@ -188,10 +189,17 @@ function IOSInstructions({ onClose }: { onClose: () => void }) {
       >
         <h2
           id="install-ios-title"
-          className="text-white text-xl font-black tracking-tight mb-5"
+          className="text-white text-xl font-black tracking-tight mb-4"
         >
           {t('install.ios.title')}
         </h2>
+
+        {/* Animated walkthrough — cycles through the 3 iOS taps so the
+            user knows what each button looks like before hunting for
+            them in Safari. */}
+        <div className="mb-5">
+          <InstallDemo />
+        </div>
 
         <ol className="flex flex-col gap-4 mb-6">
           <Step
