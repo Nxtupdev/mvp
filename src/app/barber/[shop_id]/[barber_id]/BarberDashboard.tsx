@@ -105,6 +105,25 @@ export default function BarberDashboard({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
 
+  // ── Remember this barber URL for PWA mis-install recovery ──
+  //
+  // Why: if the barber accidentally installed the PWA from the public
+  // landing instead of from their own dashboard, the home-screen icon
+  // ends up pointing at `/?source=pwa` and dumps them on the landing.
+  // We stamp a cookie here so that landing render (src/app/page.tsx)
+  // can detect "this device knows about a barber URL" and redirect
+  // them back here server-side — no flash, no extra action from the
+  // barber.
+  //
+  // Cookie (not localStorage) so the redirect runs on the server
+  // before any HTML hits the wire. 30-day TTL so stale URLs from old
+  // shops eventually drop out.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const url = `/barber/${shopId}/${barber.id}`
+    document.cookie = `nxtup_last_barber_url=${encodeURIComponent(url)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+  }, [shopId, barber.id])
+
   // ── Live updates ────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient()
