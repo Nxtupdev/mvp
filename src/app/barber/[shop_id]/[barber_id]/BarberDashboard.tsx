@@ -100,10 +100,28 @@ export default function BarberDashboard({
     useState<DeviceClient>(initialCalledClient)
   const [currentClient, setCurrentClient] =
     useState<DeviceClient>(initialCurrentClient)
+  // Called entries belonging to OTHER barbers in the shop. We watch
+  // them so the "next available" barber can pre-empt a no-show by
+  // tapping "Tomar yo" after the original has stalled for 60s.
+  type PeerCalled = {
+    id: string
+    barber_id: string
+    client_name: string
+    called_at: string
+  }
+  const [peerCalled, setPeerCalled] = useState<PeerCalled[]>([])
+  // Reactive clock so the "x seconds since called" computation
+  // recomputes the claim eligibility window without realtime pings.
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 3000)
+    return () => clearInterval(id)
+  }, [])
   const [pending, setPending] = useState<ActionTone | null>(null)
   const [error, setError] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
+  const [claiming, setClaiming] = useState(false)
 
   // ── Remember this barber URL for PWA mis-install recovery ──
   //
@@ -164,22 +182,36 @@ export default function BarberDashboard({
     }
 
     const fetchClients = async () => {
-      const [{ data: called }, { data: current }] = await Promise.all([
-        supabase
-          .from('queue_entries')
-          .select('id, client_name, position')
-          .eq('barber_id', barber.id)
-          .eq('status', 'called')
-          .maybeSingle(),
-        supabase
-          .from('queue_entries')
-          .select('id, client_name, position')
-          .eq('barber_id', barber.id)
-          .eq('status', 'in_progress')
-          .maybeSingle(),
-      ])
+      const [{ data: called }, { data: current }, { data: allCalled }] =
+        await Promise.all([
+          supabase
+            .from('queue_entries')
+            .select('id, client_name, position')
+            .eq('barber_id', barber.id)
+            .eq('status', 'called')
+            .maybeSingle(),
+          supabase
+            .from('queue_entries')
+            .select('id, client_name, position')
+            .eq('barber_id', barber.id)
+            .eq('status', 'in_progress')
+            .maybeSingle(),
+          // All called entries in this shop — needed so the
+          // next-available barber can spot a stuck call from a peer
+          // and offer to take it over.
+          supabase
+            .from('queue_entries')
+            .select('id, barber_id, client_name, called_at')
+            .eq('shop_id', shopId)
+            .eq('status', 'called'),
+        ])
       setCalledClient(called)
       setCurrentClient(current)
+      setPeerCalled(
+        ((allCalled ?? []) as PeerCalled[]).filter(
+          e => e.barber_id !== barber.id && !!e.called_at,
+        ),
+      )
     }
 
     const channel = supabase
@@ -224,6 +256,79 @@ export default function BarberDashboard({
   const heldPosition = useMemo(() => {
     return buildHeldPositions(peers).get(barber.id)
   }, [peers, barber.id])
+
+  // ── No-show takeover detection ──────────────────────────────────
+  //
+  // If any peer barber has had a client in 'called' status for >60s
+  // AND I'm the next-available barber in the FIFO (excluding the
+  // stalled one), surface a "Tomar yo" banner so I can pre-empt the
+  // 5-min auto-release and keep the queue moving.
+  //
+  // Re-evaluated whenever peerCalled or peers changes, AND on every
+  // `nowTick` so the banner appears on time without a realtime ping.
+  const stuckCallFor: PeerCalled | null = useMemo(() => {
+    if (barber.status !== 'available' || !barber.available_since) return null
+    if (peerCalled.length === 0) return null
+
+    // For each stalled call, check if I am the rightful next claimer.
+    for (const entry of peerCalled) {
+      const ageSec = (nowTick - new Date(entry.called_at).getTime()) / 1000
+      if (ageSec < 60) continue
+
+      // FIFO-by-availability among ACTIVE barbers, excluding the
+      // stalled one. We have to include `barber` itself in the list
+      // since `peers` may or may not include self depending on the
+      // fetcher.
+      const candidatePool = [
+        ...peers.filter(p => p.id !== barber.id),
+        { ...barber },
+      ]
+      const fifo = candidatePool
+        .filter(
+          p =>
+            p.status === 'available' &&
+            p.available_since &&
+            p.id !== entry.barber_id,
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.available_since!).getTime() -
+            new Date(b.available_since!).getTime(),
+        )
+      if (fifo[0]?.id === barber.id) return entry
+    }
+    return null
+  }, [peerCalled, peers, barber, nowTick])
+
+  // Name of the stalled barber, for the banner copy.
+  const stuckBarberName: string | null = useMemo(() => {
+    if (!stuckCallFor) return null
+    return peers.find(p => p.id === stuckCallFor.barber_id)?.name ?? 'el barbero'
+  }, [stuckCallFor, peers])
+
+  // ── Claim handler ──────────────────────────────────────────────
+  async function claimStuckEntry() {
+    if (claiming || !stuckCallFor) return
+    setClaiming(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/queue/${stuckCallFor.id}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barber_id: barber.id }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'No se pudo tomar el cliente')
+      }
+      // On success the realtime subscription will rehydrate state;
+      // no manual setCalledClient needed.
+    } catch {
+      setError('Error de red')
+    } finally {
+      setClaiming(false)
+    }
+  }
 
   // ── Action handler ──────────────────────────────────────────────
   async function press(target: ActionTone) {
@@ -313,6 +418,32 @@ export default function BarberDashboard({
       {/* Body — the original content padding moved here so the app
           bar above can extend to the screen edges. */}
       <div className="flex-1 flex flex-col px-5 pt-8 pb-10">
+
+      {/* No-show takeover banner — only renders when this barber is
+          the next-available AND a peer's called client has been
+          waiting >60s. Lets them pre-empt the 5-min auto-release. */}
+      {stuckCallFor && (
+        <div className="border border-nxtup-break bg-nxtup-break/10 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <span className="text-nxtup-break text-xl leading-none mt-0.5">⚠</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold leading-snug">
+              {stuckCallFor.client_name} lleva esperando a {stuckBarberName}
+            </p>
+            <p className="text-nxtup-muted text-xs mt-0.5">
+              Eres el siguiente disponible. Si {stuckBarberName} no aparece,
+              puedes atender al cliente.
+            </p>
+            <button
+              type="button"
+              onClick={claimStuckEntry}
+              disabled={claiming}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black text-xs font-bold tracking-tight active:scale-[0.98] disabled:opacity-50 transition-all"
+            >
+              {claiming ? 'Tomando...' : 'Tomar yo →'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hero — clickable avatar opens picker, name, status */}
       <section className="flex flex-col items-center text-center gap-3 mb-10">
