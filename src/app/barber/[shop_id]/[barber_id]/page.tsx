@@ -1,6 +1,55 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import BarberDashboard from './BarberDashboard'
+
+/**
+ * Per-page metadata override. Two reasons we need this on the barber
+ * page specifically:
+ *
+ * 1. PWA manifest: points at /api/manifest/barber/[shop]/[id] so the
+ *    installed home-screen icon opens DIRECTLY into the barber's
+ *    dashboard instead of falling through to the global landing
+ *    via the default manifest's start_url.
+ *
+ * 2. apple-mobile-web-app-title: iOS Safari reads this for the label
+ *    under the icon after "Add to Home Screen". Showing the shop
+ *    name makes the icon feel like a real app for that shop, not a
+ *    generic NXTUP install.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shop_id: string; barber_id: string }>
+}): Promise<Metadata> {
+  const { shop_id, barber_id } = await params
+
+  // Best-effort lookup so the install prompt and icon label show the
+  // shop name. If anything errors we fall back to plain "NXTUP" — the
+  // dashboard still functions.
+  let shopName = 'NXTUP'
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('shops')
+      .select('name')
+      .eq('id', shop_id)
+      .maybeSingle()
+    if (data?.name) shopName = data.name
+  } catch {
+    // ignore — defaults are fine
+  }
+
+  return {
+    title: `${shopName} — Mi panel`,
+    manifest: `/api/manifest/barber/${shop_id}/${barber_id}`,
+    appleWebApp: {
+      capable: true,
+      title: shopName,
+      statusBarStyle: 'black-translucent',
+    },
+  }
+}
 
 export default async function BarberPage({
   params,
