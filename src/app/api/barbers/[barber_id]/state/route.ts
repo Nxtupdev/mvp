@@ -93,7 +93,7 @@ export async function PATCH(
           // Wording stays user-facing instead of mentioning sabotage —
           // most of the time this fires on a legitimate barber who
           // just walked outside or is on cellular instead of WiFi.
-          error: 'Conectate al WiFi de la barbería para usar tu panel',
+          error: 'Conéctate al WiFi de la barbería para usar tu panel',
           code: 'not_in_shop',
           client_ip: clientIp,
         },

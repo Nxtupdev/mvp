@@ -184,7 +184,7 @@ export default async function StatsPage() {
           minute: '2-digit',
           timeZone,
         })}{' '}
-        ({timeZone}) · Recargá para datos frescos.
+        ({timeZone}) · Recarga para datos frescos.
       </p>
     </main>
   )

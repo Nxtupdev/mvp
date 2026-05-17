@@ -55,7 +55,7 @@ export async function PATCH(
     if (!clientIp || clientIp !== shop.trusted_public_ip) {
       return Response.json(
         {
-          error: 'Conectate al WiFi de la barbería para cambiar tu ícono',
+          error: 'Conéctate al WiFi de la barbería para cambiar tu ícono',
           code: 'not_in_shop',
           client_ip: clientIp,
         },

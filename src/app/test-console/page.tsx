@@ -42,7 +42,7 @@ export default async function Home() {
         Atajos para probar el flow
       </h1>
       <p className="text-nxtup-dim text-sm text-center mb-10 max-w-md">
-        Esta página es para vos. La landing pública vive en{' '}
+        Esta página es para ti. La landing pública vive en{' '}
         <Link href="/" className="underline hover:text-white">
           /
         </Link>

@@ -615,7 +615,7 @@ function AvatarPickerModal({
       >
         <div className="flex items-center justify-between mb-4">
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-            Elegí tu icono
+            Elige tu ícono
           </p>
           <button
             type="button"

@@ -632,8 +632,8 @@ function AntiCheatSection({
         </h2>
         <p className="text-nxtup-dim text-xs leading-relaxed max-w-prose">
           Solo se permite entrar a la fila desde la conexión WiFi de la
-          barbería. Registrá la IP del shop una vez parado adentro y conectado
-          al WiFi. Si tu internet cambia (raro pero pasa), volvé a tocar
+          barbería. Registra la IP del shop una vez parado adentro y conectado
+          al WiFi. Si tu internet cambia (raro pero pasa), vuelve a tocar
           &quot;Registrar IP actual&quot;.
         </p>
       </div>

@@ -25,7 +25,7 @@ const MESSAGES: Record<Locale, Messages> = {
     'nav.product': 'Producto',
     'nav.how': 'Cómo funciona',
     'nav.login': 'Entrar',
-    'nav.signup': 'Empezá gratis',
+    'nav.signup': 'Empieza gratis',
 
     // ── Hero ───────────────────────────────────────────────────
     'hero.overline': 'The next-up system · est. 2026',
@@ -80,7 +80,7 @@ const MESSAGES: Record<Locale, Messages> = {
     // ── Final CTA ──────────────────────────────────────────────
     'cta.label': 'Listo para arrancar',
     'cta.sub':
-      'Creá tu shop en 2 minutos. Sin tarjeta, sin compromiso. Probalo en tu próximo turno.',
+      'Crea tu shop en 2 minutos. Sin tarjeta, sin compromiso. Pruébalo en tu próximo turno.',
     'cta.primary': 'Crear mi barbería',
     'cta.secondary': 'Ya tengo cuenta',
 
@@ -98,18 +98,18 @@ const MESSAGES: Record<Locale, Messages> = {
     'install.button': 'Instalar app',
     'install.button.short': 'Instalar',
     'install.button.aria': 'Instalar NXTUP en este dispositivo',
-    'install.ios.title': 'Instalá NXTUP',
-    'install.ios.step1': 'Tocá el ícono Compartir',
+    'install.ios.title': 'Instala NXTUP',
+    'install.ios.step1': 'Toca el ícono Compartir',
     'install.ios.step1.detail': 'abajo de Safari',
-    'install.ios.step2': 'Elegí "Añadir a inicio"',
+    'install.ios.step2': 'Elige "Añadir a inicio"',
     'install.ios.step2.detail': 'a veces hay que bajar en el menú',
-    'install.ios.step3': 'Tocá "Añadir"',
+    'install.ios.step3': 'Toca "Añadir"',
     'install.ios.step3.detail': 'arriba a la derecha',
     'install.ios.outro': 'Listo — NXTUP queda como app en tu pantalla.',
     'install.ios.close': 'Entendido',
     'install.unsupported.title': 'Instalación no disponible',
     'install.unsupported.body':
-      'Tu navegador no soporta instalar esta app. Probá con Chrome, Edge o Safari.',
+      'Tu navegador no soporta instalar esta app. Prueba con Chrome, Edge o Safari.',
   },
   en: {
     // ── Nav ────────────────────────────────────────────────────

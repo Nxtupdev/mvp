@@ -308,7 +308,7 @@ function BarberRow({
           onClick={onShare}
           className="text-nxtup-muted hover:text-white text-xs px-2 py-1 transition-colors inline-flex items-center gap-1"
           aria-label={`Compartir link de ${barber.name}`}
-          title="Mandale el link al barbero por QR o WhatsApp"
+          title="Mándale el link al barbero por QR o WhatsApp"
         >
           <ShareGlyph />
           <span className="hidden sm:inline">Compartir</span>

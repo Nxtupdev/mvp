@@ -117,7 +117,7 @@ function SafariBarMock() {
 
       {/* Caption */}
       <p className="absolute top-2 left-0 right-0 text-center text-white/70 text-[11px] font-semibold">
-        1. Tocá <span className="text-blue-300">Compartir</span>
+        1. Toca <span className="text-blue-300">Compartir</span>
       </p>
     </div>
   )
@@ -170,7 +170,7 @@ function ShareSheetMock() {
       </div>
 
       <p className="absolute top-1 left-0 right-0 text-center text-white/70 text-[11px] font-semibold">
-        2. Elegí <span className="text-blue-300">Añadir a inicio</span>
+        2. Elige <span className="text-blue-300">Añadir a inicio</span>
       </p>
     </div>
   )

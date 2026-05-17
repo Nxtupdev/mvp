@@ -47,7 +47,7 @@ export default function ShareBarberModal({
   }, [shopId, barberId])
 
   const message = useMemo(() => {
-    return `Hola ${barberName}, este es tu panel de NXTUP en ${shopName}. Ábrelo y al final podés instalar la app en tu celular:\n\n${url}`
+    return `Hola ${barberName}, este es tu panel de NXTUP en ${shopName}. Ábrelo y al final puedes instalar la app en tu celular:\n\n${url}`
   }, [barberName, shopName, url])
 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)

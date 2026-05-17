@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (!shop) {
-    return Response.json({ error: 'No tenés un shop asociado' }, { status: 404 })
+    return Response.json({ error: 'No tienes un shop asociado' }, { status: 404 })
   }
 
   const { error: updateErr } = await supabase
@@ -76,7 +76,7 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
 
   if (!shop) {
-    return Response.json({ error: 'No tenés un shop asociado' }, { status: 404 })
+    return Response.json({ error: 'No tienes un shop asociado' }, { status: 404 })
   }
 
   const { error } = await supabase
