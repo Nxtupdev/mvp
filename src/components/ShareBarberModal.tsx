@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode'
-import { Avatar, type AvatarId } from './avatars'
+import { Avatar } from './avatars'
 
 // ============================================================
 // ShareBarberModal — the missing piece in onboarding a new barber.
@@ -33,7 +33,8 @@ export default function ShareBarberModal({
 }: {
   barberId: string
   barberName: string
-  barberAvatar: AvatarId | null
+  // Widened from AvatarId — see migration 015 / shop avatars.
+  barberAvatar: string | null
   shopId: string
   shopName: string
   onClose: () => void

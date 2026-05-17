@@ -2,14 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Avatar, AvatarPicker, isAvatarId, type AvatarId } from '@/components/avatars'
+import {
+  Avatar,
+  AvatarPicker,
+  isRenderableAvatar,
+  type ShopAvatar,
+} from '@/components/avatars'
 import ShareBarberModal from '@/components/ShareBarberModal'
 
 type Barber = {
   id: string
   name: string
   status: 'available' | 'busy' | 'break' | 'offline'
-  avatar: AvatarId | null
+  // Was AvatarId | null. Widened to string so URL-style shop avatars
+  // (e.g. '/avatars/fade-factory/joker.png') round-trip cleanly.
+  avatar: string | null
   created_at: string
 }
 
@@ -32,7 +39,7 @@ function normalize(rows: unknown[]): Barber[] {
     const row = r as { avatar?: unknown } & Omit<Barber, 'avatar'>
     return {
       ...row,
-      avatar: isAvatarId(row.avatar) ? row.avatar : null,
+      avatar: isRenderableAvatar(row.avatar) ? row.avatar : null,
     }
   })
 }
@@ -41,14 +48,19 @@ export default function BarberManager({
   shopId,
   shopName,
   initialBarbers,
+  shopAvatars = [],
 }: {
   shopId: string
   shopName: string
   initialBarbers: Barber[]
+  // The shop's custom magnet-style avatars (from migration 015).
+  // Passed to every AvatarPicker render so they appear ABOVE the
+  // generic stroke pool. Empty array = picker only shows generics.
+  shopAvatars?: ShopAvatar[]
 }) {
   const [barbers, setBarbers] = useState<Barber[]>(() => normalize(initialBarbers))
   const [name, setName] = useState('')
-  const [newAvatar, setNewAvatar] = useState<AvatarId | null>(null)
+  const [newAvatar, setNewAvatar] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
@@ -112,7 +124,7 @@ export default function BarberManager({
     setPendingId(null)
   }
 
-  async function handleAvatarChange(id: string, avatar: AvatarId | null) {
+  async function handleAvatarChange(id: string, avatar: string | null) {
     setPendingId(id)
     const supabase = createClient()
     await supabase.from('barbers').update({ avatar }).eq('id', id)
@@ -177,7 +189,11 @@ export default function BarberManager({
 
         {pickerOpen && (
           <div className="pt-2 border-t border-nxtup-line">
-            <AvatarPicker value={newAvatar} onChange={setNewAvatar} />
+            <AvatarPicker
+              value={newAvatar}
+              onChange={setNewAvatar}
+              shopAvatars={shopAvatars}
+            />
           </div>
         )}
       </form>
@@ -201,6 +217,7 @@ export default function BarberManager({
               onAvatarChange={av => handleAvatarChange(b.id, av)}
               onDelete={() => handleDelete(b.id)}
               onShare={() => setSharing(b)}
+              shopAvatars={shopAvatars}
             />
           ))}
         </ul>
@@ -227,13 +244,15 @@ function BarberRow({
   onAvatarChange,
   onDelete,
   onShare,
+  shopAvatars,
 }: {
   barber: Barber
   pending: boolean
   onRename: (name: string) => void
-  onAvatarChange: (avatar: AvatarId | null) => void
+  onAvatarChange: (avatar: string | null) => void
   onDelete: () => void
   onShare: () => void
+  shopAvatars: ShopAvatar[]
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(barber.name)
@@ -312,6 +331,7 @@ function BarberRow({
               onAvatarChange(av)
               setPickerOpen(false)
             }}
+            shopAvatars={shopAvatars}
           />
         </div>
       )}

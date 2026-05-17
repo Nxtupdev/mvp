@@ -226,6 +226,31 @@ export function isAvatarId(value: unknown): value is AvatarId {
 }
 
 /**
+ * True for any string the Avatar component knows how to render — a
+ * built-in id OR a URL pointing at a custom shop_avatars asset.
+ * Used by the normalize() helpers in pages so URL avatars don't get
+ * silently dropped on the floor by old isAvatarId-only checks.
+ */
+export function isRenderableAvatar(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  if (isAvatarId(value)) return true
+  if (value.startsWith('/') || value.startsWith('http')) return true
+  return false
+}
+
+/**
+ * Catalogue entry shared across the picker + render paths. Each shop
+ * fetches its own list and passes it down to any Avatar / AvatarPicker
+ * that needs to display custom icons.
+ */
+export type ShopAvatar = {
+  id: string
+  label: string
+  image_url: string
+  sort_order: number
+}
+
+/**
  * Renders the chosen avatar inside a circular surface. Falls back to a
  * neutral monogram of the name's first letter if no avatar is set.
  */
@@ -235,12 +260,36 @@ export function Avatar({
   size = 36,
   className = '',
 }: {
-  avatar?: AvatarId | null | undefined
+  // Widened from AvatarId so we can also accept arbitrary URLs
+  // pointing at per-shop custom images (shop_avatars.image_url).
+  avatar?: string | null | undefined
   name?: string
   size?: number
   className?: string
 }) {
-  const def = avatar ? AVATARS.find(a => a.id === avatar) : null
+  // URL-style avatar (custom shop asset) — render as <img>. Same
+  // circular wrapper as the built-in path so callers don't need to
+  // know which family was selected.
+  if (typeof avatar === 'string' && (avatar.startsWith('/') || avatar.startsWith('http'))) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center rounded-full overflow-hidden flex-shrink-0 bg-white ${className}`}
+        style={{ width: size, height: size }}
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={avatar}
+          alt=""
+          width={size}
+          height={size}
+          className="w-full h-full object-cover"
+        />
+      </span>
+    )
+  }
+
+  const def = avatar && isAvatarId(avatar) ? AVATARS.find(a => a.id === avatar) : null
 
   // Rich avatars draw their own circular surface inside the SVG —
   // the wrapper just provides sizing + a layout-safe rounded mask
@@ -287,93 +336,157 @@ export function Avatar({
 
 /**
  * Grid picker. Click an icon to select it. Pass `value=null` to clear.
+ *
+ * Accepts an optional `shopAvatars` list — when present, the shop's
+ * custom magnet-style icons are shown ABOVE the generic stroke pool
+ * in a separate section. Selecting one calls onChange with the image
+ * URL (not the row id), so the barber.avatar column can be read by
+ * the Avatar component without a join.
  */
 export function AvatarPicker({
   value,
   onChange,
   size = 44,
   allowClear = true,
+  shopAvatars,
 }: {
-  value: AvatarId | null
-  onChange: (next: AvatarId | null) => void
+  // Widened from AvatarId to string so URL-based shop avatars round-trip.
+  value: string | null
+  onChange: (next: string | null) => void
   size?: number
   allowClear?: boolean
+  shopAvatars?: ShopAvatar[]
 }) {
+  const hasShopAvatars = shopAvatars && shopAvatars.length > 0
+  const sortedShopAvatars = hasShopAvatars
+    ? [...shopAvatars].sort((a, b) => a.sort_order - b.sort_order)
+    : []
+
   return (
-    <div
-      className="grid gap-2"
-      style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(${size + 12}px, 1fr))`,
-      }}
-    >
-      {allowClear && (
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          aria-label="No avatar"
-          aria-pressed={value === null}
-          className={`flex items-center justify-center rounded-full border transition-colors ${
-            value === null
-              ? 'border-white text-white'
-              : 'border-nxtup-dim text-nxtup-muted hover:border-nxtup-muted'
-          }`}
-          style={{ width: size, height: size }}
-        >
-          <svg viewBox="0 0 24 24" width={size * 0.45} height={size * 0.45}>
-            <path
-              {...STROKE}
-              d="M5 5l14 14M19 5 5 19"
-            />
-          </svg>
-        </button>
+    <div className="flex flex-col gap-5">
+      {/* Section 1 — shop-specific avatars, only when the shop has any. */}
+      {hasShopAvatars && (
+        <section>
+          <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
+            Íconos del shop
+          </p>
+          <div
+            className="grid gap-2"
+            style={{
+              gridTemplateColumns: `repeat(auto-fill, minmax(${size + 12}px, 1fr))`,
+            }}
+          >
+            {sortedShopAvatars.map(av => {
+              const selected = value === av.image_url
+              return (
+                <button
+                  key={av.id}
+                  type="button"
+                  onClick={() => onChange(av.image_url)}
+                  aria-label={av.label}
+                  aria-pressed={selected}
+                  title={av.label}
+                  className={`relative flex items-center justify-center rounded-full overflow-hidden transition-transform active:scale-95 bg-white ${
+                    selected ? 'ring-2 ring-white ring-offset-2 ring-offset-nxtup-bg' : ''
+                  }`}
+                  style={{ width: size, height: size }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={av.image_url}
+                    alt=""
+                    width={size}
+                    height={size}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              )
+            })}
+          </div>
+        </section>
       )}
-      {AVATARS.map(av => {
-        const selected = value === av.id
-        // Rich avatars are self-contained: their SVG includes the
-        // circular surface, so the button itself just provides the
-        // tap target and a selection ring. Stroke avatars use the
-        // legacy dark-disc treatment.
-        if (av.style === 'rich') {
-          return (
+
+      {/* Section 2 — generic stroke pool. Always shown. The "no avatar"
+          clear button lives at the front of this section so it's still
+          reachable even when a shop has its own custom icons. */}
+      <section>
+        {hasShopAvatars && (
+          <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
+            Genéricos
+          </p>
+        )}
+        <div
+          className="grid gap-2"
+          style={{
+            gridTemplateColumns: `repeat(auto-fill, minmax(${size + 12}px, 1fr))`,
+          }}
+        >
+          {allowClear && (
             <button
-              key={av.id}
               type="button"
-              onClick={() => onChange(av.id)}
-              aria-label={av.label}
-              aria-pressed={selected}
-              title={av.label}
-              className={`relative flex items-center justify-center rounded-full transition-transform active:scale-95 ${
-                selected ? 'ring-2 ring-white ring-offset-2 ring-offset-nxtup-bg' : ''
+              onClick={() => onChange(null)}
+              aria-label="No avatar"
+              aria-pressed={value === null}
+              className={`flex items-center justify-center rounded-full border transition-colors ${
+                value === null
+                  ? 'border-white text-white'
+                  : 'border-nxtup-dim text-nxtup-muted hover:border-nxtup-muted'
               }`}
               style={{ width: size, height: size }}
             >
-              <svg viewBox="0 0 100 100" width={size} height={size}>
-                {av.render()}
+              <svg viewBox="0 0 24 24" width={size * 0.45} height={size * 0.45}>
+                <path {...STROKE} d="M5 5l14 14M19 5 5 19" />
               </svg>
             </button>
-          )
-        }
-        return (
-          <button
-            key={av.id}
-            type="button"
-            onClick={() => onChange(av.id)}
-            aria-label={av.label}
-            aria-pressed={selected}
-            title={av.label}
-            className={`flex items-center justify-center rounded-full border transition-colors ${
-              selected
-                ? 'border-white text-white bg-nxtup-line'
-                : 'border-nxtup-dim text-nxtup-muted hover:text-white hover:border-nxtup-muted'
-            }`}
-            style={{ width: size, height: size }}
-          >
-            <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55}>
-              {av.render()}
-            </svg>
-          </button>
-        )
-      })}
+          )}
+          {AVATARS.map(av => {
+            const selected = value === av.id
+            // Rich avatars (if any) are self-contained — see Avatar
+            // for the same branching. Stroke avatars use the legacy
+            // dark-disc treatment.
+            if (av.style === 'rich') {
+              return (
+                <button
+                  key={av.id}
+                  type="button"
+                  onClick={() => onChange(av.id)}
+                  aria-label={av.label}
+                  aria-pressed={selected}
+                  title={av.label}
+                  className={`relative flex items-center justify-center rounded-full transition-transform active:scale-95 ${
+                    selected ? 'ring-2 ring-white ring-offset-2 ring-offset-nxtup-bg' : ''
+                  }`}
+                  style={{ width: size, height: size }}
+                >
+                  <svg viewBox="0 0 100 100" width={size} height={size}>
+                    {av.render()}
+                  </svg>
+                </button>
+              )
+            }
+            return (
+              <button
+                key={av.id}
+                type="button"
+                onClick={() => onChange(av.id)}
+                aria-label={av.label}
+                aria-pressed={selected}
+                title={av.label}
+                className={`flex items-center justify-center rounded-full border transition-colors ${
+                  selected
+                    ? 'border-white text-white bg-nxtup-line'
+                    : 'border-nxtup-dim text-nxtup-muted hover:text-white hover:border-nxtup-muted'
+                }`}
+                style={{ width: size, height: size }}
+              >
+                <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55}>
+                  {av.render()}
+                </svg>
+              </button>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }

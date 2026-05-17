@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { isAvatarId, type AvatarId } from '@/components/avatars'
+import { isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
   buildHeldPositions,
@@ -22,7 +22,7 @@ export type Shop = {
 export type Barber = {
   id: string
   name: string
-  avatar: AvatarId | null
+  avatar: string | null
   status: 'available' | 'busy' | 'break' | 'offline'
   available_since: string | null
   break_started_at: string | null
@@ -52,7 +52,7 @@ export default function DeviceGrid({
   const [barbers, setBarbers] = useState<Barber[]>(
     initialBarbers.map(b => ({
       ...b,
-      avatar: isAvatarId(b.avatar) ? b.avatar : null,
+      avatar: isRenderableAvatar(b.avatar) ? b.avatar : null,
     })),
   )
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
@@ -81,7 +81,7 @@ export default function DeviceGrid({
         setBarbers(
           (b as unknown[]).map(r => {
             const row = r as { avatar?: unknown } & Omit<Barber, 'avatar'>
-            return { ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null }
+            return { ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null }
           }),
         )
       if (e) setEntries(e as Entry[])

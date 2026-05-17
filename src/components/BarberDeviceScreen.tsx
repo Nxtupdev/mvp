@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AvatarId } from '@/components/avatars'
+// Avatar field is broadened to plain string so URL-based shop avatars
+// (migration 015) flow through the device screen unchanged.
 
 // ──────────────────────────────────────────────────────────────
 // Shared types — used by /devices simulator AND the per-barber
@@ -12,7 +13,7 @@ import type { AvatarId } from '@/components/avatars'
 export type BarberDeviceData = {
   id: string
   name: string
-  avatar: AvatarId | null
+  avatar: string | null
   status: 'available' | 'busy' | 'break' | 'offline'
   available_since: string | null
   break_started_at: string | null

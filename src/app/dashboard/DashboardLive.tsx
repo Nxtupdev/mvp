@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ShopLogo from '@/components/ShopLogo'
-import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
   buildHeldPositions,
@@ -24,7 +24,7 @@ type Barber = {
   id: string
   name: string
   status: 'available' | 'busy' | 'break' | 'offline'
-  avatar: AvatarId | null
+  avatar: string | null
   available_since: string | null
   break_held_since: string | null
   // Set by the API in 'not_guaranteed' break_mode shops once any
@@ -114,7 +114,7 @@ export default function DashboardLive({
         setBarbers(
           (b as unknown[]).map(r => {
             const row = r as { avatar?: unknown } & Omit<Barber, 'avatar'>
-            return { ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null }
+            return { ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null }
           }),
         )
       if (s) setShop(s as Shop)

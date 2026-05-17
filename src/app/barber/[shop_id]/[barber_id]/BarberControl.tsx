@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { isAvatarId } from '@/components/avatars'
+import { isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
   buildHeldPositions,
@@ -39,7 +39,7 @@ export default function BarberControl({
 }) {
   const [barber, setBarber] = useState<BarberDeviceData>({
     ...initialBarber,
-    avatar: isAvatarId(initialBarber.avatar) ? initialBarber.avatar : null,
+    avatar: isRenderableAvatar(initialBarber.avatar) ? initialBarber.avatar : null,
   })
   const [calledClient, setCalledClient] =
     useState<DeviceClient>(initialCalledClient)
@@ -65,7 +65,7 @@ export default function BarberControl({
           BarberDeviceData,
           'avatar'
         >
-        setBarber({ ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null })
+        setBarber({ ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null })
       }
     }
 

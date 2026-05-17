@@ -7,8 +7,8 @@ import ShopLogo from '@/components/ShopLogo'
 import {
   Avatar,
   AvatarPicker,
-  isAvatarId,
-  type AvatarId,
+  isRenderableAvatar,
+  type ShopAvatar,
 } from '@/components/avatars'
 import { InstallButton } from '@/components/InstallButton'
 import { buildBarberOrder, buildHeldPositions } from '@/lib/queue-order'
@@ -37,7 +37,8 @@ type Barber = {
   id: string
   name: string
   status: Status
-  avatar: AvatarId | null
+  // Widened from AvatarId so URL-style shop avatars round-trip.
+  avatar: string | null
   available_since: string | null
   break_started_at: string | null
   break_held_since: string | null
@@ -69,6 +70,7 @@ export default function BarberDashboard({
   initialPeers,
   initialCalledClient,
   initialCurrentClient,
+  shopAvatars = [],
 }: {
   shopId: string
   shop: Shop
@@ -79,15 +81,19 @@ export default function BarberDashboard({
   // initialCutsToday kept in the page-level fetch for forward compat;
   // we just don't surface it on screen right now.
   initialCutsToday?: number
+  // Shop-specific custom icons (migration 015). Passed through to
+  // the avatar picker so the barber sees their shop's bespoke set
+  // ahead of the generic stroke pool.
+  shopAvatars?: ShopAvatar[]
 }) {
   const [barber, setBarber] = useState<Barber>({
     ...initialBarber,
-    avatar: isAvatarId(initialBarber.avatar) ? initialBarber.avatar : null,
+    avatar: isRenderableAvatar(initialBarber.avatar) ? initialBarber.avatar : null,
   })
   const [peers, setPeers] = useState<Peer[]>(
     initialPeers.map(p => ({
       ...p,
-      avatar: isAvatarId(p.avatar) ? p.avatar : null,
+      avatar: isRenderableAvatar(p.avatar) ? p.avatar : null,
     })),
   )
   const [calledClient, setCalledClient] =
@@ -113,7 +119,7 @@ export default function BarberDashboard({
         .single()
       if (data) {
         const row = data as { avatar?: unknown } & Omit<Barber, 'avatar'>
-        setBarber({ ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null })
+        setBarber({ ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null })
       }
     }
 
@@ -132,7 +138,7 @@ export default function BarberDashboard({
         setPeers(
           (data as unknown[]).map(r => {
             const row = r as { avatar?: unknown } & Omit<Barber, 'avatar'>
-            return { ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null }
+            return { ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null }
           }),
         )
       }
@@ -225,7 +231,7 @@ export default function BarberDashboard({
   }
 
   // ── Avatar picker save ──────────────────────────────────────────
-  async function saveAvatar(next: AvatarId | null) {
+  async function saveAvatar(next: string | null) {
     if (savingAvatar) return
     setSavingAvatar(true)
     setError('')
@@ -362,6 +368,7 @@ export default function BarberDashboard({
           onChange={saveAvatar}
           onClose={() => setPickerOpen(false)}
           saving={savingAvatar}
+          shopAvatars={shopAvatars}
         />
       )}
     </main>
@@ -559,11 +566,13 @@ function AvatarPickerModal({
   onChange,
   onClose,
   saving,
+  shopAvatars,
 }: {
-  value: AvatarId | null
-  onChange: (next: AvatarId | null) => void
+  value: string | null
+  onChange: (next: string | null) => void
   onClose: () => void
   saving: boolean
+  shopAvatars: ShopAvatar[]
 }) {
   return (
     <div
@@ -589,7 +598,12 @@ function AvatarPickerModal({
             Cerrar
           </button>
         </div>
-        <AvatarPicker value={value} onChange={onChange} size={48} />
+        <AvatarPicker
+          value={value}
+          onChange={onChange}
+          size={48}
+          shopAvatars={shopAvatars}
+        />
         {saving && (
           <p className="text-nxtup-muted text-xs mt-4 text-center">
             Guardando...

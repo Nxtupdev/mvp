@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { shopDayStart } from '@/lib/shop-time'
 
 type Entry = {
@@ -15,7 +15,7 @@ type Entry = {
 type Barber = {
   id: string
   name: string
-  avatar: AvatarId | null
+  avatar: string | null
 }
 
 export default async function StatsPage() {
@@ -75,7 +75,7 @@ export default async function StatsPage() {
   const allBarbers: Barber[] = (barbers ?? []).map(b => ({
     id: b.id,
     name: b.name,
-    avatar: isAvatarId(b.avatar) ? b.avatar : null,
+    avatar: isRenderableAvatar(b.avatar) ? b.avatar : null,
   }))
 
   // ── Card 1: Walk-ins ────────────────────────────────────────

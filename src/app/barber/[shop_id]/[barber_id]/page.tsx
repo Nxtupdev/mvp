@@ -14,40 +14,52 @@ export default async function BarberPage({
   const sinceMidnight = new Date()
   sinceMidnight.setHours(0, 0, 0, 0)
 
-  const [{ data: barber }, { data: shop }, { data: peers }, { count: cutsToday }] =
-    await Promise.all([
-      supabase
-        .from('barbers')
-        .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
-        )
-        .eq('id', barber_id)
-        .eq('shop_id', shop_id)
-        .single(),
-      supabase
-        .from('shops')
-        // break_mode is read from the new migration 014 column. Older
-        // rows that haven't migrated yet return null — handled below.
-        .select(
-          'id, name, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode',
-        )
-        .eq('id', shop_id)
-        .single(),
-      supabase
-        .from('barbers')
-        .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
-        )
-        .eq('shop_id', shop_id)
-        .neq('status', 'offline')
-        .order('name'),
-      supabase
-        .from('queue_entries')
-        .select('*', { count: 'exact', head: true })
-        .eq('barber_id', barber_id)
-        .eq('status', 'done')
-        .gte('completed_at', sinceMidnight.toISOString()),
-    ])
+  const [
+    { data: barber },
+    { data: shop },
+    { data: peers },
+    { count: cutsToday },
+    { data: shopAvatars },
+  ] = await Promise.all([
+    supabase
+      .from('barbers')
+      .select(
+        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+      )
+      .eq('id', barber_id)
+      .eq('shop_id', shop_id)
+      .single(),
+    supabase
+      .from('shops')
+      // break_mode is read from the new migration 014 column. Older
+      // rows that haven't migrated yet return null — handled below.
+      .select(
+        'id, name, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode',
+      )
+      .eq('id', shop_id)
+      .single(),
+    supabase
+      .from('barbers')
+      .select(
+        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+      )
+      .eq('shop_id', shop_id)
+      .neq('status', 'offline')
+      .order('name'),
+    supabase
+      .from('queue_entries')
+      .select('*', { count: 'exact', head: true })
+      .eq('barber_id', barber_id)
+      .eq('status', 'done')
+      .gte('completed_at', sinceMidnight.toISOString()),
+    // shop_avatars (migration 015). Returns empty if the table is
+    // missing on older deploys — falls through to generics-only.
+    supabase
+      .from('shop_avatars')
+      .select('id, label, image_url, sort_order')
+      .eq('shop_id', shop_id)
+      .order('sort_order', { ascending: true }),
+  ])
 
   if (!barber || !shop) notFound()
 
@@ -87,6 +99,7 @@ export default async function BarberPage({
       initialCalledClient={calledClient}
       initialCurrentClient={currentClient}
       initialCutsToday={cutsToday ?? 0}
+      shopAvatars={shopAvatars ?? []}
     />
   )
 }

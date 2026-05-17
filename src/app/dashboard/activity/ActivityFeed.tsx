@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import { Avatar, isRenderableAvatar } from '@/components/avatars'
 
 type Action =
   | 'state_change'
@@ -24,7 +24,7 @@ type Event = {
 type Barber = {
   id: string
   name: string
-  avatar: AvatarId | null
+  avatar: string | null
 }
 
 type Shop = { id: string; name: string }
@@ -76,7 +76,7 @@ export default function ActivityFeed({
     () =>
       initialBarbers.map(b => ({
         ...b,
-        avatar: isAvatarId(b.avatar) ? b.avatar : null,
+        avatar: isRenderableAvatar(b.avatar) ? b.avatar : null,
       })),
     [initialBarbers],
   )

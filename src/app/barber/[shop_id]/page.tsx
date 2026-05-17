@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ShopLogo from '@/components/ShopLogo'
-import { Avatar, isAvatarId } from '@/components/avatars'
+import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { buildBarberOrder, sortByQueueOrder } from '@/lib/queue-order'
 
 const STATUS_DOT: Record<string, string> = {
@@ -77,7 +77,7 @@ export default async function BarberSelectPage({
                   #{pos}
                 </span>
                 <Avatar
-                  avatar={isAvatarId(b.avatar) ? b.avatar : null}
+                  avatar={isRenderableAvatar(b.avatar) ? b.avatar : null}
                   name={b.name}
                   size={40}
                 />
@@ -111,7 +111,7 @@ export default async function BarberSelectPage({
                     —
                   </span>
                   <Avatar
-                    avatar={isAvatarId(b.avatar) ? b.avatar : null}
+                    avatar={isRenderableAvatar(b.avatar) ? b.avatar : null}
                     name={b.name}
                     size={40}
                   />

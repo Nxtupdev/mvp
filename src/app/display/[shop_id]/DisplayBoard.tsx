@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Logo from '@/components/Logo'
 import ShopLogo from '@/components/ShopLogo'
-import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { buildHeldPositions } from '@/lib/queue-order'
 
 type Entry = {
@@ -20,7 +20,7 @@ type Barber = {
   id: string
   name: string
   status: 'available' | 'busy' | 'break' | 'offline'
-  avatar: AvatarId | null
+  avatar: string | null
   available_since: string | null
   break_started_at: string | null
   break_held_since: string | null
@@ -188,7 +188,7 @@ export default function DisplayBoard({
         setBarbers(
           (data as unknown[]).map(r => {
             const row = r as { avatar?: unknown } & Omit<Barber, 'avatar'>
-            return { ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null }
+            return { ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null }
           }),
         )
       }

@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ShopLogo from '@/components/ShopLogo'
 import TapButton from '@/components/TapButton'
-import { Avatar, isAvatarId, type AvatarId } from '@/components/avatars'
+import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { buildBarberOrder } from '@/lib/queue-order'
 
 type Barber = {
   id: string
   name: string
   status: string
-  avatar: AvatarId | null
+  avatar: string | null
   available_since: string | null
 }
 type Shop = {
@@ -123,7 +123,7 @@ export default function CheckInForm({
         setBarbers(
           (b as unknown[]).map(r => {
             const row = r as { avatar?: unknown } & Omit<Barber, 'avatar'>
-            return { ...row, avatar: isAvatarId(row.avatar) ? row.avatar : null }
+            return { ...row, avatar: isRenderableAvatar(row.avatar) ? row.avatar : null }
           }),
         )
       setQueueCount(qc ?? 0)
