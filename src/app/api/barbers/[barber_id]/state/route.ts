@@ -68,10 +68,14 @@ export async function PATCH(
 
   if (!shop) return Response.json({ error: 'Shop no encontrado' }, { status: 404 })
 
-  // ── Anti-cheat: only ACTIVE transitions need a presence check ──
-  // Going TO 'available' is the cheating vector — that's how a barber
-  // claims a FIFO position. Going TO busy/break/offline loses position,
-  // so we let those happen from anywhere.
+  // ── Anti-cheat: ALL transitions need a presence check ────────
+  //
+  // History: this used to gate only `→ available` ("you can't claim a
+  // turn from outside"). But that left other transitions unprotected:
+  // anyone with a barber's URL could remotely set them BUSY, BREAK or
+  // OFFLINE from anywhere in the world — perfect sabotage tool for a
+  // disgruntled ex-barber or a competing shop. So we now require the
+  // presence check for any non-device request, regardless of target.
   //
   // Bypasses (in order):
   //   1. The physical NXT TAP device — its token+shop_id pair is its
@@ -81,13 +85,15 @@ export async function PATCH(
   //
   // Otherwise: the request's public IP must match shop.trusted_public_ip
   // exactly. The owner registers that IP from inside the shop in Settings.
-  if (newStatus === 'available' && !isDeviceRequest && shop.trusted_public_ip) {
+  if (!isDeviceRequest && shop.trusted_public_ip) {
     const clientIp = getClientIp(request)
     if (!clientIp || clientIp !== shop.trusted_public_ip) {
       return Response.json(
         {
-          error:
-            'Conectate al WiFi de la barbería para entrar a la fila',
+          // Wording stays user-facing instead of mentioning sabotage —
+          // most of the time this fires on a legitimate barber who
+          // just walked outside or is on cellular instead of WiFi.
+          error: 'Conectate al WiFi de la barbería para usar tu panel',
           code: 'not_in_shop',
           client_ip: clientIp,
         },
