@@ -278,6 +278,14 @@ export default function BarberDashboard({
   // ── Render ──────────────────────────────────────────────────────
   return (
     <main className="min-h-[100dvh] flex flex-col max-w-md mx-auto w-full">
+      {/* PWA install banner — high-visibility so barbers who never
+          scroll to the footer still get a chance to install. The
+          original prominent button in the footer stays too, as a
+          backstop. Banner auto-hides once installed or when the
+          browser doesn't support PWA install (e.g. WhatsApp's
+          in-app webview can't install). */}
+      <InstallButton variant="banner" />
+
       {/* App bar — edge-to-edge "chrome" at the top of the standalone
           PWA so it feels like a real installed app rather than a
           floating web page. Sticky so it stays put if the viewport is
