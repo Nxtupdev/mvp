@@ -4,6 +4,7 @@ import Logo from '@/components/Logo'
 import { createClient } from '@/lib/supabase/server'
 import { InstallButton } from '@/components/InstallButton'
 import DashboardNav from './DashboardNav'
+import MobileTabBar from './MobileTabBar'
 
 export const metadata = {
   title: 'Dashboard — NXTUP',
@@ -47,7 +48,18 @@ export default async function DashboardLayout({
         <DashboardNav />
       </header>
 
-      {children}
+      {/* Bottom padding only on mobile to clear the fixed MobileTabBar.
+          ~5rem covers the bar (tabs + safe-area inset for iPhone home
+          indicator). md+ uses zero because the desktop nav lives in
+          the top header. */}
+      <div className="flex-1 flex flex-col pb-20 md:pb-0">
+        {children}
+      </div>
+
+      {/* Fixed bottom tab bar — only renders on mobile via internal
+          md:hidden. Keeps the dashboard feeling like a real installed
+          app rather than a wrapped webpage. */}
+      <MobileTabBar />
     </div>
   )
 }
