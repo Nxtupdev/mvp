@@ -65,7 +65,7 @@ export default function DeviceGrid({
         supabase
           .from('barbers')
           .select(
-            'id, name, avatar, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+            'id, name, avatar, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
           )
           .eq('shop_id', shop.id)
           .order('name'),

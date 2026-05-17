@@ -27,6 +27,10 @@ type Barber = {
   avatar: AvatarId | null
   available_since: string | null
   break_held_since: string | null
+  // Set by the API in 'not_guaranteed' break_mode shops once any
+  // barber below this one completes a walk-in during their break.
+  // buildHeldPositions() reads this to drop their "Vuelve a #N" badge.
+  break_invalidated?: boolean | null
 }
 
 type Shop = {
@@ -96,7 +100,7 @@ export default function DashboardLive({
           .order('position', { ascending: true }),
         supabase
           .from('barbers')
-          .select('id, name, status, avatar, available_since, break_held_since')
+          .select('id, name, status, avatar, available_since, break_held_since, break_invalidated')
           .eq('shop_id', shop.id)
           .order('name'),
         supabase

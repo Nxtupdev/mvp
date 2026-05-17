@@ -27,6 +27,10 @@ type Shop = {
   next_break_minutes: number
   keep_position_on_break: boolean
   break_position_grace_minutes: number
+  // 'guaranteed' (default) or 'not_guaranteed' — see migration 014.
+  // Drives whether BreakStatus shows a "puede perderse si te brincan"
+  // warning + whether a forfeited reservation surfaces visibly.
+  break_mode: 'guaranteed' | 'not_guaranteed'
 }
 
 type Barber = {
@@ -39,6 +43,9 @@ type Barber = {
   break_held_since: string | null
   break_minutes_at_start: number | null
   breaks_taken_today: number | null
+  // True once any barber below us (snapshot at break start) completed
+  // a walk-in. Only set when shop.break_mode = 'not_guaranteed'.
+  break_invalidated?: boolean | null
 }
 
 type Peer = Barber
@@ -100,7 +107,7 @@ export default function BarberDashboard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
         )
         .eq('id', barber.id)
         .single()
@@ -116,7 +123,7 @@ export default function BarberDashboard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
         )
         .eq('shop_id', shopId)
         .neq('status', 'offline')
@@ -448,17 +455,41 @@ function BreakStatus({
   const sign = remaining < 0 ? '+' : ''
   const formatted = `${sign}${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 
-  const willHold =
-    shop.keep_position_on_break &&
+  // ── Reservation status, surfaced to the barber in real time ────
+  //
+  // Three possible states while on break:
+  //   1. Reservation forfeited (mode='not_guaranteed' AND someone
+  //      below already completed a walk-in) — red, unambiguous.
+  //   2. Within break+grace AND not forfeited — green "Vuelve a #X"
+  //      (with an extra warning hint for 'not_guaranteed' mode so
+  //      the barber knows it could still flip to forfeited).
+  //   3. Past grace OR no held position — quiet, no return badge.
+  const withinTime =
     heldPosition !== undefined &&
     remaining > -shop.break_position_grace_minutes * 60
+
+  const forfeited =
+    shop.break_mode === 'not_guaranteed' && barber.break_invalidated === true
 
   return (
     <p className="text-nxtup-break text-sm font-medium tabular-nums">
       Break · {formatted}
-      {willHold && (
-        <span className="text-nxtup-active ml-2">Vuelve a #{heldPosition}</span>
-      )}
+      {forfeited ? (
+        // Past-tense, in red. "You already lost it" — no ambiguity.
+        <span className="text-nxtup-busy ml-2 font-bold">Perdiste el turno</span>
+      ) : withinTime ? (
+        <span className="text-nxtup-active ml-2">
+          Vuelve a #{heldPosition}
+          {shop.break_mode === 'not_guaranteed' && (
+            // Subtle reminder of the "use it or lose it" rule. Only
+            // shown when the rule is active so guaranteed-mode shops
+            // stay clean.
+            <span className="text-nxtup-muted text-xs ml-1 font-normal">
+              (si nadie te brinca)
+            </span>
+          )}
+        </span>
+      ) : null}
     </p>
   )
 }

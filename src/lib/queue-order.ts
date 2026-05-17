@@ -25,6 +25,14 @@ export type BarberOrderable = {
    * back to. Null otherwise.
    */
   break_held_since?: string | null
+  /**
+   * Set by the API only when `shops.break_mode = 'not_guaranteed'`:
+   * once any barber BELOW this one (snapshot at break time) completes
+   * a walk-in, this flips to true and the reservation is dead even
+   * though `break_held_since` still has a value (we keep the timestamp
+   * for the activity log). Treat as "reservation forfeited."
+   */
+  break_invalidated?: boolean | null
 }
 
 /**
@@ -79,7 +87,14 @@ export function buildHeldPositions(
         ts: new Date(b.available_since).getTime(),
         held: false,
       })
-    } else if (b.status === 'break' && b.break_held_since) {
+    } else if (
+      b.status === 'break' &&
+      b.break_held_since &&
+      // Reservation already forfeited under the 'not_guaranteed'
+      // policy — don't even rank them. The UI will show "perdió el
+      // turno" separately based on this same flag.
+      !b.break_invalidated
+    ) {
       timeline.push({
         id: b.id,
         ts: new Date(b.break_held_since).getTime(),

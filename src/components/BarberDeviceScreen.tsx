@@ -19,13 +19,22 @@ export type BarberDeviceData = {
   break_held_since: string | null
   break_minutes_at_start: number | null
   breaks_taken_today: number | null
+  // True when shop.break_mode='not_guaranteed' AND a barber below
+  // has completed a walk-in during this break. Drives the "POSICIÓN
+  // PERDIDA" badge below.
+  break_invalidated?: boolean | null
 }
 
 export type ShopDeviceConfig = {
   first_break_minutes: number
   next_break_minutes: number
+  // Legacy toggle — kept for back-compat with old fetches, but the
+  // device screen now drives the badge from break_mode instead.
   keep_position_on_break: boolean
   break_position_grace_minutes: number
+  // Added in migration 014. Optional so consumers on the old schema
+  // don't break — defaults to 'guaranteed' (= keep-the-spot semantics).
+  break_mode?: 'guaranteed' | 'not_guaranteed'
 }
 
 export type DeviceClient = {
@@ -396,10 +405,17 @@ function BreakBody({
   const ss = Math.abs(remainingSec) % 60
   const formatted = `${remainingSec < 0 ? '+' : ''}${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 
-  const showHeld =
-    shop.keep_position_on_break &&
-    heldPosition !== undefined &&
-    !overGrace
+  // Mirror the same three-state logic as the web BarberDashboard:
+  //   - forfeited (mode='not_guaranteed' + below-barber completed)
+  //   - within time + has held position → show "VUELVE A #N"
+  //   - past grace OR no held position → fall through
+  // We no longer gate on `keep_position_on_break` because the new
+  // break_mode column is the source of truth; on old shops without
+  // break_mode it defaults to 'guaranteed' which behaves identically
+  // to the legacy "kop=true" path.
+  const forfeited =
+    shop.break_mode === 'not_guaranteed' && barber.break_invalidated === true
+  const showHeld = heldPosition !== undefined && !overGrace && !forfeited
 
   return (
     <>
@@ -420,7 +436,13 @@ function BreakBody({
         >
           VUELVE A #{heldPosition}
         </p>
-      ) : overGrace && shop.keep_position_on_break ? (
+      ) : forfeited ? (
+        <p
+          className={`text-nxtup-busy tracking-wider font-bold ${hintSize}`}
+        >
+          POSICIÓN PERDIDA
+        </p>
+      ) : overGrace ? (
         <p
           className={`text-nxtup-busy tracking-wider font-bold ${hintSize}`}
         >

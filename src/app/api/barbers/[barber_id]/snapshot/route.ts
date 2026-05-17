@@ -34,7 +34,7 @@ export async function GET(
   const { data: barber } = await supabase
     .from('barbers')
     .select(
-      'id, shop_id, name, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+      'id, shop_id, name, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
     )
     .eq('id', barber_id)
     .single()

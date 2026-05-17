@@ -179,7 +179,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
         )
         .eq('shop_id', shop.id)
         .neq('status', 'offline')

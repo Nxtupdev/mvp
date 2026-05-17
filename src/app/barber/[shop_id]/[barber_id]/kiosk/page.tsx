@@ -22,7 +22,7 @@ export default async function BarberKioskPage({
     supabase
       .from('barbers')
       .select(
-        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
       )
       .eq('id', barber_id)
       .eq('shop_id', shop_id)
@@ -30,14 +30,14 @@ export default async function BarberKioskPage({
     supabase
       .from('shops')
       .select(
-        'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes',
+        'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode',
       )
       .eq('id', shop_id)
       .single(),
     supabase
       .from('barbers')
       .select(
-        'id, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+        'id, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
       )
       .eq('shop_id', shop_id),
   ])

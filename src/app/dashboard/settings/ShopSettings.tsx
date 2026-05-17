@@ -4,14 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+type BreakMode = 'guaranteed' | 'not_guaranteed'
+
 type Shop = {
   id: string
   name: string
   max_queue_size: number
   first_break_minutes: number
   next_break_minutes: number
+  // Legacy toggle — kept on the type for back-compat with rows that
+  // still set it, but the new break_mode field is what the API reads.
   keep_position_on_break: boolean
   break_position_grace_minutes: number
+  break_mode: BreakMode
   trusted_public_ip: string | null
   timezone: string
   is_open: boolean
@@ -48,7 +53,7 @@ export default function ShopSettings({
   const [maxQueue, setMaxQueue] = useState(initial.max_queue_size)
   const [firstBreak, setFirstBreak] = useState(initial.first_break_minutes)
   const [nextBreak, setNextBreak] = useState(initial.next_break_minutes)
-  const [keepPosition, setKeepPosition] = useState(initial.keep_position_on_break)
+  const [breakMode, setBreakMode] = useState<BreakMode>(initial.break_mode ?? 'guaranteed')
   const [graceMinutes, setGraceMinutes] = useState(initial.break_position_grace_minutes)
   const [timezone, setTimezone] = useState(initial.timezone || 'America/New_York')
   const [saving, setSaving] = useState(false)
@@ -60,7 +65,7 @@ export default function ShopSettings({
     maxQueue !== shop.max_queue_size ||
     firstBreak !== shop.first_break_minutes ||
     nextBreak !== shop.next_break_minutes ||
-    keepPosition !== shop.keep_position_on_break ||
+    breakMode !== shop.break_mode ||
     graceMinutes !== shop.break_position_grace_minutes ||
     timezone !== shop.timezone
 
@@ -82,11 +87,8 @@ export default function ShopSettings({
       changes.first_break_minutes = { from: shop.first_break_minutes, to: firstBreak }
     if (nextBreak !== shop.next_break_minutes)
       changes.next_break_minutes = { from: shop.next_break_minutes, to: nextBreak }
-    if (keepPosition !== shop.keep_position_on_break)
-      changes.keep_position_on_break = {
-        from: shop.keep_position_on_break,
-        to: keepPosition,
-      }
+    if (breakMode !== shop.break_mode)
+      changes.break_mode = { from: shop.break_mode, to: breakMode }
     if (graceMinutes !== shop.break_position_grace_minutes)
       changes.break_position_grace_minutes = {
         from: shop.break_position_grace_minutes,
@@ -102,13 +104,13 @@ export default function ShopSettings({
         max_queue_size: maxQueue,
         first_break_minutes: firstBreak,
         next_break_minutes: nextBreak,
-        keep_position_on_break: keepPosition,
+        break_mode: breakMode,
         break_position_grace_minutes: graceMinutes,
         timezone,
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, is_open, logo_url',
       )
       .single()
 
@@ -200,46 +202,44 @@ export default function ShopSettings({
             posición FIFO de un barbero cuando toma break.
           </p>
 
-          <label
-            htmlFor="keep-position-toggle"
-            className="flex items-start gap-3 border border-nxtup-line rounded-xl px-4 py-3 cursor-pointer hover:border-nxtup-dim transition-colors"
-          >
-            <input
-              id="keep-position-toggle"
-              type="checkbox"
-              checked={keepPosition}
-              onChange={e => setKeepPosition(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-white cursor-pointer"
-            />
-            <div className="flex-1">
-              <p className="text-white font-medium text-sm">
-                Mantener posición durante break
-              </p>
-              <p className="text-nxtup-muted text-xs mt-1 leading-relaxed">
-                Si está activo, el barbero que toma break conserva su posición FIFO
-                y vuelve a la misma cuando regresa — siempre que no exceda el tiempo
-                de break + minutos de gracia. Si lo excede, cae al final de la cola.
-              </p>
-            </div>
-          </label>
+          {/* Two-radio picker. The wording is intentionally direct so
+              the owner reads the trade-off without ambiguity — this
+              setting affects every barber's daily reality. */}
+          <fieldset className="flex flex-col gap-2">
+            <legend className="sr-only">Política del turno durante break</legend>
 
-          {keepPosition && (
-            <div className="mt-4">
-              <Field
-                label="Minutos de gracia post-break"
-                hint="Tiempo extra después del break antes de perder la posición"
-              >
-                <input
-                  type="number"
-                  min={0}
-                  max={60}
-                  value={graceMinutes}
-                  onChange={e => setGraceMinutes(Number(e.target.value))}
-                  className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
-                />
-              </Field>
-            </div>
-          )}
+            <BreakModeOption
+              value="guaranteed"
+              selected={breakMode === 'guaranteed'}
+              onChange={setBreakMode}
+              title="Turno garantizado"
+              body="El barbero conserva su posición FIFO mientras esté en break y vuelva dentro del tiempo + gracia. Predictable: si vuelve a tiempo, recupera el turno pase lo que pase."
+            />
+
+            <BreakModeOption
+              value="not_guaranteed"
+              selected={breakMode === 'not_guaranteed'}
+              onChange={setBreakMode}
+              title="Turno no garantizado"
+              body="Igual al anterior, PERO si alguien que estaba debajo en la fila toma un walk-in y lo termina durante el break, el barbero pierde su turno aunque regrese a tiempo. Empuja a tomar break en momentos tranquilos."
+            />
+          </fieldset>
+
+          <div className="mt-4">
+            <Field
+              label="Minutos de gracia post-break"
+              hint="Tiempo extra después del break antes de perder la posición. Aplica a ambos modos."
+            >
+              <input
+                type="number"
+                min={0}
+                max={60}
+                value={graceMinutes}
+                onChange={e => setGraceMinutes(Number(e.target.value))}
+                className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
+              />
+            </Field>
+          </div>
         </div>
 
         <Field
@@ -395,7 +395,7 @@ function LogoSection({
       .update({ logo_url: cacheBusted })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, is_open, logo_url',
       )
       .single()
 
@@ -426,7 +426,7 @@ function LogoSection({
       .update({ logo_url: null })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, timezone, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, is_open, logo_url',
       )
       .single()
 
@@ -698,5 +698,49 @@ function AntiCheatSection({
         {error && <p className="text-nxtup-busy text-sm">{error}</p>}
       </div>
     </section>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// BreakModeOption — one of the two radio-style cards in the
+// Reglas de la cola section. Made a component so the visual
+// treatment stays consistent between the two options without
+// copy-paste drift.
+// ──────────────────────────────────────────────────────────────
+
+function BreakModeOption({
+  value,
+  selected,
+  onChange,
+  title,
+  body,
+}: {
+  value: BreakMode
+  selected: boolean
+  onChange: (next: BreakMode) => void
+  title: string
+  body: string
+}) {
+  return (
+    <label
+      className={`flex items-start gap-3 border rounded-xl px-4 py-3 cursor-pointer transition-colors ${
+        selected
+          ? 'border-white bg-nxtup-line/50'
+          : 'border-nxtup-line hover:border-nxtup-dim'
+      }`}
+    >
+      <input
+        type="radio"
+        name="break-mode"
+        value={value}
+        checked={selected}
+        onChange={() => onChange(value)}
+        className="mt-1 h-4 w-4 accent-white cursor-pointer flex-shrink-0"
+      />
+      <div className="flex-1">
+        <p className="text-white font-medium text-sm">{title}</p>
+        <p className="text-nxtup-muted text-xs mt-1 leading-relaxed">{body}</p>
+      </div>
+    </label>
   )
 }

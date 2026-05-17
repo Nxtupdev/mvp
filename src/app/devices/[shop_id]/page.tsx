@@ -13,7 +13,7 @@ export default async function DevicesPage({
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, logo_url',
+      'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, logo_url',
     )
     .eq('id', shop_id)
     .single()
@@ -22,7 +22,7 @@ export default async function DevicesPage({
   const { data: barbers } = await supabase
     .from('barbers')
     .select(
-      'id, name, avatar, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+      'id, name, avatar, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
     )
     .eq('shop_id', shop_id)
     .order('name')

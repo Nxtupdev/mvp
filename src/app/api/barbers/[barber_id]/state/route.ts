@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getClientIp } from '@/lib/client-ip'
+import { buildBarberOrder } from '@/lib/queue-order'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
 type Status = (typeof VALID)[number]
@@ -37,7 +38,7 @@ export async function PATCH(
   const { data: barber } = await supabase
     .from('barbers')
     .select(
-      'id, shop_id, name, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+      'id, shop_id, name, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidating_barber_ids, break_invalidated',
     )
     .eq('id', barber_id)
     .single()
@@ -60,7 +61,7 @@ export async function PATCH(
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip',
+      'id, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, break_mode',
     )
     .eq('id', barber.shop_id)
     .single()
@@ -130,11 +131,52 @@ export async function PATCH(
       .eq('barber_id', barber_id)
       .in('status', statusesToComplete)
 
+    // ── Invalidate on-break reservations under 'not_guaranteed' ────
+    // If this barber just finished a walk-in (canonical busy → available
+    // transition), any other barber currently on break in the same shop
+    // who had THIS barber in their below-snapshot loses their hold.
+    // We don't gate on shop.break_mode here because non-not_guaranteed
+    // shops never populate `break_invalidating_barber_ids` to begin
+    // with — the `contains` predicate is a natural no-op for them.
+    if (fromStatus === 'busy') {
+      const { error: invalidateErr } = await supabase
+        .from('barbers')
+        .update({ break_invalidated: true })
+        .eq('shop_id', barber.shop_id)
+        .eq('status', 'break')
+        .eq('break_invalidated', false)
+        .contains('break_invalidating_barber_ids', [barber_id])
+      if (invalidateErr) {
+        // Soft-fail: don't block the barber's own state change just
+        // because we couldn't flag others. Surface to logs so we
+        // notice if the migration hasn't been run yet.
+        console.error('[break_invalidated] update failed', {
+          shop_id: barber.shop_id,
+          completing_barber: barber_id,
+          code: invalidateErr.code,
+          message: invalidateErr.message,
+        })
+      }
+    }
+
     // ── Returning from break: maybe restore position ──────────────
+    //
+    // Two ways to lose the reservation:
+    //   1. Exceeded break_minutes + grace (the original rule).
+    //   2. shop.break_mode = 'not_guaranteed' AND someone below took
+    //      a walk-in to completion while we were away — the API set
+    //      `break_invalidated = true` on this row when that happened.
+    //
+    // Note: we no longer gate on `shop.keep_position_on_break`. The
+    // user dropped the "always-lose" mode in favour of the two modes
+    // 'guaranteed' and 'not_guaranteed', so any shop on either mode
+    // gives reservations by default. Existing shops with the legacy
+    // toggle off will silently behave as 'guaranteed'.
     let nextAvailableSince = now
     let positionRestored = false
     let elapsedMin: number | null = null
     let allowedMin: number | null = null
+    let lostReason: 'exceeded_grace' | 'invalidated_by_below' | null = null
 
     if (fromStatus === 'break' && barber.break_held_since && barber.break_started_at) {
       const elapsedMs = Date.now() - new Date(barber.break_started_at).getTime()
@@ -150,9 +192,17 @@ export async function PATCH(
       elapsedMin = elapsed
       allowedMin = allowed
 
-      if (shop.keep_position_on_break && elapsed <= allowed) {
+      const overTime = elapsed > allowed
+      const invalidatedByBelow = barber.break_invalidated === true
+
+      if (!overTime && !invalidatedByBelow) {
         nextAvailableSince = barber.break_held_since
         positionRestored = true
+      } else {
+        // Prefer the more informative reason if both apply: "you got
+        // bumped by a coworker who actually worked" is more actionable
+        // than "you ran out the clock."
+        lostReason = invalidatedByBelow ? 'invalidated_by_below' : 'exceeded_grace'
       }
     }
 
@@ -164,6 +214,10 @@ export async function PATCH(
         break_started_at: null,
         break_held_since: null,
         break_minutes_at_start: null,
+        // Clear the not-guaranteed bookkeeping too — these only have
+        // meaning while the barber is in 'break'.
+        break_invalidating_barber_ids: [],
+        break_invalidated: false,
       })
       .eq('id', barber_id)
 
@@ -185,18 +239,18 @@ export async function PATCH(
             held_since: barber.break_held_since,
             elapsed_minutes: elapsedMin,
             allowed_minutes: allowedMin,
+            break_mode: shop.break_mode,
           },
         })
-      } else if (shop.keep_position_on_break) {
-        // Only log "lost" when the rule was enabled — otherwise there was
-        // no position to keep, so "lost" is meaningless.
+      } else {
         logs.push({
           action: 'position_lost',
           metadata: {
             held_since: barber.break_held_since,
             elapsed_minutes: elapsedMin,
             allowed_minutes: allowedMin,
-            reason: 'exceeded_grace',
+            reason: lostReason ?? 'exceeded_grace',
+            break_mode: shop.break_mode,
           },
         })
       }
@@ -288,14 +342,40 @@ export async function PATCH(
     const breakMinutes =
       nextCount <= 1 ? shop.first_break_minutes : shop.next_break_minutes
 
-    // If the rule is on AND the barber currently has a FIFO position,
-    // park their available_since aside in break_held_since. Otherwise null.
+    // Park their available_since aside in break_held_since whenever
+    // they had a position. Both 'guaranteed' and 'not_guaranteed'
+    // modes give reservations on entry; the difference is only in
+    // whether the reservation can be invalidated by below-barbers.
     const heldSince =
-      shop.keep_position_on_break &&
-      fromStatus === 'available' &&
-      barber.available_since
+      fromStatus === 'available' && barber.available_since
         ? barber.available_since
         : null
+
+    // For 'not_guaranteed' mode: snapshot which barbers were below
+    // this one in the live FIFO at this exact moment. We need to do
+    // this BEFORE the status update because once we flip to 'break'
+    // the barber stops appearing in the FIFO and the snapshot would
+    // be ambiguous. Below = any active barber whose FIFO position is
+    // greater than ours.
+    let invalidatingIds: string[] = []
+    if (shop.break_mode === 'not_guaranteed' && heldSince) {
+      const { data: peers } = await supabase
+        .from('barbers')
+        .select('id, status, available_since')
+        .eq('shop_id', barber.shop_id)
+      if (peers) {
+        const order = buildBarberOrder(
+          peers as { id: string; status: string; available_since: string | null }[],
+        )
+        const myPos = order.get(barber_id)
+        if (myPos !== undefined) {
+          // Anyone with a strictly larger FIFO position is "below" us.
+          invalidatingIds = Array.from(order.entries())
+            .filter(([id, pos]) => id !== barber_id && pos > myPos)
+            .map(([id]) => id)
+        }
+      }
+    }
 
     await supabase
       .from('barbers')
@@ -306,6 +386,10 @@ export async function PATCH(
         break_held_since: heldSince,
         break_minutes_at_start: breakMinutes,
         breaks_taken_today: nextCount,
+        // Snapshot (possibly empty) of who could bump us. Always set
+        // explicitly so a previous break's stale snapshot can't leak.
+        break_invalidating_barber_ids: invalidatingIds,
+        break_invalidated: false,
       })
       .eq('id', barber_id)
 
@@ -317,10 +401,14 @@ export async function PATCH(
         break_number: nextCount,
         break_minutes: breakMinutes,
         held_position_since: heldSince,
+        break_mode: shop.break_mode,
+        invalidating_barbers_count: invalidatingIds.length,
       },
     })
   } else {
-    // offline → reset the per-shift break counter and any held position
+    // offline → reset the per-shift break counter and any held position.
+    // Also wipe the not-guaranteed bookkeeping so an upcoming break
+    // starts from a clean slate.
     await supabase
       .from('barbers')
       .update({
@@ -330,6 +418,8 @@ export async function PATCH(
         break_held_since: null,
         break_minutes_at_start: null,
         breaks_taken_today: 0,
+        break_invalidating_barber_ids: [],
+        break_invalidated: false,
       })
       .eq('id', barber_id)
 
@@ -370,7 +460,7 @@ export async function PATCH(
   const { data: updated } = await supabase
     .from('barbers')
     .select(
-      'id, name, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+      'id, name, status, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
     )
     .eq('id', barber_id)
     .single()

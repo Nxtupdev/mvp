@@ -19,22 +19,24 @@ export default async function BarberPage({
       supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
         )
         .eq('id', barber_id)
         .eq('shop_id', shop_id)
         .single(),
       supabase
         .from('shops')
+        // break_mode is read from the new migration 014 column. Older
+        // rows that haven't migrated yet return null — handled below.
         .select(
-          'id, name, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes',
+          'id, name, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode',
         )
         .eq('id', shop_id)
         .single(),
       supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
         )
         .eq('shop_id', shop_id)
         .neq('status', 'offline')
@@ -48,6 +50,18 @@ export default async function BarberPage({
     ])
 
   if (!barber || !shop) notFound()
+
+  // Defensive default for shops that haven't run migration 014 yet —
+  // keeps the dashboard rendering correctly with the safest behavior
+  // ('guaranteed' = current/legacy semantics).
+  const shopWithMode = {
+    ...shop,
+    break_mode:
+      ((shop as { break_mode?: string }).break_mode as
+        | 'guaranteed'
+        | 'not_guaranteed'
+        | undefined) ?? 'guaranteed',
+  }
 
   const [{ data: calledClient }, { data: currentClient }] = await Promise.all([
     supabase
@@ -67,7 +81,7 @@ export default async function BarberPage({
   return (
     <BarberDashboard
       shopId={shop_id}
-      shop={shop}
+      shop={shopWithMode}
       initialBarber={barber}
       initialPeers={peers ?? []}
       initialCalledClient={calledClient}

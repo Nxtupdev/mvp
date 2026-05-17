@@ -28,6 +28,7 @@ export default async function SettingsPage() {
     next_break_minutes?: number | null
     keep_position_on_break?: boolean | null
     break_position_grace_minutes?: number | null
+    break_mode?: 'guaranteed' | 'not_guaranteed' | null
     trusted_public_ip?: string | null
     timezone?: string | null
     is_open: boolean
@@ -36,7 +37,10 @@ export default async function SettingsPage() {
   const row = shopRaw as ShopRow
 
   // Apply defaults for any missing columns so the client component
-  // always receives a fully-populated Shop.
+  // always receives a fully-populated Shop. break_mode defaults to
+  // 'guaranteed' for shops on the old schema (pre-migration 014) so
+  // the radio renders correctly and nothing changes behaviorally
+  // until they explicitly switch.
   const shop = {
     id: row.id,
     name: row.name,
@@ -45,6 +49,7 @@ export default async function SettingsPage() {
     next_break_minutes: row.next_break_minutes ?? 30,
     keep_position_on_break: row.keep_position_on_break ?? false,
     break_position_grace_minutes: row.break_position_grace_minutes ?? 5,
+    break_mode: (row.break_mode ?? 'guaranteed') as 'guaranteed' | 'not_guaranteed',
     trusted_public_ip: row.trusted_public_ip ?? null,
     timezone: row.timezone ?? 'America/New_York',
     is_open: row.is_open,
