@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Logo from '@/components/Logo'
+import { InstallButton } from '@/components/InstallButton'
 import { useLocale } from '@/lib/i18n'
 
 // ============================================================
@@ -14,6 +15,10 @@ import { useLocale } from '@/lib/i18n'
 export default function Landing() {
   return (
     <div className="min-h-screen flex flex-col bg-nxtup-bg text-nxtup-fg">
+      {/* PWA install strip — sits above the sticky NavBar so it scrolls
+          away naturally once the user starts reading. Auto-hides when
+          already installed or on browsers that can't install PWAs. */}
+      <InstallButton variant="banner" />
       <NavBar />
       <main className="flex-1 flex flex-col">
         <Hero />
@@ -548,6 +553,9 @@ function FinalCTA() {
           >
             {t('cta.secondary')}
           </Link>
+          {/* Tertiary action: install. Self-hides on browsers that don't
+              support PWA install + when already installed. */}
+          <InstallButton variant="prominent" className="mt-2 sm:mt-0" />
         </div>
       </div>
     </section>

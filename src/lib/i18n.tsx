@@ -93,6 +93,23 @@ const MESSAGES: Record<Locale, Messages> = {
     // ── Locale switch ──────────────────────────────────────────
     'locale.switch': 'EN',
     'locale.switch.aria': 'Switch to English',
+
+    // ── Install button (PWA) ───────────────────────────────────
+    'install.button': 'Instalar app',
+    'install.button.short': 'Instalar',
+    'install.button.aria': 'Instalar NXTUP en este dispositivo',
+    'install.ios.title': 'Instalá NXTUP',
+    'install.ios.step1': 'Tocá el ícono Compartir',
+    'install.ios.step1.detail': 'abajo de Safari',
+    'install.ios.step2': 'Elegí "Añadir a inicio"',
+    'install.ios.step2.detail': 'a veces hay que bajar en el menú',
+    'install.ios.step3': 'Tocá "Añadir"',
+    'install.ios.step3.detail': 'arriba a la derecha',
+    'install.ios.outro': 'Listo — NXTUP queda como app en tu pantalla.',
+    'install.ios.close': 'Entendido',
+    'install.unsupported.title': 'Instalación no disponible',
+    'install.unsupported.body':
+      'Tu navegador no soporta instalar esta app. Probá con Chrome, Edge o Safari.',
   },
   en: {
     // ── Nav ────────────────────────────────────────────────────
@@ -168,6 +185,23 @@ const MESSAGES: Record<Locale, Messages> = {
     // ── Locale switch ──────────────────────────────────────────
     'locale.switch': 'ES',
     'locale.switch.aria': 'Cambiar a español',
+
+    // ── Install button (PWA) ───────────────────────────────────
+    'install.button': 'Install app',
+    'install.button.short': 'Install',
+    'install.button.aria': 'Install NXTUP on this device',
+    'install.ios.title': 'Install NXTUP',
+    'install.ios.step1': 'Tap the Share icon',
+    'install.ios.step1.detail': 'at the bottom of Safari',
+    'install.ios.step2': 'Choose "Add to Home Screen"',
+    'install.ios.step2.detail': 'you may need to scroll the menu',
+    'install.ios.step3': 'Tap "Add"',
+    'install.ios.step3.detail': 'top right corner',
+    'install.ios.outro': 'Done — NXTUP now lives on your home screen.',
+    'install.ios.close': 'Got it',
+    'install.unsupported.title': 'Install not available',
+    'install.unsupported.body':
+      'Your browser doesn\'t support installing this app. Try Chrome, Edge or Safari.',
   },
 }
 

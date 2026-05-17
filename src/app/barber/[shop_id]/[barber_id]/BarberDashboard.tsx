@@ -10,6 +10,7 @@ import {
   isAvatarId,
   type AvatarId,
 } from '@/components/avatars'
+import { InstallButton } from '@/components/InstallButton'
 import { buildBarberOrder, buildHeldPositions } from '@/lib/queue-order'
 
 // ──────────────────────────────────────────────────────────────
@@ -311,8 +312,11 @@ export default function BarberDashboard({
         </p>
       )}
 
-      {/* Kiosk link footer */}
-      <footer className="mt-auto pt-10 flex flex-col items-center gap-1">
+      {/* Footer — install + kiosk shortcut */}
+      <footer className="mt-auto pt-10 flex flex-col items-center gap-4">
+        {/* InstallButton hides itself when already installed or unsupported,
+            so it won't take up footer space once the barber has installed. */}
+        <InstallButton variant="prominent" />
         <Link
           href={`/barber/${shopId}/${barber.id}/kiosk`}
           className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"

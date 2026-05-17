@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar, AvatarPicker, isAvatarId, type AvatarId } from '@/components/avatars'
+import ShareBarberModal from '@/components/ShareBarberModal'
 
 type Barber = {
   id: string
@@ -38,9 +39,11 @@ function normalize(rows: unknown[]): Barber[] {
 
 export default function BarberManager({
   shopId,
+  shopName,
   initialBarbers,
 }: {
   shopId: string
+  shopName: string
   initialBarbers: Barber[]
 }) {
   const [barbers, setBarbers] = useState<Barber[]>(() => normalize(initialBarbers))
@@ -50,6 +53,10 @@ export default function BarberManager({
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
+  // Tracks which barber's share modal is open. null = no modal.
+  // Stored as the full Barber so the modal has avatar + name without
+  // a second lookup.
+  const [sharing, setSharing] = useState<Barber | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -193,9 +200,21 @@ export default function BarberManager({
               onRename={name => handleRename(b.id, name)}
               onAvatarChange={av => handleAvatarChange(b.id, av)}
               onDelete={() => handleDelete(b.id)}
+              onShare={() => setSharing(b)}
             />
           ))}
         </ul>
+      )}
+
+      {sharing && (
+        <ShareBarberModal
+          barberId={sharing.id}
+          barberName={sharing.name}
+          barberAvatar={sharing.avatar}
+          shopId={shopId}
+          shopName={shopName}
+          onClose={() => setSharing(null)}
+        />
       )}
     </main>
   )
@@ -207,12 +226,14 @@ function BarberRow({
   onRename,
   onAvatarChange,
   onDelete,
+  onShare,
 }: {
   barber: Barber
   pending: boolean
   onRename: (name: string) => void
   onAvatarChange: (avatar: AvatarId | null) => void
   onDelete: () => void
+  onShare: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(barber.name)
@@ -265,6 +286,15 @@ function BarberRow({
           {STATUS_LABEL[barber.status]}
         </span>
         <button
+          onClick={onShare}
+          className="text-nxtup-muted hover:text-white text-xs px-2 py-1 transition-colors inline-flex items-center gap-1"
+          aria-label={`Compartir link de ${barber.name}`}
+          title="Mandale el link al barbero por QR o WhatsApp"
+        >
+          <ShareGlyph />
+          <span className="hidden sm:inline">Compartir</span>
+        </button>
+        <button
           onClick={onDelete}
           disabled={pending}
           className="text-nxtup-dim hover:text-nxtup-busy text-xs px-2 py-1 transition-colors disabled:opacity-40"
@@ -286,5 +316,27 @@ function BarberRow({
         </div>
       )}
     </li>
+  )
+}
+
+// Tiny inline icon — square-with-arrow, evokes "send / share."
+// Kept local since it's only used by the row action.
+function ShareGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
   )
 }

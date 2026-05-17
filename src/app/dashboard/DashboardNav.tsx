@@ -15,6 +15,10 @@ export default function DashboardNav() {
   const pathname = usePathname()
 
   return (
+    // The Install CTA used to live here but didn't fit on iPhone — it
+    // now lives in the dashboard layout banner above this nav so it's
+    // always reachable. See <InstallButton variant="banner" /> in
+    // dashboard/layout.tsx.
     <nav className="flex items-center gap-1 text-sm">
       {TABS.map(t => {
         const active =

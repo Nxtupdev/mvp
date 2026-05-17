@@ -9,9 +9,11 @@ export default async function BarbersPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Pulling `name` too so the share-modal can pre-fill the WhatsApp
+  // greeting with the shop's name ("este es tu panel en Fade Factory").
   const { data: shop } = await supabase
     .from('shops')
-    .select('id')
+    .select('id, name')
     .eq('owner_id', user.id)
     .maybeSingle()
   if (!shop) redirect('/onboarding')
@@ -22,5 +24,11 @@ export default async function BarbersPage() {
     .eq('shop_id', shop.id)
     .order('created_at', { ascending: true })
 
-  return <BarberManager shopId={shop.id} initialBarbers={barbers ?? []} />
+  return (
+    <BarberManager
+      shopId={shop.id}
+      shopName={shop.name}
+      initialBarbers={barbers ?? []}
+    />
+  )
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
@@ -28,6 +28,29 @@ export const metadata: Metadata = {
   title: "NXTUP — Walk-in queue, fixed.",
   description:
     "The next-up system for barbershops. No arguments. No confusion. No lost turns.",
+  // The PWA manifest lives at src/app/manifest.ts. Pointing to it here
+  // is what flips Chrome/Edge from "this is a website" to "this is
+  // installable" (and unlocks the address-bar install button).
+  manifest: "/manifest.webmanifest",
+  // iOS Safari ignores the manifest's `display: standalone` — these
+  // legacy meta tags are still the only way to get a true full-screen
+  // launch from the home screen on iPhone/iPad.
+  appleWebApp: {
+    capable: true,
+    title: "NXTUP",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+// Next.js 16 wants themeColor / viewport in a separate export rather
+// than inside Metadata. Black matches the app shell so the iOS status
+// bar and Android URL bar blend into the UI on launch.
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  // Locks the visual viewport to device width — without this, the
+  // first paint on iPhone shows a desktop-zoomed layout.
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default async function RootLayout({
