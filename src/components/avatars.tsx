@@ -31,16 +31,12 @@ export type AvatarId =
   | 'soccer'
   | 'dollar'
   | 'hash'
-  // ── Rich family ─────────────────────────────────────────────
-  // Black silhouettes on a white circular surface, closer to a
-  // real barbershop sticker / magnet. Each is self-contained:
-  // the white circle is part of the SVG, not the Avatar wrapper.
-  | 'fist'
-  | 'joker'
-  | 'aztec'
-  | 'kick'
-  | 'truck'
-  | 'bullet'
+  // NOTE: The 'rich' family infrastructure is kept below (AvatarStyle
+  // type, rich() helper, RichFrame component, render branch) but no
+  // rich icons currently ship — my first attempt at hand-coded SVG
+  // silhouettes (fist, joker, aztec, etc.) came out below the bar.
+  // The infra is left wired so a designer can drop new ids here and
+  // add rich() entries in AVATARS without touching the framework.
 
 type AvatarStyle = 'stroke' | 'rich'
 
@@ -77,6 +73,9 @@ function stroke(
   return { id, label, style: 'stroke', render }
 }
 
+// Available for when proper rich icons get added. Currently unused —
+// see note on the AvatarId union above.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function rich(
   id: AvatarId,
   label: string,
@@ -197,151 +196,20 @@ export const AVATARS: AvatarDef[] = [
     <path {...STROKE} d="M9 3 7 21M17 3l-2 18M3.5 9h17M3 15h17" />
   )),
 
-  // ──────────────────────────────────────────────────────────────
-  // Rich family — magnet-style filled silhouettes, self-framed.
-  // Each renders inside a 100×100 viewBox that includes its own
-  // white circle background so the Avatar wrapper doesn't need to
-  // know about the colour palette.
-  // ──────────────────────────────────────────────────────────────
-
-  rich('fist', 'Raised fist', () => (
-    <RichFrame>
-      {/* Sleeve + wrist */}
-      <path d="M30 78 v 18 h 40 v -18 q 0 -4 -4 -4 h -32 q -4 0 -4 4 z" />
-      {/* Knuckles row */}
-      <path d="M28 50 q 0 -10 10 -10 h 24 q 10 0 10 10 v 24 q 0 6 -6 6 h -32 q -6 0 -6 -6 z" />
-      {/* Finger separations — thin white lines etched into the knuckles */}
-      <path
-        fill="white"
-        d="M38 44 v 16 h 2 v -16 z M48 44 v 16 h 2 v -16 z M58 44 v 16 h 2 v -16 z"
-      />
-      {/* Thumb wrapped on the left side */}
-      <path d="M22 58 q -4 -2 -4 4 v 10 q 0 6 6 6 h 8 v -20 q -5 0 -10 0 z" />
-    </RichFrame>
-  )),
-
-  rich('joker', 'Joker grin', () => (
-    <RichFrame>
-      {/* Face outline */}
-      <circle cx="50" cy="50" r="32" />
-      {/* Carve the face back out so eyes/mouth read as black-on-white */}
-      <g fill="white">
-        {/* Forehead / cheeks */}
-        <path d="M50 22 a 28 28 0 1 1 -0.1 0 z" />
-      </g>
-      <g fill="black">
-        {/* Wild hair tufts on top */}
-        <path d="M32 28 q 4 -10 10 -8 q -2 4 -4 10 z M68 28 q -4 -10 -10 -8 q 2 4 4 10 z M50 18 q -4 6 -2 12 q 2 -6 6 -10 z" />
-        {/* Diamond eyes */}
-        <path d="M38 42 l 4 -4 l 4 4 l -4 4 z M58 42 l 4 -4 l 4 4 l -4 4 z" />
-        {/* Wide curving grin */}
-        <path d="M30 56 q 20 24 40 0 q -4 -2 -8 -2 q -4 6 -12 6 q -8 0 -12 -6 q -4 0 -8 2 z" />
-        {/* Teeth gap */}
-        <path fill="white" d="M48 62 h 4 v 6 h -4 z" />
-      </g>
-    </RichFrame>
-  )),
-
-  rich('aztec', 'Aztec skull', () => (
-    <RichFrame>
-      {/* Skull outline with the chin slightly tapered */}
-      <path d="M50 20 q -22 0 -22 24 v 14 l 4 4 v 10 l 4 -3 l 4 3 v 6 q 0 4 4 4 h 12 q 4 0 4 -4 v -6 l 4 -3 l 4 3 v -10 l 4 -4 v -14 q 0 -24 -22 -24 z" />
-      {/* Eye sockets carved out */}
-      <g fill="white">
-        <ellipse cx="40" cy="46" rx="6" ry="7" />
-        <ellipse cx="60" cy="46" rx="6" ry="7" />
-        {/* Decorative dots inside the sockets — keeps them "alive" */}
-      </g>
-      <g fill="black">
-        <circle cx="40" cy="46" r="2" />
-        <circle cx="60" cy="46" r="2" />
-        {/* Triangular nose hole */}
-        <path fill="white" d="M48 56 l 2 6 l 2 -6 z" />
-        {/* Teeth row */}
-        <path d="M38 68 h 24 v 4 h -24 z" />
-        <path fill="white" d="M42 68 v 4 M46 68 v 4 M50 68 v 4 M54 68 v 4 M58 68 v 4" stroke="white" strokeWidth="1" />
-        {/* Top crown / headdress flourishes */}
-        <path d="M32 24 l -6 -8 l 6 6 z M50 16 l -3 -10 l 3 8 l 3 -8 l -3 10 z M68 24 l 6 -8 l -6 6 z" />
-      </g>
-    </RichFrame>
-  )),
-
-  rich('kick', 'High kick', () => (
-    <RichFrame>
-      {/* Head */}
-      <circle cx="38" cy="26" r="8" />
-      {/* Torso angled forward */}
-      <path d="M34 34 q 6 4 12 12 l -6 6 q -8 -6 -10 -14 z" />
-      {/* Standing leg planted on the ground */}
-      <path d="M40 50 q 4 8 4 18 q 0 6 -2 12 h -6 q 2 -8 0 -16 q -2 -8 -2 -12 z" />
-      {/* Front foot of standing leg */}
-      <path d="M30 80 h 14 v 4 h -14 z" />
-      {/* High-kick leg extending out to the right */}
-      <path d="M46 46 q 16 -6 30 -8 q 2 0 2 4 q -2 4 -6 4 q -12 2 -22 6 z" />
-      {/* Kicking foot */}
-      <path d="M76 38 l 10 -2 v 4 l -10 4 z" />
-      {/* Back arm for balance */}
-      <path d="M34 38 q -8 4 -10 12 l 4 4 q 4 -6 10 -10 z" />
-    </RichFrame>
-  )),
-
-  rich('truck', 'Cement truck', () => (
-    <RichFrame>
-      {/* Truck cab (left) */}
-      <path d="M18 56 h 16 v 18 h -16 z" />
-      {/* Cab window — carve white */}
-      <path fill="white" d="M22 60 h 8 v 8 h -8 z" />
-      {/* Cement mixer drum (right) — a tilted ellipse on a frame */}
-      <path d="M34 50 l 40 -6 q 8 12 0 28 l -40 -6 z" />
-      {/* Mixer spiral lines */}
-      <g fill="none" stroke="white" strokeWidth="2.5">
-        <path d="M42 50 q 14 8 28 4" />
-        <path d="M40 60 q 16 8 32 2" />
-        <path d="M42 70 q 14 6 28 2" />
-      </g>
-      {/* Truck bed under the drum */}
-      <path d="M34 70 h 50 v 6 h -50 z" />
-      {/* Wheels */}
-      <circle cx="28" cy="80" r="6" />
-      <circle cx="48" cy="80" r="6" />
-      <circle cx="70" cy="80" r="6" />
-      {/* Wheel hubs */}
-      <circle cx="28" cy="80" r="2" fill="white" />
-      <circle cx="48" cy="80" r="2" fill="white" />
-      <circle cx="70" cy="80" r="2" fill="white" />
-    </RichFrame>
-  )),
-
-  rich('bullet', 'Bullet', () => (
-    <RichFrame>
-      {/* Bullet body (ogive top + cylindrical case) — drawn tilted to
-          feel dynamic, like the reference. */}
-      <g transform="rotate(-25 50 50)">
-        {/* Ogive (rounded tip) */}
-        <path d="M50 22 q 12 8 12 24 h -24 q 0 -16 12 -24 z" />
-        {/* Casing */}
-        <path d="M38 46 h 24 v 32 h -24 z" />
-        {/* Rim ring at the bottom */}
-        <path d="M36 76 h 28 v 4 h -28 z" />
-        {/* Tip highlight — carve a thin white line */}
-        <path fill="white" d="M48 28 q 0 8 -2 14 h 2 z" />
-      </g>
-      {/* Flame trail behind the bullet — three teardrop wisps */}
-      <g>
-        <path d="M22 56 q -8 -2 -10 -10 q 6 0 12 6 z" />
-        <path d="M18 66 q -10 0 -14 -6 q 6 -2 14 2 z" />
-        <path d="M22 76 q -8 4 -14 0 q 4 -4 12 -4 z" />
-      </g>
-    </RichFrame>
-  )),
+  // No 'rich' entries yet — see note on the AvatarId union above.
+  // When real designs are ready, append them here as:
+  //   rich('id', 'Label', () => <RichFrame>...</RichFrame>),
 ]
 
 // ──────────────────────────────────────────────────────────────
 // RichFrame — shared chrome for the "magnet" family. Provides the
 // white circle background + thin black border, then renders the
-// icon paths inside. Children are black-filled by default.
+// icon paths inside. Children are black-filled by default. Kept
+// even though no rich icons ship today so future additions can
+// drop straight in.
 // ──────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RichFrame({ children }: { children: React.ReactNode }) {
   return (
     <g>
