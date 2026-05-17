@@ -270,6 +270,11 @@ export function Avatar({
   // URL-style avatar (custom shop asset) — render as <img>. Same
   // circular wrapper as the built-in path so callers don't need to
   // know which family was selected.
+  //
+  // object-contain (not -cover) because the source PNGs are slightly
+  // taller than wide (172x188) — cover would crop the top/bottom of
+  // every icon. contain shows the full circle and uses the wrapper's
+  // white background to fill the tiny gap on the sides.
   if (typeof avatar === 'string' && (avatar.startsWith('/') || avatar.startsWith('http'))) {
     return (
       <span
@@ -283,7 +288,7 @@ export function Avatar({
           alt=""
           width={size}
           height={size}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
       </span>
     )
@@ -397,7 +402,11 @@ export function AvatarPicker({
                     alt=""
                     width={size}
                     height={size}
-                    className="w-full h-full object-cover"
+                    // contain (not cover) so the full circular icon is
+                    // visible — the source PNGs are 172x188, slightly
+                    // taller than wide, and cover was cropping the
+                    // top/bottom edges off every icon.
+                    className="w-full h-full object-contain"
                   />
                 </button>
               )
