@@ -131,6 +131,78 @@ function useTickingNow() {
   return now
 }
 
+/**
+ * Screen Wake Lock — asks the browser to keep the display awake while
+ * this page is loaded. Vital for the TV: barbershops mount the
+ * /display page on a Fire TV / Smart TV and the device's built-in
+ * screensaver kicks in after 15-20 min of "no input", blacking out
+ * the queue. Wake Lock bypasses that.
+ *
+ * Behavior:
+ *   - Requests the lock on mount.
+ *   - If the system releases it (e.g., the tab gets backgrounded
+ *     because the TV switched inputs), we re-request when the page
+ *     becomes visible again.
+ *   - Releases on unmount.
+ *
+ * Support: Chromium-based browsers (Chrome Android/Desktop, Edge,
+ * Silk Browser on newer Fire TV, WebView). NOT supported on iOS
+ * Safari or very old browsers — we silently no-op there. The Fire
+ * TV's built-in "Screen Saver → Start Time → Never" setting is the
+ * belt; this is the suspenders.
+ */
+function useWakeLock() {
+  useEffect(() => {
+    // The DOM lib doesn't ship full WakeLockSentinel types in every
+    // TS version we target, so we keep the cast narrow and local.
+    type WakeLockLike = {
+      release: () => Promise<void>
+      addEventListener: (type: 'release', cb: () => void) => void
+    }
+    type NavigatorWithLock = Navigator & {
+      wakeLock?: { request: (kind: 'screen') => Promise<WakeLockLike> }
+    }
+
+    let sentinel: WakeLockLike | null = null
+    let cancelled = false
+
+    const requestLock = async () => {
+      if (cancelled) return
+      const nav = navigator as NavigatorWithLock
+      if (!nav.wakeLock) return // Safari iOS, ancient Fire TV, etc.
+      try {
+        sentinel = await nav.wakeLock.request('screen')
+        sentinel.addEventListener('release', () => {
+          // System dropped the lock (page hidden, low power, etc.).
+          // We'll re-request on the next visibilitychange.
+          sentinel = null
+        })
+      } catch {
+        // NotAllowedError when page isn't visible, etc. Swallow —
+        // we'll retry on visibility change.
+      }
+    }
+
+    requestLock()
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && !sentinel) {
+        requestLock()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisibility)
+      if (sentinel) {
+        sentinel.release().catch(() => {})
+        sentinel = null
+      }
+    }
+  }, [])
+}
+
 function formatClock(d: Date) {
   return d
     .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -150,6 +222,11 @@ export default function DisplayBoard({
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
   const [connected, setConnected] = useState(true)
   const now = useClock()
+
+  // Prevent the TV / monitor running this page from sleeping. Backstop
+  // for shops where the Fire TV screensaver setting can't be set to
+  // Never (older sticks max out at 20 min).
+  useWakeLock()
 
   // Kiosk auto-refresh: blow the page away every 6h. Some smart-TV browsers
   // accumulate memory / lose realtime quietly after long sessions; a clean
