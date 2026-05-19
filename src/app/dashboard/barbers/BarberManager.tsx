@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -221,6 +222,29 @@ export default function BarberManager({
             />
           ))}
         </ul>
+      )}
+
+      {/* Centro de mando — owner remote-control entry point. Only
+          surfaced once at least one barber exists (no point taking
+          the dueño to an empty control panel). */}
+      {barbers.length > 0 && (
+        <div className="mt-10 pt-6 border-t border-nxtup-line">
+          <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold mb-3">
+            Supervisión
+          </p>
+          <p className="text-nxtup-dim text-sm mb-4 leading-relaxed max-w-prose">
+            ¿Necesitas cambiar el estado de un barbero desde fuera del shop?
+            Útil si alguien se fue sin tocar BREAK o quieres reorganizar la
+            fila a distancia.
+          </p>
+          <Link
+            href="/dashboard/barbers/control"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white text-black font-bold text-sm tracking-tight transition-all active:scale-[0.98] hover:opacity-90"
+          >
+            Centro de mando
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
       )}
 
       {sharing && (

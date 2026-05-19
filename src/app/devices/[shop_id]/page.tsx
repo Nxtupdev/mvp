@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import DeviceGrid from './DeviceGrid'
 
 export default async function DevicesPage({
@@ -10,14 +10,28 @@ export default async function DevicesPage({
   const { shop_id } = await params
   const supabase = await createClient()
 
+  // Owner-only — this is now exposed as a "Monitor" feature from the
+  // dashboard, so we need to enforce that the logged-in user actually
+  // owns the shop being monitored. Without this anyone with a
+  // shop_id could open the URL and see every barber's screen.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, logo_url',
+      'id, name, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, logo_url, owner_id',
     )
     .eq('id', shop_id)
     .single()
   if (!shop) notFound()
+  if ((shop as { owner_id?: string }).owner_id !== user.id) {
+    // Don't reveal whether the shop exists — same response as for a
+    // bad shop_id. Prevents enumeration by non-owners.
+    notFound()
+  }
 
   const { data: barbers } = await supabase
     .from('barbers')

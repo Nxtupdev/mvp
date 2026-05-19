@@ -61,12 +61,30 @@ export async function PATCH(
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, break_mode',
+      'id, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, trusted_public_ip, break_mode, owner_id',
     )
     .eq('id', barber.shop_id)
     .single()
 
   if (!shop) return Response.json({ error: 'Shop no encontrado' }, { status: 404 })
+
+  // ── Owner bypass: if the request comes from the authenticated owner
+  // of this shop, they have administrative authority and don't need
+  // to be on the shop's WiFi. This is what powers the /dashboard/
+  // barbers/control "Centro de mando" view, where the dueño can
+  // remotely flip a missing barber to OFFLINE/BREAK/etc.
+  //
+  // Device requests already bypass — this layers an additional bypass
+  // on top for cookie-authenticated owners.
+  let isOwnerRequest = false
+  if (!isDeviceRequest) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user && (shop as { owner_id?: string }).owner_id === user.id) {
+      isOwnerRequest = true
+    }
+  }
 
   // ── Anti-cheat: ALL transitions need a presence check ────────
   //
@@ -85,7 +103,7 @@ export async function PATCH(
   //
   // Otherwise: the request's public IP must match shop.trusted_public_ip
   // exactly. The owner registers that IP from inside the shop in Settings.
-  if (!isDeviceRequest && shop.trusted_public_ip) {
+  if (!isDeviceRequest && !isOwnerRequest && shop.trusted_public_ip) {
     const clientIp = getClientIp(request)
     if (!clientIp || clientIp !== shop.trusted_public_ip) {
       return Response.json(
