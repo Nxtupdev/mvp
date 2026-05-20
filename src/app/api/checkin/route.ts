@@ -96,6 +96,10 @@ export async function POST(request: NextRequest) {
   // Immediate match: if no specific barber requested AND there's an available
   // barber waiting, assign this client to them right now (FIFO of barbers).
   // This is the "tap and the first barber receives you" behavior.
+  //
+  // Toll-aware (migration 019): skip barbers currently paying the
+  // late-arrival toll (late_toll_remaining > 0). They still show in
+  // the FIFO display, but new walk-ins go to on-time barbers first.
   let assignedBarber: { id: string; name: string } | null = null
   if (!barber_id) {
     const { data: nextBarber } = await supabase
@@ -104,6 +108,7 @@ export async function POST(request: NextRequest) {
       .eq('shop_id', shop_id)
       .eq('status', 'available')
       .not('available_since', 'is', null)
+      .eq('late_toll_remaining', 0)
       .order('available_since', { ascending: true })
       .limit(1)
       .maybeSingle()

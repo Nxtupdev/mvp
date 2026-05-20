@@ -89,7 +89,7 @@ export async function POST(
   // Verify claimer is ACTIVE in this shop, fetch peers in one shot.
   const { data: peers } = await supabase
     .from('barbers')
-    .select('id, shop_id, status, available_since')
+    .select('id, shop_id, status, available_since, late_toll_remaining')
     .eq('shop_id', shopId)
 
   const claimer = peers?.find(p => p.id === claimerId)
@@ -103,15 +103,31 @@ export async function POST(
     )
   }
 
+  // Toll-aware (migration 019): a barber currently paying the
+  // late-arrival toll can't use "Tomar yo" — that would be the
+  // most obvious way to bypass the toll system.
+  if ((claimer.late_toll_remaining ?? 0) > 0) {
+    return Response.json(
+      {
+        error:
+          'Estás esperando turno (peaje de llegada tarde). No puedes tomar clientes hasta que se complete.',
+        code: 'paying_toll',
+      },
+      { status: 403 },
+    )
+  }
+
   // Compute "next available" — anyone ACTIVE with a FIFO position,
-  // excluding the negligent barber. The smallest available_since
-  // (earliest into the queue) is the rightful next claimer.
+  // excluding the negligent barber and toll-paying barbers. The
+  // smallest available_since (earliest into the queue) is the
+  // rightful next claimer.
   const fifoCandidates = (peers ?? [])
     .filter(
       p =>
         p.id !== negligentBarberId &&
         p.status === 'available' &&
-        p.available_since,
+        p.available_since &&
+        (p.late_toll_remaining ?? 0) === 0,
     )
     .sort(
       (a, b) =>

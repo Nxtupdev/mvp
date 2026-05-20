@@ -170,19 +170,46 @@ export async function PATCH(
   const logs: LogEntry[] = []
 
   if (newStatus === 'available') {
-    // Complete any in-progress client (barber finishing a cut). When
-    // transitioning specifically from BUSY → AVAILABLE we ALSO sweep up
-    // any stale 'called' entries still pointing to this barber — those
-    // should have moved to 'in_progress' when they tapped BUSY, so if
-    // they're still 'called' it means a transition was missed and the
-    // client would otherwise stick visually.
-    const statusesToComplete =
-      fromStatus === 'busy' ? ['in_progress', 'called'] : ['in_progress']
-    await supabase
+    // Complete any in-progress client (barber finishing a cut). We split
+    // this into TWO updates so we can count actual cuts separately from
+    // stale-state cleanup — the toll system (migration 019) needs to
+    // know how many real cuts were completed.
+    //
+    //   1. in_progress → done: this is the REAL cut. Counts toward toll.
+    //   2. called → done (only from busy): cleanup of stale state where
+    //      a 'called' should have transitioned to 'in_progress' but
+    //      didn't (missed tap, network blip). Doesn't count as a cut.
+    const { data: cutsCompletedRows } = await supabase
       .from('queue_entries')
       .update({ status: 'done', completed_at: now })
       .eq('barber_id', barber_id)
-      .in('status', statusesToComplete)
+      .eq('status', 'in_progress')
+      .select('id')
+    const cutsCompleted = cutsCompletedRows?.length ?? 0
+
+    if (fromStatus === 'busy') {
+      await supabase
+        .from('queue_entries')
+        .update({ status: 'done', completed_at: now })
+        .eq('barber_id', barber_id)
+        .eq('status', 'called')
+    }
+
+    // ── Pay late-arrival toll (migration 019) ───────────────────
+    // If a real cut completed, every late-arrival barber who owed this
+    // barber gets their counter decremented. The SQL function handles
+    // the bookkeeping; we just trigger it.
+    if (cutsCompleted > 0) {
+      const { error: payErr } = await supabase.rpc('pay_late_arrival_toll', {
+        p_existing_barber_id: barber_id,
+      })
+      if (payErr) {
+        console.error('[late_arrival_toll] pay failed', {
+          barber_id,
+          error: payErr.message,
+        })
+      }
+    }
 
     // ── Invalidate on-break reservations under 'not_guaranteed' ────
     // If this barber just finished a walk-in (canonical busy → available
@@ -274,6 +301,23 @@ export async function PATCH(
       })
       .eq('id', barber_id)
 
+    // ── Register late arrival if applicable (migration 019) ─────
+    // Only when coming back from OFFLINE — break→available is a
+    // mid-shift re-entry, not a "llegada tarde". The SQL function
+    // checks shop.late_arrival_threshold_time and gates the rest
+    // internally; we just trigger it.
+    if (fromStatus === 'offline') {
+      const { error: regErr } = await supabase.rpc('register_late_arrival', {
+        p_barber_id: barber_id,
+      })
+      if (regErr) {
+        console.error('[late_arrival_toll] register failed', {
+          barber_id,
+          error: regErr.message,
+        })
+      }
+    }
+
     logs.push({
       action: 'state_change',
       from_status: fromStatus,
@@ -309,20 +353,39 @@ export async function PATCH(
       }
     }
 
+    // ── Late-arrival gate (migration 019) ──────────────────────
+    // If this barber is currently paying toll, do NOT auto-assign
+    // them a client — that's the whole point of the toll. They
+    // stay in the FIFO visually (orange) but the rotation skips
+    // them until existing barbers each complete their N cuts.
+    //
+    // Re-read the counter AFTER register_late_arrival ran above
+    // so we see the just-created toll rows.
+    const { data: tollCheck } = await supabase
+      .from('barbers')
+      .select('late_toll_remaining')
+      .eq('id', barber_id)
+      .single()
+    const lateToll = (tollCheck as { late_toll_remaining?: number } | null)
+      ?.late_toll_remaining ?? 0
+
     // Find next client: specifically requested first, then unassigned.
-    const { data: requested } = await supabase
-      .from('queue_entries')
-      .select('id, client_name, position')
-      .eq('shop_id', barber.shop_id)
-      .eq('barber_id', barber_id)
-      .eq('status', 'waiting')
-      .order('position', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+    // SKIP this entire block if late-blocked.
+    const { data: requested } = lateToll > 0
+      ? { data: null }
+      : await supabase
+          .from('queue_entries')
+          .select('id, client_name, position')
+          .eq('shop_id', barber.shop_id)
+          .eq('barber_id', barber_id)
+          .eq('status', 'waiting')
+          .order('position', { ascending: true })
+          .limit(1)
+          .maybeSingle()
 
     let next = requested
 
-    if (!next) {
+    if (!next && lateToll === 0) {
       const { data: unassigned } = await supabase
         .from('queue_entries')
         .select('id, client_name, position')
@@ -475,6 +538,23 @@ export async function PATCH(
         break_invalidated: false,
       })
       .eq('id', barber_id)
+
+    // ── Clear late-arrival toll (migration 019) ────────────────
+    // Going offline = "I'm out". Two cleanups happen:
+    //   1. If this barber was paying toll: they give up the wait,
+    //      their toll rows are deleted.
+    //   2. If other barbers were waiting on THIS one to complete
+    //      cuts: those obligations vanish (they unblock partially).
+    // The SQL function handles both directions.
+    const { error: clearErr } = await supabase.rpc('clear_late_arrival_toll', {
+      p_barber_id: barber_id,
+    })
+    if (clearErr) {
+      console.error('[late_arrival_toll] clear failed', {
+        barber_id,
+        error: clearErr.message,
+      })
+    }
 
     logs.push({
       action: 'state_change',
