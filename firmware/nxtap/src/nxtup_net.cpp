@@ -29,6 +29,38 @@
 
 namespace {
 
+// ── Persistent TLS connection ────────────────────────────────────
+//
+// The previous version created a fresh WiFiClientSecure + HTTPClient
+// per call. Each one paid a full TLS handshake (RSA cert verification
+// on the ESP32-S3 ≈ 800-1500 ms) — that handshake alone was most of
+// our tap→TV latency.
+//
+// Now we keep ONE client + http alive at file scope and set
+// http.setReuse(true). After the first call warms the TLS session,
+// subsequent RPCs reuse the same TCP+TLS connection and finish in
+// ~150-300 ms. The idle snapshot poll in main.cpp keeps it warm
+// during slow shop hours.
+//
+// If Supabase or a NAT in the middle drops the TCP at some point,
+// http.POST() returns a negative code and the caller retries. The
+// next http.begin() will transparently reopen the connection (paying
+// the handshake again for that one call only).
+static WiFiClientSecure g_client;
+static HTTPClient       g_http;
+static bool             g_netReady = false;
+
+void ensureNetReady() {
+  if (g_netReady) return;
+  // MVP: skip CA validation. Supabase uses Let's Encrypt; production
+  // can embed the ISRG root and switch to setCACert().
+  g_client.setInsecure();
+  // Keep the TCP+TLS session alive between requests to the same host
+  // (both our RPCs hit the same Supabase project).
+  g_http.setReuse(true);
+  g_netReady = true;
+}
+
 const char* rpcUrl(const char* fn) {
   // Allocated once per call site as a String, then exposed as
   // c_str. The host comes from secrets.h.
@@ -44,6 +76,9 @@ void addSupabaseHeaders(HTTPClient& http) {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", SUPABASE_ANON_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+  // Explicit keep-alive — most gateways default to this for HTTP/1.1
+  // but Kong (in front of Supabase) occasionally needs the prompt.
+  http.addHeader("Connection", "keep-alive");
 }
 
 }  // namespace
@@ -107,35 +142,32 @@ static bool parseSnapshot(const String& payload, Snapshot& out) {
 
 bool fetchSnapshot(Snapshot& out) {
   if (!connectWiFi()) return false;
+  ensureNetReady();
 
-  WiFiClientSecure client;
-  // MVP: skip CA validation. Supabase uses Let's Encrypt; production
-  // can embed the ISRG root and switch to setCACert().
-  client.setInsecure();
-
-  HTTPClient http;
-  if (!http.begin(client, rpcUrl("device_get_barber_snapshot"))) {
+  if (!g_http.begin(g_client, rpcUrl("device_get_barber_snapshot"))) {
     Serial.println("[net] http.begin failed (snapshot)");
     return false;
   }
-  addSupabaseHeaders(http);
-  http.setTimeout(3000);
+  addSupabaseHeaders(g_http);
+  g_http.setTimeout(3000);
 
   // PostgREST RPC takes named arguments in the JSON body.
   String body = String("{\"p_barber_id\":\"") + BARBER_ID +
                 "\",\"p_device_token\":\"" + DEVICE_API_TOKEN + "\"}";
 
-  const int code = http.POST(body);
+  const int code = g_http.POST(body);
   if (code != 200) {
     Serial.printf("[net] snapshot RPC HTTP %d · %s\n",
-                  code, http.errorToString(code).c_str());
-    if (code > 0) Serial.println(http.getString());
-    http.end();
+                  code, g_http.errorToString(code).c_str());
+    if (code > 0) Serial.println(g_http.getString());
+    g_http.end();
     return false;
   }
 
-  String payload = http.getString();
-  http.end();
+  String payload = g_http.getString();
+  // end() with setReuse(true) keeps the underlying TCP+TLS alive —
+  // it just frees the per-request state so the next begin() can run.
+  g_http.end();
   return parseSnapshot(payload, out);
 }
 
@@ -145,17 +177,14 @@ bool postState(const char* newStatus) {
 
 bool postStateAndSnapshot(const char* newStatus, Snapshot* outSnap) {
   if (!connectWiFi()) return false;
+  ensureNetReady();
 
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  if (!http.begin(client, rpcUrl("device_update_barber_state"))) {
+  if (!g_http.begin(g_client, rpcUrl("device_update_barber_state"))) {
     Serial.println("[net] http.begin failed (state)");
     return false;
   }
-  addSupabaseHeaders(http);
-  http.setTimeout(3000);
+  addSupabaseHeaders(g_http);
+  g_http.setTimeout(3000);
 
   // Same JSON-body RPC convention as the snapshot fn. The state RPC
   // returns the fresh snapshot in its response, so when the caller
@@ -164,22 +193,24 @@ bool postStateAndSnapshot(const char* newStatus, Snapshot* outSnap) {
                 "\",\"p_target\":\"" + newStatus +
                 "\",\"p_device_token\":\"" + DEVICE_API_TOKEN + "\"}";
 
-  const int code = http.POST(body);
-  Serial.printf("[net] state RPC %s → HTTP %d\n", newStatus, code);
+  const uint32_t t0 = millis();
+  const int code = g_http.POST(body);
+  Serial.printf("[net] state RPC %s → HTTP %d (%lu ms)\n",
+                newStatus, code, (unsigned long)(millis() - t0));
 
   if (code != 200) {
-    if (code > 0) Serial.println(http.getString());
-    http.end();
+    if (code > 0) Serial.println(g_http.getString());
+    g_http.end();
     return false;
   }
 
   if (outSnap != nullptr) {
-    String payload = http.getString();
-    http.end();
+    String payload = g_http.getString();
+    g_http.end();
     return parseSnapshot(payload, *outSnap);
   }
 
-  http.end();
+  g_http.end();
   return true;
 }
 
