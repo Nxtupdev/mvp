@@ -73,7 +73,7 @@ export default async function BarberPage({
     supabase
       .from('barbers')
       .select(
-        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
       )
       .eq('id', barber_id)
       .eq('shop_id', shop_id)
@@ -90,7 +90,7 @@ export default async function BarberPage({
     supabase
       .from('barbers')
       .select(
-        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
       )
       .eq('shop_id', shop_id)
       .neq('status', 'offline')

@@ -31,6 +31,11 @@ export default async function SettingsPage() {
     break_mode?: 'guaranteed' | 'not_guaranteed' | null
     trusted_public_ip?: string | null
     timezone?: string | null
+    // Migration 019 — late arrival toll config. Older shops without
+    // the migration applied get `undefined` here and the UI shows
+    // the feature as disabled.
+    late_arrival_threshold_time?: string | null
+    late_arrival_cuts_required?: number | null
     is_open: boolean
     logo_url: string | null
   }
@@ -52,6 +57,8 @@ export default async function SettingsPage() {
     break_mode: (row.break_mode ?? 'guaranteed') as 'guaranteed' | 'not_guaranteed',
     trusted_public_ip: row.trusted_public_ip ?? null,
     timezone: row.timezone ?? 'America/New_York',
+    late_arrival_threshold_time: row.late_arrival_threshold_time ?? null,
+    late_arrival_cuts_required: (row.late_arrival_cuts_required ?? 2) as 1 | 2,
     is_open: row.is_open,
     logo_url: row.logo_url,
   }

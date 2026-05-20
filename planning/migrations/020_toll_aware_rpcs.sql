@@ -601,6 +601,8 @@ begin
     );
   end if;
 
+  -- Devolver el snapshot fresco — el firmware lo usa para
+  -- pintar la pantalla sin un segundo roundtrip.
   return device_get_barber_snapshot(p_barber_id, p_device_token);
 end;
 $$;

@@ -26,6 +26,11 @@ type Barber = {
   break_held_since: string | null
   break_minutes_at_start: number | null
   breaks_taken_today: number | null
+  // Migration 019 — >0 means "paying late-arrival toll". On the TV
+  // these barbers still appear in the ACTIVE column with their FIFO
+  // position, but with an orange tint + counter so everyone watching
+  // sees they're waiting their turn before getting clients.
+  late_toll_remaining?: number | null
 }
 
 type Shop = {
@@ -256,7 +261,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
         )
         .eq('shop_id', shop.id)
         .neq('status', 'offline')
@@ -577,22 +582,39 @@ function ActiveCard({
   density: Density
 }) {
   const s = SIZE[density]
+  // Late-arrival toll (migration 019): paint the card in warm orange
+  // so everyone watching the TV knows this barber is waiting their
+  // turn before getting auto-assigned clients. Still listed at their
+  // FIFO position, just visually distinct.
+  const lateToll = barber.late_toll_remaining ?? 0
+  const isLate = lateToll > 0
   return (
     <li
-      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
+      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap} ${
+        isLate ? 'ring-2 ring-orange-500/60' : ''
+      }`}
     >
       <span
-        className={`text-nxtup-active font-black tabular-nums text-center ${s.posText} ${s.posWidth}`}
+        className={`font-black tabular-nums text-center ${s.posText} ${s.posWidth} ${
+          isLate ? 'text-orange-400' : 'text-nxtup-active'
+        }`}
         aria-label={`Posición ${position}`}
       >
         #{position}
       </span>
       <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
-      <span
-        className={`text-white font-bold flex-1 min-w-0 truncate ${s.nameSingle}`}
-      >
-        {barber.name}
-      </span>
+      <div className="flex-1 min-w-0">
+        <span
+          className={`text-white font-bold block truncate ${s.nameSingle}`}
+        >
+          {barber.name}
+        </span>
+        {isLate && (
+          <span className={`block text-orange-400 font-semibold ${s.subtitle}`}>
+            Esperando turno · {lateToll} por pasar
+          </span>
+        )}
+      </div>
     </li>
   )
 }

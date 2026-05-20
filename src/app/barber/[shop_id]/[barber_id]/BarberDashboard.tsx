@@ -47,6 +47,10 @@ type Barber = {
   // True once any barber below us (snapshot at break start) completed
   // a walk-in. Only set when shop.break_mode = 'not_guaranteed'.
   break_invalidated?: boolean | null
+  // Migration 019 — late arrival toll counter. >0 means this barber
+  // is "paying toll" for arriving late and won't receive auto-assigned
+  // clients until each existing barber completes their N cuts.
+  late_toll_remaining?: number | null
 }
 
 type Peer = Barber
@@ -150,7 +154,7 @@ export default function BarberDashboard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
         )
         .eq('id', barber.id)
         .single()
@@ -166,7 +170,7 @@ export default function BarberDashboard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
         )
         .eq('shop_id', shopId)
         .neq('status', 'offline')
@@ -418,6 +422,30 @@ export default function BarberDashboard({
       {/* Body — the original content padding moved here so the app
           bar above can extend to the screen edges. */}
       <div className="flex-1 flex flex-col px-5 pt-8 pb-10">
+
+      {/* Late-arrival toll banner — naranja, persiste hasta que cada
+          barbero existente complete sus N cortes. El barbero ve el
+          contador bajando en vivo (Realtime). Renderizado ANTES del
+          banner de no-show porque el peaje es estado más importante
+          que un peer atascado (un barbero pagando peaje no debería
+          poder usar "Tomar yo" de todas formas — el route lo bloquea). */}
+      {(barber.late_toll_remaining ?? 0) > 0 && (
+        <div className="border border-orange-500/60 bg-orange-500/10 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <span className="text-orange-400 text-xl leading-none mt-0.5">⏳</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold leading-snug">
+              Esperando turno · llegada tarde
+            </p>
+            <p className="text-nxtup-muted text-xs mt-1 leading-relaxed">
+              {barber.late_toll_remaining === 1
+                ? 'Falta 1 barbero por pasarte'
+                : `Faltan ${barber.late_toll_remaining} barberos por pasarte`}{' '}
+              antes de que entres a la rotación. Cada uno debe completar
+              sus cortes; el contador baja automáticamente.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* No-show takeover banner — only renders when this barber is
           the next-available AND a peer's called client has been
