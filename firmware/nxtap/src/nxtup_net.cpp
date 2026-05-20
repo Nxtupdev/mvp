@@ -55,6 +55,10 @@ void ensureNetReady() {
   // MVP: skip CA validation. Supabase uses Let's Encrypt; production
   // can embed the ISRG root and switch to setCACert().
   g_client.setInsecure();
+  // Disable Nagle so the ESP32 sends our small request packets
+  // immediately instead of waiting ~200 ms hoping to coalesce. For
+  // request/response on a single short body, Nagle is pure latency.
+  g_client.setNoDelay(true);
   // Keep the TCP+TLS session alive between requests to the same host
   // (both our RPCs hit the same Supabase project).
   g_http.setReuse(true);
