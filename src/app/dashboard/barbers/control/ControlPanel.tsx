@@ -37,6 +37,9 @@ type Barber = {
   break_minutes_at_start: number | null
   breaks_taken_today: number | null
   break_invalidated?: boolean | null
+  // Migration 019 — barber paying late-arrival toll. >0 means
+  // they're in the queue but not eligible for auto-assigned clients.
+  late_toll_remaining?: number | null
 }
 
 type Entry = {
@@ -113,7 +116,7 @@ export default function ControlPanel({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
         )
         .eq('shop_id', shop.id)
         .order('name')
@@ -252,8 +255,18 @@ function BarberControlRow({
   pending: boolean
   onChange: (next: Status) => void
 }) {
+  // Late-arrival toll (migración 019): si > 0, este barbero está
+  // pagando peaje — ring naranja en la fila para que el dueño lo
+  // detecte de un vistazo desde el Centro de Mando.
+  const lateToll = barber.late_toll_remaining ?? 0
+  const isLate = lateToll > 0
+
   return (
-    <li className="rounded-xl bg-nxtup-line border border-nxtup-line p-4 flex flex-col gap-4">
+    <li
+      className={`rounded-xl bg-nxtup-line p-4 flex flex-col gap-4 ${
+        isLate ? 'border-2 border-orange-500/60' : 'border border-nxtup-line'
+      }`}
+    >
       {/* Top strip — identity + status */}
       <div className="flex items-center gap-3">
         <Avatar avatar={barber.avatar} name={barber.name} size={44} />
@@ -267,9 +280,16 @@ function BarberControlRow({
             fifoPosition={fifoPosition}
             entry={entry}
           />
+          {isLate && (
+            <p className="text-orange-400 text-[11px] font-semibold mt-0.5">
+              ⏳ Esperando turno · {lateToll} por pasar
+            </p>
+          )}
         </div>
         <span
-          className={`w-3 h-3 rounded-full flex-shrink-0 ${STATUS_DOT[barber.status]}`}
+          className={`w-3 h-3 rounded-full flex-shrink-0 ${
+            isLate ? 'bg-orange-500' : STATUS_DOT[barber.status]
+          }`}
           aria-hidden
         />
       </div>
