@@ -186,35 +186,6 @@ export async function PATCH(
         .eq('status', 'called')
     }
 
-    // ── Pay late-arrival toll (migration 019, revised 023) ──────
-    //
-    // Original design required a queue_entry to transition from
-    // in_progress → done before counting as a "real cut". That
-    // broke the real-world flow: most clients in DR/USA shops are
-    // walk-ins who never check in via QR/kiosk. The barber taps
-    // BUSY at the start of the cut and ACTIVE at the end, no
-    // queue_entry ever exists. Under the old rule, the toll never
-    // decremented — late barbers stayed blocked forever.
-    //
-    // Revised: any BUSY → AVAILABLE transition counts as 1 cut.
-    // Gaming is not a real concern because:
-    //   * Existing barbers' incentive is to KEEP the late one
-    //     blocked (more turns for them), not to clear their toll.
-    //   * The late barber can't pay their own toll — pay decrements
-    //     rows where they are the existing side, and they're the
-    //     late side in their own rows.
-    if (fromStatus === 'busy') {
-      const { error: payErr } = await supabase.rpc('pay_late_arrival_toll', {
-        p_existing_barber_id: barber_id,
-      })
-      if (payErr) {
-        console.error('[late_arrival_toll] pay failed', {
-          barber_id,
-          error: payErr.message,
-        })
-      }
-    }
-
     // ── Invalidate on-break reservations under 'not_guaranteed' ────
     // If this barber just finished a walk-in (canonical busy → available
     // transition), any other barber currently on break in the same shop
@@ -304,6 +275,32 @@ export async function PATCH(
         break_invalidated: false,
       })
       .eq('id', barber_id)
+
+    // ── Pay late-arrival toll (migration 019, revised 023, 027) ──
+    //
+    // CRITICAL ordering: pay must run AFTER the barber UPDATE above.
+    // Earlier we ran pay first, but the bump it does on
+    // available_since (to keep the existing barber above the late
+    // one — migration 022) was being clobbered by the UPDATE that
+    // sets available_since = nextAvailableSince. Order fixed now.
+    //
+    // Counts any BUSY → AVAILABLE as 1 cut (no queue_entry required).
+    // Most clients in DR/USA shops are walk-ins who never check in,
+    // so requiring a queue_entry made the toll never decrement.
+    // Gaming concern is weak: existing barbers don't WANT to clear
+    // the late's toll faster (they prefer to keep the late blocked),
+    // and the late can't pay their own toll.
+    if (fromStatus === 'busy') {
+      const { error: payErr } = await supabase.rpc('pay_late_arrival_toll', {
+        p_existing_barber_id: barber_id,
+      })
+      if (payErr) {
+        console.error('[late_arrival_toll] pay failed', {
+          barber_id,
+          error: payErr.message,
+        })
+      }
+    }
 
     // ── Register late arrival if applicable (migration 019) ─────
     // Only when coming back from OFFLINE — break→available is a
