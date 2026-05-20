@@ -93,19 +93,29 @@ export async function PATCH(
   // anyone with a barber's URL could remotely sabotage them. v2 we
   // moved to "gate ALL transitions" for safety.
   //
-  // v3 (current): the v2 ALL-gate broke the real-life break workflow.
-  // A barber going on break is, by definition, LEAVING the shop —
-  // walking to lunch, smoking outside, running an errand. They need
-  // to tap BREAK from wherever they are (parking lot, restaurant
-  // WiFi, cellular). Forcing them to mark break BEFORE walking out
-  // is unrealistic — half the time they remember after they're out.
+  // v3 (current): the v2 ALL-gate broke the real-life off-shop
+  // workflow. Going on break — or clocking out for the day — BY
+  // DEFINITION means leaving the shop. A barber walking to lunch
+  // or heading home needs to update their status from wherever they
+  // are (parking lot, restaurant WiFi, cellular). Forcing them to
+  // remember BEFORE they walk out is unrealistic.
   //
   // So we split the targets by what they CLAIM:
   //   * available / busy → claim presence ("I'm here, ready") → gate
-  //   * break → claim absence ("I'm stepping out") → no gate
-  //   * offline → also a claim of absence, but kept gated for now
-  //     (more sabotage-attractive — competitor can mark a barber
-  //     offline mid-day). Loosen later if real-world friction shows.
+  //   * break / offline  → claim absence ("I'm not here") → no gate
+  //
+  // The owner ALWAYS bypasses regardless of target — they may need
+  // to remotely mark a missing barber offline at end of day from
+  // anywhere (Centro de mando workflow). That bypass is checked
+  // separately above via isOwnerRequest.
+  //
+  // Sabotage exposure with offline relaxed: a competitor who somehow
+  // grabbed a barber's URL could mark them offline mid-day from
+  // outside. Mitigation: the barber sees it instantly on their PWA
+  // and taps available to undo (which IS gated, so the attacker
+  // can't toggle back to keep sabotaging). The owner can also
+  // reverse via Centro de mando. Net: a 3-second hiccup, not a
+  // sustainable attack.
   //
   // Bypasses (in order):
   //   1. The physical NXT TAP device — its token+shop_id pair is its
@@ -113,11 +123,8 @@ export async function PATCH(
   //   2. The shop hasn't configured trusted_public_ip yet (null) — we
   //      keep the legacy behavior so existing shops don't break.
   //   3. The owner (Centro de mando), authenticated by cookie.
-  //   4. Target is 'break' (see above).
-  //
-  // Otherwise: the request's public IP must match shop.trusted_public_ip
-  // exactly. The owner registers that IP from inside the shop in Settings.
-  const isAbsenceClaim = newStatus === 'break'
+  //   4. Target is 'break' or 'offline' (the absence claims).
+  const isAbsenceClaim = newStatus === 'break' || newStatus === 'offline'
   if (
     !isDeviceRequest &&
     !isOwnerRequest &&
@@ -131,9 +138,9 @@ export async function PATCH(
           // Wording stays user-facing instead of mentioning sabotage —
           // most of the time this fires on a legitimate barber who
           // just walked outside or is on cellular instead of WiFi.
-          // Hint at break being exempt so they don't get stuck.
+          // Hint at break/offline being exempt so they don't get stuck.
           error:
-            'Conéctate al WiFi de la barbería para volver a disponible o marcar busy. (Break sí puedes tocarlo desde donde sea.)',
+            'Conéctate al WiFi de la barbería para volver a disponible o marcar busy. (Break y offline sí puedes tocarlos desde donde sea.)',
           code: 'not_in_shop',
           client_ip: clientIp,
         },
