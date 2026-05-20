@@ -86,24 +86,44 @@ export async function PATCH(
     }
   }
 
-  // ── Anti-cheat: ALL transitions need a presence check ────────
+  // ── Anti-cheat: presence-claim transitions need a WiFi check ─
   //
-  // History: this used to gate only `→ available` ("you can't claim a
-  // turn from outside"). But that left other transitions unprotected:
-  // anyone with a barber's URL could remotely set them BUSY, BREAK or
-  // OFFLINE from anywhere in the world — perfect sabotage tool for a
-  // disgruntled ex-barber or a competing shop. So we now require the
-  // presence check for any non-device request, regardless of target.
+  // History v1: we used to gate only `→ available` ("can't claim a
+  // turn from outside"). That left BUSY/BREAK/OFFLINE unprotected —
+  // anyone with a barber's URL could remotely sabotage them. v2 we
+  // moved to "gate ALL transitions" for safety.
+  //
+  // v3 (current): the v2 ALL-gate broke the real-life break workflow.
+  // A barber going on break is, by definition, LEAVING the shop —
+  // walking to lunch, smoking outside, running an errand. They need
+  // to tap BREAK from wherever they are (parking lot, restaurant
+  // WiFi, cellular). Forcing them to mark break BEFORE walking out
+  // is unrealistic — half the time they remember after they're out.
+  //
+  // So we split the targets by what they CLAIM:
+  //   * available / busy → claim presence ("I'm here, ready") → gate
+  //   * break → claim absence ("I'm stepping out") → no gate
+  //   * offline → also a claim of absence, but kept gated for now
+  //     (more sabotage-attractive — competitor can mark a barber
+  //     offline mid-day). Loosen later if real-world friction shows.
   //
   // Bypasses (in order):
   //   1. The physical NXT TAP device — its token+shop_id pair is its
   //      presence proof (the device is bolted to the shop).
   //   2. The shop hasn't configured trusted_public_ip yet (null) — we
   //      keep the legacy behavior so existing shops don't break.
+  //   3. The owner (Centro de mando), authenticated by cookie.
+  //   4. Target is 'break' (see above).
   //
   // Otherwise: the request's public IP must match shop.trusted_public_ip
   // exactly. The owner registers that IP from inside the shop in Settings.
-  if (!isDeviceRequest && !isOwnerRequest && shop.trusted_public_ip) {
+  const isAbsenceClaim = newStatus === 'break'
+  if (
+    !isDeviceRequest &&
+    !isOwnerRequest &&
+    !isAbsenceClaim &&
+    shop.trusted_public_ip
+  ) {
     const clientIp = getClientIp(request)
     if (!clientIp || clientIp !== shop.trusted_public_ip) {
       return Response.json(
@@ -111,7 +131,9 @@ export async function PATCH(
           // Wording stays user-facing instead of mentioning sabotage —
           // most of the time this fires on a legitimate barber who
           // just walked outside or is on cellular instead of WiFi.
-          error: 'Conéctate al WiFi de la barbería para usar tu panel',
+          // Hint at break being exempt so they don't get stuck.
+          error:
+            'Conéctate al WiFi de la barbería para volver a disponible o marcar busy. (Break sí puedes tocarlo desde donde sea.)',
           code: 'not_in_shop',
           client_ip: clientIp,
         },
