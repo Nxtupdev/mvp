@@ -81,6 +81,62 @@ void addSupabaseHeaders(HTTPClient& http) {
   http.addHeader("Connection", "keep-alive");
 }
 
+// ── POST helper with retry-on-stale-connection ───────────────────
+//
+// setReuse(true) keeps the TLS session alive between requests, which
+// is great when it works — sub-300ms RPCs. But Kong (in front of
+// Supabase) and home-router NATs occasionally close idle keep-alive
+// sockets. When that happens, the next POST returns a negative code
+// (mbedTLS -80 = SSL_CONN_EOF, or HTTPClient -1 = CONNECTION_REFUSED)
+// and we'd otherwise spend ~6-10s of failed retries before recovering.
+//
+// This helper detects the stale-socket case and forces a fresh TCP
+// handshake on attempt #2 by calling g_client.stop(). The slow path
+// (one bad cache day) pays the TLS handshake once; the fast path
+// (every other call) stays on the cached session.
+//
+// Returns the final HTTP status code (200 on success). The response
+// body is written to *outPayload if non-null and the code was 200.
+static int postRpc(const char* tag, const char* url, const String& body,
+                   String* outPayload) {
+  for (int attempt = 0; attempt < 2; attempt++) {
+    if (!g_http.begin(g_client, url)) {
+      Serial.printf("[net] %s http.begin failed (attempt %d)\n", tag, attempt + 1);
+      return -1;
+    }
+    addSupabaseHeaders(g_http);
+    g_http.setTimeout(3000);
+
+    const uint32_t t0 = millis();
+    const int code = g_http.POST(body);
+    const uint32_t elapsed = millis() - t0;
+
+    if (code == 200) {
+      Serial.printf("[net] %s → HTTP 200 (%lu ms%s)\n", tag,
+                    (unsigned long)elapsed, attempt ? ", reconnected" : "");
+      if (outPayload) *outPayload = g_http.getString();
+      g_http.end();
+      return 200;
+    }
+
+    if (code > 0) {
+      // Server-side error (4xx/5xx). Retrying won't fix it.
+      Serial.printf("[net] %s → HTTP %d (%lu ms): %s\n", tag, code,
+                    (unsigned long)elapsed, g_http.getString().c_str());
+      g_http.end();
+      return code;
+    }
+
+    // Network-level failure. The cached TLS session is likely stale.
+    // Tear it down so the next attempt re-handshakes from scratch.
+    Serial.printf("[net] %s POST failed code=%d (%lu ms, attempt %d) — forcing reconnect\n",
+                  tag, code, (unsigned long)elapsed, attempt + 1);
+    g_http.end();
+    g_client.stop();
+  }
+  return -1;
+}
+
 }  // namespace
 
 namespace nxtup {
@@ -144,30 +200,13 @@ bool fetchSnapshot(Snapshot& out) {
   if (!connectWiFi()) return false;
   ensureNetReady();
 
-  if (!g_http.begin(g_client, rpcUrl("device_get_barber_snapshot"))) {
-    Serial.println("[net] http.begin failed (snapshot)");
-    return false;
-  }
-  addSupabaseHeaders(g_http);
-  g_http.setTimeout(3000);
-
-  // PostgREST RPC takes named arguments in the JSON body.
   String body = String("{\"p_barber_id\":\"") + BARBER_ID +
                 "\",\"p_device_token\":\"" + DEVICE_API_TOKEN + "\"}";
 
-  const int code = g_http.POST(body);
-  if (code != 200) {
-    Serial.printf("[net] snapshot RPC HTTP %d · %s\n",
-                  code, g_http.errorToString(code).c_str());
-    if (code > 0) Serial.println(g_http.getString());
-    g_http.end();
+  String payload;
+  if (postRpc("snapshot", rpcUrl("device_get_barber_snapshot"), body, &payload) != 200) {
     return false;
   }
-
-  String payload = g_http.getString();
-  // end() with setReuse(true) keeps the underlying TCP+TLS alive —
-  // it just frees the per-request state so the next begin() can run.
-  g_http.end();
   return parseSnapshot(payload, out);
 }
 
@@ -179,13 +218,6 @@ bool postStateAndSnapshot(const char* newStatus, Snapshot* outSnap) {
   if (!connectWiFi()) return false;
   ensureNetReady();
 
-  if (!g_http.begin(g_client, rpcUrl("device_update_barber_state"))) {
-    Serial.println("[net] http.begin failed (state)");
-    return false;
-  }
-  addSupabaseHeaders(g_http);
-  g_http.setTimeout(3000);
-
   // Same JSON-body RPC convention as the snapshot fn. The state RPC
   // returns the fresh snapshot in its response, so when the caller
   // passes an outSnap we get to skip a second round trip entirely.
@@ -193,24 +225,15 @@ bool postStateAndSnapshot(const char* newStatus, Snapshot* outSnap) {
                 "\",\"p_target\":\"" + newStatus +
                 "\",\"p_device_token\":\"" + DEVICE_API_TOKEN + "\"}";
 
-  const uint32_t t0 = millis();
-  const int code = g_http.POST(body);
-  Serial.printf("[net] state RPC %s → HTTP %d (%lu ms)\n",
-                newStatus, code, (unsigned long)(millis() - t0));
-
-  if (code != 200) {
-    if (code > 0) Serial.println(g_http.getString());
-    g_http.end();
+  String tag = String("state ") + newStatus;
+  String payload;
+  String* outPtr = (outSnap != nullptr) ? &payload : nullptr;
+  if (postRpc(tag.c_str(), rpcUrl("device_update_barber_state"), body, outPtr) != 200) {
     return false;
   }
-
   if (outSnap != nullptr) {
-    String payload = g_http.getString();
-    g_http.end();
     return parseSnapshot(payload, *outSnap);
   }
-
-  g_http.end();
   return true;
 }
 
