@@ -170,22 +170,13 @@ export async function PATCH(
   const logs: LogEntry[] = []
 
   if (newStatus === 'available') {
-    // Complete any in-progress client (barber finishing a cut). We split
-    // this into TWO updates so we can count actual cuts separately from
-    // stale-state cleanup — the toll system (migration 019) needs to
-    // know how many real cuts were completed.
-    //
-    //   1. in_progress → done: this is the REAL cut. Counts toward toll.
-    //   2. called → done (only from busy): cleanup of stale state where
-    //      a 'called' should have transitioned to 'in_progress' but
-    //      didn't (missed tap, network blip). Doesn't count as a cut.
-    const { data: cutsCompletedRows } = await supabase
+    // Mark in-progress / called clients as done for cleanup. We don't
+    // gate the toll payment on this anymore — see comment below.
+    await supabase
       .from('queue_entries')
       .update({ status: 'done', completed_at: now })
       .eq('barber_id', barber_id)
       .eq('status', 'in_progress')
-      .select('id')
-    const cutsCompleted = cutsCompletedRows?.length ?? 0
 
     if (fromStatus === 'busy') {
       await supabase
@@ -195,11 +186,24 @@ export async function PATCH(
         .eq('status', 'called')
     }
 
-    // ── Pay late-arrival toll (migration 019) ───────────────────
-    // If a real cut completed, every late-arrival barber who owed this
-    // barber gets their counter decremented. The SQL function handles
-    // the bookkeeping; we just trigger it.
-    if (cutsCompleted > 0) {
+    // ── Pay late-arrival toll (migration 019, revised 023) ──────
+    //
+    // Original design required a queue_entry to transition from
+    // in_progress → done before counting as a "real cut". That
+    // broke the real-world flow: most clients in DR/USA shops are
+    // walk-ins who never check in via QR/kiosk. The barber taps
+    // BUSY at the start of the cut and ACTIVE at the end, no
+    // queue_entry ever exists. Under the old rule, the toll never
+    // decremented — late barbers stayed blocked forever.
+    //
+    // Revised: any BUSY → AVAILABLE transition counts as 1 cut.
+    // Gaming is not a real concern because:
+    //   * Existing barbers' incentive is to KEEP the late one
+    //     blocked (more turns for them), not to clear their toll.
+    //   * The late barber can't pay their own toll — pay decrements
+    //     rows where they are the existing side, and they're the
+    //     late side in their own rows.
+    if (fromStatus === 'busy') {
       const { error: payErr } = await supabase.rpc('pay_late_arrival_toll', {
         p_existing_barber_id: barber_id,
       })
