@@ -409,6 +409,9 @@ static void networkTask(void * /*arg*/) {
     char action[16] = {0};
     BaseType_t got = xQueueReceive(g_actionQueue, action, kPollIntervalTicks);
 
+    nxtup::Snapshot snap;
+    bool haveSnap = false;
+
     if (got == pdTRUE) {
       // The previous iteration may have published a snapshot fetched
       // BEFORE this tap was queued. Invalidate it now so the main loop
@@ -417,17 +420,21 @@ static void networkTask(void * /*arg*/) {
       g_pendingSnapReady = false;
       xSemaphoreGive(g_snapMutex);
 
-      Serial.printf("[net-task] POST status=%s\n", action);
-      if (!nxtup::postState(action)) {
-        Serial.println("[net-task] postState FAILED");
+      Serial.printf("[net-task] state RPC status=%s\n", action);
+      // Combined POST + snapshot fetch in one HTTPS round-trip via
+      // the device_update_barber_state RPC (migration 017). Saves
+      // ~1-2s of TLS handshake vs the old two-call pattern.
+      haveSnap = nxtup::postStateAndSnapshot(action, &snap);
+      if (!haveSnap) {
+        Serial.println("[net-task] state RPC FAILED — falling back to snapshot fetch");
+        haveSnap = nxtup::fetchSnapshot(snap);
       }
+    } else {
+      // Periodic idle poll — just fetch.
+      haveSnap = nxtup::fetchSnapshot(snap);
     }
 
-    // Always fetch + publish. For a tap iteration this gives main the
-    // fresh post-action state; for a periodic iteration it's the regular
-    // sync.
-    nxtup::Snapshot snap;
-    if (nxtup::fetchSnapshot(snap)) {
+    if (haveSnap) {
       publishSnapshot(snap);
     }
 

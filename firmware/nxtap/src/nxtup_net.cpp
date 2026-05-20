@@ -1,5 +1,21 @@
 // ============================================================
 // nxtup_net.cpp — implementation
+//
+// As of migration 017, the device talks DIRECTLY to Supabase via
+// REST RPCs instead of bouncing through Vercel. This cut tap→TV
+// latency from ~15s (Vercel cold start + double round trip) down
+// to ~300-600ms. The Vercel endpoints still exist for the web app;
+// only the firmware's hot path moved.
+//
+// Endpoints used now:
+//   POST https://<SUPABASE_HOST>/rest/v1/rpc/device_update_barber_state
+//   POST https://<SUPABASE_HOST>/rest/v1/rpc/device_get_barber_snapshot
+//
+// Both authenticate with:
+//   apikey: <SUPABASE_ANON_KEY>
+//   Authorization: Bearer <SUPABASE_ANON_KEY>
+// and a per-request `p_device_token` body field that the Postgres
+// function compares against app_settings.device_api_token.
 // ============================================================
 
 #include "nxtup_net.h"
@@ -13,9 +29,21 @@
 
 namespace {
 
-const char* baseUrl() {
-  static String s = String("https://") + NXTUP_HOST;
+const char* rpcUrl(const char* fn) {
+  // Allocated once per call site as a String, then exposed as
+  // c_str. The host comes from secrets.h.
+  static String s;
+  s = String("https://") + SUPABASE_HOST + "/rest/v1/rpc/" + fn;
   return s.c_str();
+}
+
+// Apply the common Supabase REST headers to a started HTTPClient.
+// Both anon key headers are required: `apikey` for the gateway,
+// `Authorization: Bearer` for PostgREST itself.
+void addSupabaseHeaders(HTTPClient& http) {
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
 }
 
 }  // namespace
@@ -46,41 +74,15 @@ bool connectWiFi() {
   return true;
 }
 
-bool fetchSnapshot(Snapshot& out) {
-  if (!connectWiFi()) return false;
-
-  WiFiClientSecure client;
-  // MVP: skip CA validation. Production should embed Let's Encrypt
-  // ISRG Root X1 + add WiFiClientSecure::setCACert(...) for proper TLS.
-  client.setInsecure();
-
-  HTTPClient http;
-  String url = String(baseUrl()) + "/api/barbers/" + BARBER_ID + "/snapshot";
-  if (!http.begin(client, url)) {
-    Serial.println("[net] http.begin failed (snapshot)");
-    return false;
-  }
-  // Vercel redirects apex↔www at the domain level (HTTP 307). Without
-  // FOLLOW_REDIRECTS the HTTPClient stops at the first hop and returns
-  // 307 + "Redirecting..." HTML instead of our JSON.
-  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  http.addHeader("x-device-token", DEVICE_API_TOKEN);
-  // 3s timeout — keep the LCD freeze short if the network gets flaky.
-  http.setTimeout(3000);
-
-  const int code = http.GET();
-  if (code != 200) {
-    Serial.printf("[net] snapshot GET HTTP %d · %s\n",
-                  code, http.errorToString(code).c_str());
-    if (code > 0) Serial.println(http.getString());
-    http.end();
-    return false;
-  }
-
-  String payload = http.getString();
-  http.end();
-
-  // ArduinoJson v7 — heap-allocated, auto-sized.
+// ── Shared JSON → Snapshot parser ────────────────────────────────
+//
+// Both fetchSnapshot() (idle poll) and postState() (after a tap)
+// receive the same JSON shape — the state RPC returns the fresh
+// snapshot in its response so we only need ONE roundtrip per tap.
+//
+// Returns true if the document was well-formed and Snapshot was
+// populated.
+static bool parseSnapshot(const String& payload, Snapshot& out) {
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
@@ -103,33 +105,82 @@ bool fetchSnapshot(Snapshot& out) {
   return true;
 }
 
+bool fetchSnapshot(Snapshot& out) {
+  if (!connectWiFi()) return false;
+
+  WiFiClientSecure client;
+  // MVP: skip CA validation. Supabase uses Let's Encrypt; production
+  // can embed the ISRG root and switch to setCACert().
+  client.setInsecure();
+
+  HTTPClient http;
+  if (!http.begin(client, rpcUrl("device_get_barber_snapshot"))) {
+    Serial.println("[net] http.begin failed (snapshot)");
+    return false;
+  }
+  addSupabaseHeaders(http);
+  http.setTimeout(3000);
+
+  // PostgREST RPC takes named arguments in the JSON body.
+  String body = String("{\"p_barber_id\":\"") + BARBER_ID +
+                "\",\"p_device_token\":\"" + DEVICE_API_TOKEN + "\"}";
+
+  const int code = http.POST(body);
+  if (code != 200) {
+    Serial.printf("[net] snapshot RPC HTTP %d · %s\n",
+                  code, http.errorToString(code).c_str());
+    if (code > 0) Serial.println(http.getString());
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+  return parseSnapshot(payload, out);
+}
+
 bool postState(const char* newStatus) {
+  return postStateAndSnapshot(newStatus, nullptr);
+}
+
+bool postStateAndSnapshot(const char* newStatus, Snapshot* outSnap) {
   if (!connectWiFi()) return false;
 
   WiFiClientSecure client;
   client.setInsecure();
 
   HTTPClient http;
-  String url = String(baseUrl()) + "/api/barbers/" + BARBER_ID + "/state";
-  if (!http.begin(client, url)) {
+  if (!http.begin(client, rpcUrl("device_update_barber_state"))) {
     Serial.println("[net] http.begin failed (state)");
     return false;
   }
-  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("x-device-token", DEVICE_API_TOKEN);
-  // 3s timeout — keep the LCD freeze short if the network gets flaky.
+  addSupabaseHeaders(http);
   http.setTimeout(3000);
 
-  String body = String("{\"status\":\"") + newStatus + "\"}";
-  const int code = http.sendRequest("PATCH", (uint8_t*)body.c_str(), body.length());
+  // Same JSON-body RPC convention as the snapshot fn. The state RPC
+  // returns the fresh snapshot in its response, so when the caller
+  // passes an outSnap we get to skip a second round trip entirely.
+  String body = String("{\"p_barber_id\":\"") + BARBER_ID +
+                "\",\"p_target\":\"" + newStatus +
+                "\",\"p_device_token\":\"" + DEVICE_API_TOKEN + "\"}";
 
-  Serial.printf("[net] state PATCH %s → HTTP %d\n", newStatus, code);
-  if (code >= 400) {
-    Serial.println(http.getString());
+  const int code = http.POST(body);
+  Serial.printf("[net] state RPC %s → HTTP %d\n", newStatus, code);
+
+  if (code != 200) {
+    if (code > 0) Serial.println(http.getString());
+    http.end();
+    return false;
   }
+
+  if (outSnap != nullptr) {
+    String payload = http.getString();
+    http.end();
+    return parseSnapshot(payload, *outSnap);
+  }
+
   http.end();
-  return code >= 200 && code < 300;
+  return true;
 }
 
 }  // namespace nxtup

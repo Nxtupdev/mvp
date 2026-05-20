@@ -39,10 +39,20 @@ bool connectWiFi();
 bool fetchSnapshot(Snapshot& out);
 
 /**
- * PATCH /api/barbers/[BARBER_ID]/state
- * newStatus must be one of "available" | "busy" | "break".
- * Returns true on HTTP 200.
+ * Update the barber's status via the Supabase device RPC.
+ *
+ * newStatus must be one of "available" | "busy" | "break" | "offline".
+ * Returns true on HTTP 200. Equivalent to postStateAndSnapshot with
+ * outSnap = nullptr.
  */
 bool postState(const char* newStatus);
+
+/**
+ * Same as postState but also fills `outSnap` with the fresh snapshot
+ * that the device_update_barber_state RPC includes in its response.
+ * Saves a second round trip after a tap — the device renders the
+ * post-action state without a follow-up snapshot fetch.
+ */
+bool postStateAndSnapshot(const char* newStatus, Snapshot* outSnap);
 
 }  // namespace nxtup
