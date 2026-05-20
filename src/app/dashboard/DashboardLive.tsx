@@ -31,6 +31,10 @@ type Barber = {
   // barber below this one completes a walk-in during their break.
   // buildHeldPositions() reads this to drop their "Vuelve a #N" badge.
   break_invalidated?: boolean | null
+  // Migration 019 — late-arrival toll. >0 means the barber is
+  // paying toll and the live view paints them with orange treatment
+  // so the owner sees at a glance who's still queued behind toll.
+  late_toll_remaining?: number | null
 }
 
 type Shop = {
@@ -100,7 +104,7 @@ export default function DashboardLive({
           .order('position', { ascending: true }),
         supabase
           .from('barbers')
-          .select('id, name, status, avatar, available_since, break_held_since, break_invalidated')
+          .select('id, name, status, avatar, available_since, break_held_since, break_invalidated, late_toll_remaining')
           .eq('shop_id', shop.id)
           .order('name'),
         supabase
@@ -312,22 +316,42 @@ export default function DashboardLive({
                   <ul className="flex flex-col gap-2">
                     {inQueueBarbers.map(b => {
                       const pos = barberOrder.get(b.id)!
+                      // Late-arrival toll: si el barbero está pagando peaje,
+                      // borde + número + dot en naranja para que el dueño
+                      // identifique a quien le falta turnarse desde lejos.
+                      const lateToll = b.late_toll_remaining ?? 0
+                      const isLate = lateToll > 0
                       return (
                         <li
                           key={b.id}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-nxtup-line"
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl bg-nxtup-line ${
+                            isLate ? 'ring-2 ring-orange-500/60' : ''
+                          }`}
                         >
                           <span
-                            className="text-base font-black tabular-nums w-7 text-center text-nxtup-active"
+                            className={`text-base font-black tabular-nums w-7 text-center ${
+                              isLate ? 'text-orange-400' : 'text-nxtup-active'
+                            }`}
                             aria-label={`Posición ${pos}`}
                           >
                             #{pos}
                           </span>
                           <Avatar avatar={b.avatar} name={b.name} size={32} />
                           <span
-                            className={`w-2 h-2 rounded-full flex-shrink-0 ${BARBER_DOT[b.status]}`}
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              isLate ? 'bg-orange-500' : BARBER_DOT[b.status]
+                            }`}
                           />
-                          <span className="text-white font-medium flex-1 truncate">{b.name}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-white font-medium block truncate">
+                              {b.name}
+                            </span>
+                            {isLate && (
+                              <span className="block text-orange-400 text-[10px] font-semibold">
+                                Esperando · {lateToll} por pasar
+                              </span>
+                            )}
+                          </div>
                           <span className="text-nxtup-muted text-xs uppercase tracking-widest">
                             {BARBER_LABEL[b.status]}
                           </span>
