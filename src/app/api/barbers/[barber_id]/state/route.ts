@@ -568,7 +568,21 @@ export async function PATCH(
   // Flush activity log entries. Best-effort — failure here doesn't break
   // the user-facing state change, but we surface the error to Vercel logs
   // so we can diagnose silent RLS / schema issues.
+  //
+  // ── ALWAYS use admin client for activity_log inserts ──
+  // The previous version used `supabase` (which is the cookie-auth
+  // client for owner/PWA paths). RLS on activity_log was silently
+  // rejecting those inserts — so a busy 8-barber shop generated only
+  // ~10 events/day visible in the dashboard. The cron functions
+  // (idle_timeout, cascade) were unaffected because they run as
+  // SECURITY DEFINER and bypass RLS.
+  //
+  // activity_log is an audit table. It should ALWAYS get the insert,
+  // regardless of which user is causing the state change. Using the
+  // admin client unconditionally here matches the same model used by
+  // the device RPC path.
   if (logs.length > 0) {
+    const adminLogger = createAdminClient()
     const rows = logs.map(l => ({
       shop_id: barber.shop_id,
       barber_id: barber_id,
@@ -577,7 +591,7 @@ export async function PATCH(
       to_status: l.to_status ?? null,
       metadata: l.metadata ?? {},
     }))
-    const { error: logError } = await supabase.from('activity_log').insert(rows)
+    const { error: logError } = await adminLogger.from('activity_log').insert(rows)
     if (logError) {
       console.error('[activity_log] insert failed', {
         shop_id: barber.shop_id,
