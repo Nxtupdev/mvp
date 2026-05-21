@@ -10,6 +10,14 @@ type Action =
   | 'position_kept'
   | 'position_lost'
   | 'shop_settings_changed'
+  // Migration 018 — cascada de 90s sobre 'called' sin respuesta.
+  | 'no_show'
+  | 'no_show_no_takers'
+  // Migrations 021 + 028 — auto-offline. Sub-razón en metadata.reason:
+  //   * 'available_no_action' — 3h sin actividad (idle 021)
+  //   * 'busy_too_long' — 3h congelado en busy (idle 021)
+  //   * 'break_expired' — pasó break_minutes + grace (028)
+  | 'idle_timeout_offline'
 
 type Event = {
   id: string
@@ -44,6 +52,9 @@ const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
   { value: 'client_assigned', label: 'Cliente asignado' },
   { value: 'position_kept', label: 'Posición mantenida' },
   { value: 'position_lost', label: 'Posición perdida' },
+  { value: 'no_show', label: 'No-show (cascada)' },
+  { value: 'no_show_no_takers', label: 'No-show sin reemplazo' },
+  { value: 'idle_timeout_offline', label: 'Auto-offline (timeout)' },
   { value: 'shop_settings_changed', label: 'Cambios de config' },
 ]
 
@@ -270,6 +281,9 @@ const ACTION_ACCENT: Record<Action, string> = {
   position_kept: 'text-nxtup-active',
   position_lost: 'text-nxtup-busy',
   shop_settings_changed: 'text-nxtup-break',
+  no_show: 'text-nxtup-busy',
+  no_show_no_takers: 'text-nxtup-busy',
+  idle_timeout_offline: 'text-nxtup-dim',
 }
 
 function describe(event: Event): string {
@@ -292,6 +306,37 @@ function describe(event: Event): string {
     case 'shop_settings_changed': {
       return 'cambió la configuración del shop'
     }
+    case 'no_show': {
+      // Cascada de 90s — el barbero no respondió al cliente
+      // llamado, el sistema lo mandó offline y pasó el cliente
+      // al siguiente disponible.
+      const name = (event.metadata as { client_name?: string })?.client_name
+      return name
+        ? `no respondió a ${name} → mandado offline (cascada 90s)`
+        : 'no respondió al cliente → mandado offline (cascada 90s)'
+    }
+    case 'no_show_no_takers': {
+      // Cascada disparó pero no había barbero disponible para
+      // tomar el cliente → vuelve a la cola.
+      const name = (event.metadata as { client_name?: string })?.client_name
+      return name
+        ? `${name} volvió a la cola — nadie disponible para tomar`
+        : 'cliente volvió a la cola — nadie disponible'
+    }
+    case 'idle_timeout_offline': {
+      // Tres sub-razones en metadata.reason. Distinguimos por la
+      // experiencia del barbero — el break_expired es el más común
+      // y el que más le interesa al dueño ver.
+      const reason = (event.metadata as { reason?: string })?.reason
+      if (reason === 'break_expired') {
+        return 'se pasó del break + gracia → offline automático'
+      }
+      if (reason === 'busy_too_long') {
+        return 'congelado en busy más de 3h → offline automático'
+      }
+      // available_no_action
+      return 'sin actividad por 3h → offline automático'
+    }
   }
 }
 
@@ -309,6 +354,15 @@ function hasUserVisibleMeta(event: Event): boolean {
     case 'shop_settings_changed':
       return Boolean(
         (event.metadata as { changes?: Record<string, unknown> })?.changes,
+      )
+    case 'idle_timeout_offline':
+      return Boolean(
+        (event.metadata as { minutes_over?: number; minutes_idle?: number })?.minutes_over ??
+          (event.metadata as { minutes_idle?: number })?.minutes_idle,
+      )
+    case 'no_show':
+      return Boolean(
+        (event.metadata as { seconds_elapsed?: number })?.seconds_elapsed,
       )
     default:
       return false
@@ -349,6 +403,34 @@ function formatMetadata(event: Event): string {
       return Object.entries(m.changes)
         .map(([k, v]) => `${k}: ${formatVal(v.from)} → ${formatVal(v.to)}`)
         .join(' · ')
+    }
+    case 'idle_timeout_offline': {
+      const m = event.metadata as {
+        minutes_over?: number
+        minutes_idle?: number
+        hours_idle?: number
+        total_allowed_minutes?: number
+      }
+      if (m.minutes_over != null && m.total_allowed_minutes != null) {
+        return `${m.minutes_over} min sobre el permitido (${m.total_allowed_minutes} min)`
+      }
+      if (m.minutes_idle != null) {
+        return `${m.minutes_idle} min sin actividad`
+      }
+      if (m.hours_idle != null) {
+        return `${m.hours_idle} h sin actividad`
+      }
+      return ''
+    }
+    case 'no_show': {
+      const m = event.metadata as {
+        client_name?: string
+        seconds_elapsed?: number
+      }
+      if (m.seconds_elapsed != null) {
+        return `${Math.round(m.seconds_elapsed)} s sin tap a busy`
+      }
+      return ''
     }
     default:
       return ''
