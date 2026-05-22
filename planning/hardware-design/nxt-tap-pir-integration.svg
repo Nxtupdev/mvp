@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" font-family="-apple-system, system-ui, sans-serif">
+  <!-- Background -->
+  <rect width="1000" height="800" fill="#0a0a0a"/>
+
+  <!-- Title -->
+  <text x="500" y="40" fill="#ffffff" font-size="24" font-weight="700" text-anchor="middle">NXT TAP + Sensor PIR — integración propuesta</text>
+  <text x="500" y="65" fill="#888" font-size="13" text-anchor="middle">2 vistas para visualizar dónde y cómo se monta el AM312</text>
+
+  <!-- ==================== VISTA FRONTAL ==================== -->
+  <text x="250" y="115" fill="#22c55e" font-size="16" font-weight="700" text-anchor="middle">VISTA FRONTAL</text>
+  <text x="250" y="135" fill="#888" font-size="11" text-anchor="middle">como lo ve el barbero parado al frente</text>
+
+  <!-- NXT TAP case (frontal) -->
+  <rect x="100" y="160" width="300" height="450" rx="20" fill="#1a1a1a" stroke="#444" stroke-width="2"/>
+  <text x="250" y="185" fill="#666" font-size="10" text-anchor="middle">NXT TAP · case 5"</text>
+
+  <!-- Touchscreen -->
+  <rect x="125" y="200" width="250" height="350" rx="8" fill="#0d1117" stroke="#22c55e" stroke-width="1"/>
+  <text x="250" y="225" fill="#22c55e" font-size="11" text-anchor="middle" font-weight="700">PANTALLA 5"</text>
+
+  <!-- 3 botones del UI -->
+  <rect x="145" y="250" width="210" height="60" rx="8" fill="#22c55e" opacity="0.2" stroke="#22c55e"/>
+  <text x="250" y="287" fill="#22c55e" font-size="18" font-weight="700" text-anchor="middle">ACTIVE</text>
+
+  <rect x="145" y="325" width="210" height="60" rx="8" fill="#ef4444" opacity="0.2" stroke="#ef4444"/>
+  <text x="250" y="362" fill="#ef4444" font-size="18" font-weight="700" text-anchor="middle">BUSY</text>
+
+  <rect x="145" y="400" width="210" height="60" rx="8" fill="#f59e0b" opacity="0.2" stroke="#f59e0b"/>
+  <text x="250" y="437" fill="#f59e0b" font-size="18" font-weight="700" text-anchor="middle">BREAK</text>
+
+  <!-- Status indicator -->
+  <text x="250" y="490" fill="#888" font-size="10" text-anchor="middle">Mauricio · #1 en fila</text>
+
+  <!-- Sensor PIR — la cupulita -->
+  <circle cx="250" cy="580" r="14" fill="#f0f0f0" stroke="#888" stroke-width="2"/>
+  <circle cx="250" cy="580" r="8" fill="#e0e0e0"/>
+  <text x="250" y="584" fill="#666" font-size="8" text-anchor="middle">PIR</text>
+
+  <!-- Annotation line al PIR -->
+  <line x1="280" y1="580" x2="450" y2="580" stroke="#facc15" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <circle cx="280" cy="580" r="3" fill="#facc15"/>
+  <text x="460" y="575" fill="#facc15" font-size="13" font-weight="700">Sensor PIR AM312</text>
+  <text x="460" y="592" fill="#fff" font-size="11">Cúpula blanca de 12mm</text>
+  <text x="460" y="608" fill="#fff" font-size="11">Empotrada en el bezel inferior</text>
+  <text x="460" y="624" fill="#888" font-size="10">Mira al frente · cono 100°</text>
+  <text x="460" y="640" fill="#888" font-size="10">Alcance 3-5 metros</text>
+
+  <!-- Annotation line a pantalla -->
+  <line x1="125" y1="220" x2="40" y2="220" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="35" y="217" fill="#22c55e" font-size="10" text-anchor="end">Pantalla táctil</text>
+  <text x="35" y="230" fill="#888" font-size="9" text-anchor="end">existente</text>
+
+  <!-- Annotation line al case -->
+  <line x1="100" y1="400" x2="40" y2="400" stroke="#fff" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="35" y="397" fill="#fff" font-size="10" text-anchor="end">Case ESP32-S3</text>
+  <text x="35" y="410" fill="#888" font-size="9" text-anchor="end">existente</text>
+
+  <!-- ==================== VISTA LATERAL ==================== -->
+  <text x="750" y="115" fill="#22c55e" font-size="16" font-weight="700" text-anchor="middle">VISTA LATERAL · CORTE</text>
+  <text x="750" y="135" fill="#888" font-size="11" text-anchor="middle">para ver el cono de detección del PIR</text>
+
+  <!-- Case lateral del NXT TAP -->
+  <path d="M 580 200 L 620 200 L 620 600 L 580 600 Z" fill="#1a1a1a" stroke="#444" stroke-width="2"/>
+  <text x="600" y="180" fill="#666" font-size="9" text-anchor="middle">case (vista de canto)</text>
+
+  <!-- Pantalla (sobresale ligeramente) -->
+  <rect x="615" y="220" width="8" height="320" fill="#0d1117" stroke="#22c55e" stroke-width="1"/>
+  <text x="600" y="380" fill="#22c55e" font-size="9" text-anchor="middle" transform="rotate(-90 600 380)">PANTALLA</text>
+
+  <!-- PIR sensor (sobresale del frente) -->
+  <circle cx="624" cy="560" r="6" fill="#f0f0f0" stroke="#888" stroke-width="1"/>
+  <text x="624" y="585" fill="#facc15" font-size="9" text-anchor="middle">PIR</text>
+
+  <!-- Cono de detección del PIR -->
+  <path d="M 624 560 L 950 410 L 950 710 Z" fill="#facc15" opacity="0.15" stroke="#facc15" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="800" y="555" fill="#facc15" font-size="12" font-weight="700" text-anchor="middle">CONO DE DETECCIÓN</text>
+  <text x="800" y="575" fill="#fff" font-size="10" text-anchor="middle">100° apertura · 3-5m alcance</text>
+
+  <!-- Silueta del barbero a la izquierda del cono -->
+  <g transform="translate(870, 480)">
+    <!-- Cabeza -->
+    <circle cx="0" cy="0" r="15" fill="#3b82f6"/>
+    <!-- Cuerpo -->
+    <path d="M -20 18 L 20 18 L 18 90 L -18 90 Z" fill="#3b82f6"/>
+    <text x="0" y="115" fill="#3b82f6" font-size="11" text-anchor="middle" font-weight="700">BARBERO</text>
+    <text x="0" y="128" fill="#888" font-size="9" text-anchor="middle">en su puesto</text>
+  </g>
+
+  <!-- Línea de actividad detectada -->
+  <text x="780" y="700" fill="#22c55e" font-size="11" font-weight="700" text-anchor="middle">✓ Detecta movimiento</text>
+  <text x="780" y="715" fill="#888" font-size="9" text-anchor="middle">cuerpo, brazos, cabeza</text>
+
+  <!-- ==================== ESQUEMA DE CONEXIÓN ==================== -->
+  <rect x="100" y="640" width="380" height="140" rx="10" fill="#1a1a1a" stroke="#333"/>
+  <text x="290" y="665" fill="#22c55e" font-size="13" font-weight="700" text-anchor="middle">CABLEADO PIR → ESP32-S3</text>
+
+  <!-- PIR -->
+  <circle cx="160" cy="720" r="20" fill="#f0f0f0" stroke="#888" stroke-width="1"/>
+  <text x="160" y="724" fill="#666" font-size="9" text-anchor="middle">PIR</text>
+  <text x="160" y="755" fill="#888" font-size="9" text-anchor="middle">AM312</text>
+
+  <!-- ESP32 -->
+  <rect x="380" y="700" width="60" height="40" rx="4" fill="#3b82f6" opacity="0.3" stroke="#3b82f6"/>
+  <text x="410" y="724" fill="#3b82f6" font-size="10" font-weight="700" text-anchor="middle">ESP32-S3</text>
+
+  <!-- Cables -->
+  <line x1="180" y1="710" x2="380" y2="710" stroke="#ef4444" stroke-width="2"/>
+  <text x="280" y="705" fill="#ef4444" font-size="9" text-anchor="middle">VCC · 3.3V</text>
+
+  <line x1="180" y1="720" x2="380" y2="720" stroke="#facc15" stroke-width="2"/>
+  <text x="280" y="717" fill="#facc15" font-size="9" text-anchor="middle">OUT · GPIO</text>
+
+  <line x1="180" y1="730" x2="380" y2="730" stroke="#666" stroke-width="2"/>
+  <text x="280" y="745" fill="#666" font-size="9" text-anchor="middle">GND · tierra</text>
+
+  <!-- ==================== LEYENDA / NOTAS ==================== -->
+  <rect x="520" y="640" width="430" height="140" rx="10" fill="#1a1a1a" stroke="#333"/>
+  <text x="735" y="665" fill="#22c55e" font-size="13" font-weight="700" text-anchor="middle">CÓMO FUNCIONA</text>
+
+  <text x="540" y="690" fill="#fff" font-size="11">1. Barbero está parado al frente cortando</text>
+  <text x="540" y="708" fill="#888" font-size="10">→ sus movimientos disparan el PIR cada pocos segundos</text>
+
+  <text x="540" y="728" fill="#fff" font-size="11">2. Barbero se va del puesto al lunch</text>
+  <text x="540" y="746" fill="#888" font-size="10">→ PIR deja de detectar movimiento</text>
+
+  <text x="540" y="766" fill="#22c55e" font-size="11" font-weight="700">3. Después de 5 min sin movimiento → ESP32 manda</text>
+  <text x="540" y="780" fill="#22c55e" font-size="11" font-weight="700">    "barbero ausente" al servidor → auto-offline</text>
+</svg>
