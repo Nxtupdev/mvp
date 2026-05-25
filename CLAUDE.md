@@ -51,3 +51,15 @@ Slug rules: kebab-case, ASCII, no acentos. Status: `draft`, `review`, `final`.
 3. **Don't build without a spec.** Incluso cambios pequeños tienen un spec liviano.
 4. **Workspace isolation.** Cada `CONTEXT.md` declara qué NO cargar de otros workspaces.
 5. **Hardware-driven UX no es negociable.** El botón físico es el diferenciador. Cualquier feature que cree dependencia de teléfono se discute primero.
+
+## Integración con Mamacita
+
+Mamacita (proyecto separado de Frank, repo `C:\Users\frami\Proyectos\tu-cita-pro`) se está integrando como **add-on marketplace** a NXTUP. Mamacita aporta voz IA para tomar reservaciones por teléfono.
+
+**Antes de cualquier trabajo relacionado con esa integración, leer la fuente única de verdad:**
+
+```
+planning/integration/mamacita-nxtup-integration.md
+```
+
+Ese doc cubre sprints planeados, decisiones de arquitectura, estructura de licenciamiento, y decisiones pendientes. Si algo en una conversación contradice el doc, **preguntar antes de actuar**. Al terminar trabajo de integración, **actualizar el doc** y commit/push.
