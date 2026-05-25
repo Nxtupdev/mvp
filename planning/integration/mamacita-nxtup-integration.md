@@ -17,7 +17,7 @@
 - **Estado:** producción. Shops activos: Fade Factory (`f6b50767-0538-47ba-86a8-b0c0170b2d38`), Prueba Barber (`0454a06d-d741-4537-abc1-8728b92a87e2`).
 - **Equipo:** 4 socios (Frank es uno).
 
-### Mamacita (`C:\Users\frami\Proyectos\tu-cita-pro`)
+### Mamacita (`C:\Users\frami\Proyectos\mamacita`)
 
 - **Qué es:** agente de voz IA que toma reservaciones por llamada telefónica. Cliente llama → VAPI contesta → recolecta info → crea cita en Supabase → manda WhatsApp.
 - **Stack:** Vite + React + TypeScript + shadcn/ui + Supabase + Edge Functions + VAPI + Stripe.

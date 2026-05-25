@@ -54,7 +54,7 @@ Slug rules: kebab-case, ASCII, no acentos. Status: `draft`, `review`, `final`.
 
 ## Integración con Mamacita
 
-Mamacita (proyecto separado de Frank, repo `C:\Users\frami\Proyectos\tu-cita-pro`) se está integrando como **add-on marketplace** a NXTUP. Mamacita aporta voz IA para tomar reservaciones por teléfono.
+Mamacita (proyecto separado de Frank, repo `C:\Users\frami\Proyectos\mamacita`) se está integrando como **add-on marketplace** a NXTUP. Mamacita aporta voz IA para tomar reservaciones por teléfono.
 
 **Antes de cualquier trabajo relacionado con esa integración, leer la fuente única de verdad:**
 
