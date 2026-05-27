@@ -99,27 +99,27 @@ export function SplashScreen({
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-12">
       <div className="flex max-w-2xl flex-col items-center gap-12 sm:gap-16">
-        {/* ─── Shop Logo ─── */}
+        {/* ─── Shop Logo ───
+            Sin contenedor glass — el logo flota libre. Los logos
+            con fondo oscuro (típico para barbershops) se funden
+            naturalmente contra el bg #0A0A0B del kiosko. Los que
+            tengan fondo transparente respiran bien también. */}
         <motion.div
           initial="initial"
           animate="animate"
           variants={logoV}
-          className="
-            flex h-32 w-32 items-center justify-center overflow-hidden
-            rounded-3xl bg-white/[0.04] ring-1 ring-white/[0.08]
-            backdrop-blur-xl
-            sm:h-36 sm:w-36
-          "
+          className="flex h-40 w-40 items-center justify-center sm:h-48 sm:w-48"
         >
           {shopLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={shopLogoUrl}
               alt={`${shopName} logo`}
-              className="h-24 w-24 object-contain"
+              className="h-full w-full object-contain"
             />
           ) : (
-            <span className="text-6xl font-bold tracking-tighter text-zinc-50">
+            // Fallback letra-mark grande para shops sin logo subido.
+            <span className="text-8xl font-bold tracking-tighter text-zinc-50 sm:text-9xl">
               {shopName.charAt(0).toUpperCase()}
             </span>
           )}
