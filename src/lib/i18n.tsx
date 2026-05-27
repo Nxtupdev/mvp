@@ -127,7 +127,6 @@ const MESSAGES: Record<Locale, Messages> = {
 
     'kiosk.back': 'Volver',
     'kiosk.step': 'Paso {n} de {total}',
-    'kiosk.skip': 'Saltar',
 
     'kiosk.new.title': 'Cuéntanos un poco',
     'kiosk.new.firstName': 'Nombre',
@@ -270,7 +269,6 @@ const MESSAGES: Record<Locale, Messages> = {
 
     'kiosk.back': 'Back',
     'kiosk.step': 'Step {n} of {total}',
-    'kiosk.skip': 'Skip',
 
     'kiosk.new.title': 'Tell us a bit about you',
     'kiosk.new.firstName': 'First name',

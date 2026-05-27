@@ -4,17 +4,24 @@
  * SourcePicker — referral attribution capture, first-visit only.
  *
  * 6 icon+label buttons matching the closed list on `clients.
- * referral_source` (migration 032). Single-select. A "Skip" text
- * link below clears the selection — the column allows NULL when the
- * user didn't pick a source, which keeps analytics honest.
+ * referral_source` (migration 032). Single-select with toggle: tap a
+ * selected button to clear it; tap a different one to switch.
  *
  * Icons:
- *   - Walk-by → MapPin (Lucide)
- *   - Google  → custom Google G (mono — see GoogleGIcon below)
- *   - Instagram → custom SVG (Lucide v1 dropped brand icons)
- *   - TikTok → custom SVG (Lucide v1 dropped brand icons)
- *   - Friend → Users (Lucide)
- *   - Other → MoreHorizontal (Lucide)
+ *   - Walk-by   → MapPin (Lucide, mono)
+ *   - Google    → custom 4-color G
+ *   - Instagram → custom rounded-square camera with brand gradient
+ *   - TikTok    → custom note with cyan/magenta split-tone
+ *   - Friend    → Users (Lucide, mono)
+ *   - Other     → MoreHorizontal (Lucide, mono)
+ *
+ * Brand icons keep their official colors regardless of selection
+ * state — the selection indicator is the surrounding ring + bg, not
+ * an icon color shift. That way recognizable marks stay recognizable.
+ *
+ * There is intentionally no "Skip" link: source is optional from the
+ * caller's perspective (NewCustomerScreen doesn't gate Continue on
+ * it), and the toggle behavior covers the "I changed my mind" case.
  *
  * Layout: 3 columns on tablet, 2 on phone. Each button h-24 (96px) —
  * well above the 56px touch-target floor.
@@ -67,43 +74,26 @@ export function SourcePicker({ selected, onSelect }: SourcePickerProps) {
   }
 
   return (
-    <div className="flex flex-col items-stretch gap-4">
-      <motion.div
-        role="radiogroup"
-        aria-label={t('kiosk.new.source')}
-        initial="initial"
-        animate="animate"
-        variants={containerV}
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"
-      >
-        {REFERRAL_SOURCES.map((source) => (
-          <SourceButton
-            key={source}
-            source={source}
-            label={t(`kiosk.source.${source}`)}
-            selected={selected === source}
-            variants={itemV}
-            reduceMotion={shouldReduceMotion ?? false}
-            onPress={() => handleSelect(source)}
-          />
-        ))}
-      </motion.div>
-
-      <button
-        type="button"
-        onClick={() => onSelect(null)}
-        className="
-          mx-auto rounded-md px-3 py-2 text-sm font-medium
-          text-zinc-500 underline-offset-4 transition-colors
-          hover:text-zinc-300 hover:underline
-          focus-visible:outline-none focus-visible:ring-2
-          focus-visible:ring-emerald-400 focus-visible:ring-offset-2
-          focus-visible:ring-offset-[#0A0A0B]
-        "
-      >
-        {t('kiosk.skip')}
-      </button>
-    </div>
+    <motion.div
+      role="radiogroup"
+      aria-label={t('kiosk.new.source')}
+      initial="initial"
+      animate="animate"
+      variants={containerV}
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"
+    >
+      {REFERRAL_SOURCES.map((source) => (
+        <SourceButton
+          key={source}
+          source={source}
+          label={t(`kiosk.source.${source}`)}
+          selected={selected === source}
+          variants={itemV}
+          reduceMotion={shouldReduceMotion ?? false}
+          onPress={() => handleSelect(source)}
+        />
+      ))}
+    </motion.div>
   )
 }
 
@@ -146,13 +136,10 @@ function SourceButton({
         }
       `}
     >
-      <SourceIcon
-        source={source}
-        className={`h-6 w-6 ${selected ? 'text-emerald-300' : 'text-zinc-300'}`}
-      />
+      <SourceIcon source={source} className="h-7 w-7 text-zinc-300" />
       <span
         className={`text-xs font-medium tracking-tight sm:text-sm ${
-          selected ? 'text-emerald-300' : 'text-zinc-200'
+          selected ? 'text-zinc-50' : 'text-zinc-200'
         }`}
       >
         {label}
@@ -162,7 +149,7 @@ function SourceButton({
 }
 
 // ────────────────────────────────────────────────────────────────────
-// SourceIcon — Lucide icons + two custom (Google G, TikTok)
+// SourceIcon — Lucide for the generic ones, custom SVGs for brands.
 
 function SourceIcon({
   source,
@@ -185,59 +172,107 @@ function SourceIcon({
   return null
 }
 
-// Google "G" — simplified mono mark. We don't render Google's official
-// 4-color logo because (a) it'd clash with the all-mono kiosk language
-// and (b) brand-guideline territory. Mono G in current color is fine.
+// ────────────────────────────────────────────────────────────────────
+// Brand SVGs — kept inline so the kiosk has zero external icon deps.
+//
+// These use canonical brand colors. Approximations of the official
+// marks — close enough that customers immediately recognize them,
+// not so detailed that they trip a brand-guideline review.
+
+// Google G — the classic 4-color mark.
 function GoogleGIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden
       className={className}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M21 12a9 9 0 1 1-3.5-7.1" />
-      <path d="M21 5v6h-6" />
-      <path d="M12 12h6" />
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
     </svg>
   )
 }
 
-// Instagram — rounded square + circle + dot. Lucide v1 removed brand
-// icons so we hand-roll the classic IG mark in mono.
+// Instagram — rounded square with the official 5-stop brand gradient
+// (yellow → orange → magenta → purple → blue), camera lens in white.
 function InstagramIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden
       className={className}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
+      <defs>
+        <linearGradient
+          id="nxtup-ig-gradient"
+          x1="0%"
+          y1="100%"
+          x2="100%"
+          y2="0%"
+        >
+          <stop offset="0%" stopColor="#FEDA75" />
+          <stop offset="25%" stopColor="#FA7E1E" />
+          <stop offset="50%" stopColor="#D62976" />
+          <stop offset="75%" stopColor="#962FBF" />
+          <stop offset="100%" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="2"
+        y="2"
+        width="20"
+        height="20"
+        rx="5.5"
+        fill="url(#nxtup-ig-gradient)"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="4.2"
+        fill="none"
+        stroke="white"
+        strokeWidth="2"
+      />
+      <circle cx="17.5" cy="6.5" r="1.2" fill="white" />
     </svg>
   )
 }
 
-// TikTok — simplified mono note. Same rationale as Google above.
+// TikTok — the note with the iconic cyan + magenta split-tone offset.
+// Three layers stacked: cyan shifted up-right, magenta shifted down-
+// left, white note on top. On a dark background the white reads as
+// the primary mark.
 function TikTokIcon({ className }: { className?: string }) {
+  const notePath =
+    'M16.6 4c.3 1.4 1.1 2.5 2.2 3.3.8.5 1.7.9 2.7.9v3.3c-1.7 0-3.3-.5-4.7-1.4v7.1c0 3.7-3 6.7-6.7 6.7s-6.7-3-6.7-6.7 3-6.7 6.7-6.7c.4 0 .7 0 1.1.1v3.4c-.4-.1-.7-.2-1.1-.2-1.9 0-3.4 1.5-3.4 3.4s1.5 3.4 3.4 3.4 3.4-1.5 3.4-3.4V4h3.1z'
   return (
     <svg
       aria-hidden
       className={className}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M19.6 6.3a5.5 5.5 0 0 1-3.4-1.5 5.5 5.5 0 0 1-1.7-3.3V1h-3.4v13.4a3 3 0 1 1-2.1-2.9V8a6.4 6.4 0 1 0 5.5 6.4V8.6a8.9 8.9 0 0 0 5.1 1.7V6.9c0-.2 0-.4-.1-.6Z" />
+      <g>
+        <path d={notePath} fill="#25F4EE" transform="translate(-1, 1)" />
+        <path d={notePath} fill="#FE2C55" transform="translate(1, -1)" />
+        <path d={notePath} fill="white" />
+      </g>
     </svg>
   )
 }
