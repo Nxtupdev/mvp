@@ -14,9 +14,10 @@
  *   - returningCustomer  → service-only (recognized phone)
  *   - success            → confirmation + queue position
  *
- * Today: only `splash` is wired. The other steps render a placeholder
- * card so we can ship the redesign incrementally. Tomorrow's PR fills
- * in `phone`, `newCustomer`, `returningCustomer`, `success`.
+ * Wired today: `splash` + `phone`. The phone screen currently mocks
+ * the client lookup by always routing to `newCustomer`. The next PR
+ * adds the real /api/kiosk/lookup-client endpoint + the form +
+ * success screens.
  *
  * The legacy /q/[shop_id] flow continues to handle real check-ins
  * until this state machine is complete.
@@ -28,6 +29,7 @@ import { useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n-types'
 import { KioskHeader } from './_components/KioskHeader'
+import { PhoneScreen } from './_components/PhoneScreen'
 import { ScreenContainer } from './_components/ScreenContainer'
 import { SplashScreen } from './_components/SplashScreen'
 
@@ -53,13 +55,11 @@ type KioskAppProps = {
 export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
   const { setLocale } = useLocale()
   const [step, setStep] = useState<Step>('splash')
-  // The phone step + onwards consume these; right now they're declared
-  // so the state machine is shaped correctly for tomorrow's PR.
-  const [, setPhone] = useState<string>('')
+  const [phone, setPhone] = useState<string>('')
 
-  // Naive ETA heuristic for the persistent header: 8 minutes per person
-  // ahead, ± 25% spread. Tomorrow we'll replace this with a server-side
-  // estimate that respects each barber's current service duration.
+  // Naive ETA heuristic for the persistent header: 6–10 minutes per
+  // person ahead. Replace later with a server-side estimate that
+  // respects each barber's current service duration.
   const eta =
     initialWaitingCount === 0
       ? null
@@ -71,6 +71,13 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
   function handleLanguageSelect(lang: Locale) {
     setLocale(lang)
     setStep('phone')
+  }
+
+  function handlePhoneSubmit() {
+    // Mocked: always treat as new customer for now. Real lookup
+    // happens in the next PR — it'll hit /api/kiosk/lookup-client
+    // and branch to either `newCustomer` or `returningCustomer`.
+    setStep('newCustomer')
   }
 
   return (
@@ -94,20 +101,24 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
             </ScreenContainer>
           )}
 
-          {step !== 'splash' && (
-            // Placeholder — filled in by tomorrow's PR. Keeps the route
-            // navigable end-to-end so we can demo the splash transition.
-            <ScreenContainer key={step} background="flat">
-              <PlaceholderScreen
-                step={step}
+          {step === 'phone' && (
+            <ScreenContainer key="phone" background="flat">
+              <PhoneScreen
+                value={phone}
+                onChange={setPhone}
+                onSubmit={handlePhoneSubmit}
                 onBack={() => setStep('splash')}
-                onSimulateAdvance={(next) => {
-                  if (next === 'phone-mock-submit') {
-                    setPhone('+18095550199')
-                    setStep('newCustomer')
-                  }
-                }}
+                currentStep={1}
+                totalSteps={3}
               />
+            </ScreenContainer>
+          )}
+
+          {(step === 'newCustomer' ||
+            step === 'returningCustomer' ||
+            step === 'success') && (
+            <ScreenContainer key={step} background="flat">
+              <PlaceholderScreen step={step} onBack={() => setStep('phone')} />
             </ScreenContainer>
           )}
         </AnimatePresence>
@@ -122,14 +133,11 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
 function PlaceholderScreen({
   step,
   onBack,
-  onSimulateAdvance,
 }: {
-  step: Exclude<Step, 'splash'>
+  step: Exclude<Step, 'splash' | 'phone'>
   onBack: () => void
-  onSimulateAdvance: (next: 'phone-mock-submit') => void
 }) {
   const labels: Record<typeof step, string> = {
-    phone: 'Phone entry',
     newCustomer: 'New customer form',
     returningCustomer: 'Returning customer',
     success: 'Success',
@@ -145,37 +153,19 @@ function PlaceholderScreen({
         This screen is part of the redesign in progress. The functional check-in
         flow still lives at <code className="text-emerald-400">/q/[shop_id]</code>.
       </p>
-      <div className="mt-4 flex gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="
-            rounded-full bg-white/[0.04] px-6 py-3 text-sm font-medium
-            text-zinc-200 ring-1 ring-white/[0.08] backdrop-blur-xl
-            transition-colors hover:bg-white/[0.08]
-            focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-emerald-400
-          "
-        >
-          ← Back to splash
-        </button>
-        {step === 'phone' && (
-          <button
-            type="button"
-            onClick={() => onSimulateAdvance('phone-mock-submit')}
-            className="
-              rounded-full bg-emerald-400/90 px-6 py-3 text-sm font-medium
-              text-zinc-950 ring-1 ring-emerald-400/40
-              transition-colors hover:bg-emerald-400
-              focus-visible:outline-none focus-visible:ring-2
-              focus-visible:ring-emerald-400 focus-visible:ring-offset-2
-              focus-visible:ring-offset-[#0A0A0B]
-            "
-          >
-            Simulate phone submit →
-          </button>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="
+          mt-4 rounded-full bg-white/[0.04] px-6 py-3 text-sm font-medium
+          text-zinc-200 ring-1 ring-white/[0.08] backdrop-blur-xl
+          transition-colors hover:bg-white/[0.08]
+          focus-visible:outline-none focus-visible:ring-2
+          focus-visible:ring-emerald-400
+        "
+      >
+        ← Back to phone entry
+      </button>
     </div>
   )
 }

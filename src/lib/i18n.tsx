@@ -123,6 +123,7 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.phone.title': 'Tu número de teléfono',
     'kiosk.phone.hint': 'Te buscaremos en nuestro sistema',
     'kiosk.phone.continue': 'Continuar',
+    'kiosk.phone.invalid': 'Necesitamos 10 dígitos para continuar',
 
     'kiosk.back': 'Volver',
     'kiosk.step': 'Paso {n} de {total}',
@@ -259,6 +260,7 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.phone.title': 'Your phone number',
     'kiosk.phone.hint': 'We\'ll look you up in our system',
     'kiosk.phone.continue': 'Continue',
+    'kiosk.phone.invalid': 'We need 10 digits to continue',
 
     'kiosk.back': 'Back',
     'kiosk.step': 'Step {n} of {total}',
