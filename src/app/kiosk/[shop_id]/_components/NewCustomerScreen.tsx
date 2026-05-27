@@ -38,7 +38,9 @@ import type { ReferralSource, Service } from '../_types'
 export type NewCustomerFormValues = {
   firstName: string
   lastName: string
-  serviceId: string
+  /** Null when the shop hasn't configured any services yet (the
+   *  service section is hidden in that case). */
+  serviceId: string | null
   source: ReferralSource | null
 }
 
@@ -81,8 +83,13 @@ export function NewCustomerScreen({
   const shouldReduceMotion = useReducedMotion()
   const [attempted, setAttempted] = useState(false)
 
+  // If the shop hasn't configured services yet, the whole service
+  // section is hidden and Continue is gated only on firstName. Real
+  // shops will always have services seeded, but we don't want a
+  // mis-configured shop to lock customers out of check-in.
+  const shopHasServices = services.length > 0
   const firstNameValid = values.firstName.trim().length > 0
-  const serviceValid = values.serviceId !== null
+  const serviceValid = !shopHasServices || values.serviceId !== null
   const canContinue = firstNameValid && serviceValid
 
   function handleSubmit() {
@@ -93,8 +100,9 @@ export function NewCustomerScreen({
     onSubmit({
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
-      // Non-null assertion is safe: canContinue guarantees serviceId is set.
-      serviceId: values.serviceId!,
+      // serviceId is null only when the shop has no services — that's
+      // intentional and matches the column being nullable in DB.
+      serviceId: shopHasServices ? values.serviceId! : null,
       source: values.source,
     })
   }
@@ -177,18 +185,20 @@ export function NewCustomerScreen({
             </div>
           </motion.section>
 
-          {/* Section 2 — Service */}
-          <motion.section {...sectionTransition(0.3)} className="flex flex-col gap-4">
-            <SectionHeader
-              text={t('kiosk.new.service')}
-              showAttention={attempted && !serviceValid}
-            />
-            <ServiceCardGrid
-              services={services}
-              selectedId={values.serviceId}
-              onSelect={(id) => onChange({ serviceId: id })}
-            />
-          </motion.section>
+          {/* Section 2 — Service (hidden when the shop has none) */}
+          {shopHasServices && (
+            <motion.section {...sectionTransition(0.3)} className="flex flex-col gap-4">
+              <SectionHeader
+                text={t('kiosk.new.service')}
+                showAttention={attempted && !serviceValid}
+              />
+              <ServiceCardGrid
+                services={services}
+                selectedId={values.serviceId}
+                onSelect={(id) => onChange({ serviceId: id })}
+              />
+            </motion.section>
+          )}
 
           {/* Section 3 — Source */}
           <motion.section {...sectionTransition(0.4)} className="flex flex-col gap-4">
