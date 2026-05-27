@@ -110,6 +110,50 @@ const MESSAGES: Record<Locale, Messages> = {
     'install.unsupported.title': 'Instalación no disponible',
     'install.unsupported.body':
       'Tu navegador no soporta instalar esta app. Prueba con Chrome, Edge o Safari.',
+
+    // ── Kiosk Check-In (new flow — premium tablet UX) ────────────
+    'kiosk.welcome': 'Bienvenido',
+    'kiosk.lang.es': 'Español',
+    'kiosk.lang.en': 'English',
+
+    'kiosk.header.waiting.zero': 'Sin cola · entra directo',
+    'kiosk.header.waiting.one': '1 en cola · {min}-{max} min de espera',
+    'kiosk.header.waiting.many': '{count} en cola · {min}-{max} min de espera',
+
+    'kiosk.phone.title': 'Tu número de teléfono',
+    'kiosk.phone.hint': 'Te buscaremos en nuestro sistema',
+    'kiosk.phone.continue': 'Continuar',
+
+    'kiosk.back': 'Volver',
+    'kiosk.step': 'Paso {n} de {total}',
+    'kiosk.skip': 'Saltar',
+
+    'kiosk.new.title': 'Cuéntanos un poco',
+    'kiosk.new.firstName': 'Nombre',
+    'kiosk.new.lastName': 'Apellido',
+    'kiosk.new.service': '¿Qué servicio?',
+    'kiosk.new.source': '¿Cómo nos conociste?',
+
+    'kiosk.returning.visit': 'Visita #{n} con nosotros',
+    'kiosk.returning.welcome': '¡Bienvenido de vuelta, {name}!',
+    'kiosk.returning.service': '¿Qué servicio hoy?',
+
+    'kiosk.source.walk-by': 'De pasada',
+    'kiosk.source.google': 'Google',
+    'kiosk.source.instagram': 'Instagram',
+    'kiosk.source.tiktok': 'TikTok',
+    'kiosk.source.friend': 'Un amigo',
+    'kiosk.source.other': 'Otro',
+
+    'kiosk.success.welcome': '¡Bienvenido, {name}!',
+    'kiosk.success.welcomeBack': '¡Bienvenido de vuelta, {name}!',
+    'kiosk.success.queued': 'Estás en la cola',
+    'kiosk.success.position': 'Posición',
+    'kiosk.success.eta': 'Espera estimada',
+    'kiosk.success.min': 'min',
+    'kiosk.success.relax':
+      'Relájate, te llamamos cuando esté tu barbero.',
+    'kiosk.success.done': 'Listo',
   },
   en: {
     // ── Nav ────────────────────────────────────────────────────
@@ -202,6 +246,50 @@ const MESSAGES: Record<Locale, Messages> = {
     'install.unsupported.title': 'Install not available',
     'install.unsupported.body':
       'Your browser doesn\'t support installing this app. Try Chrome, Edge or Safari.',
+
+    // ── Kiosk Check-In (new flow — premium tablet UX) ────────────
+    'kiosk.welcome': 'Welcome',
+    'kiosk.lang.es': 'Español',
+    'kiosk.lang.en': 'English',
+
+    'kiosk.header.waiting.zero': 'No queue · walk right in',
+    'kiosk.header.waiting.one': '1 in queue · {min}-{max} min wait',
+    'kiosk.header.waiting.many': '{count} in queue · {min}-{max} min wait',
+
+    'kiosk.phone.title': 'Your phone number',
+    'kiosk.phone.hint': 'We\'ll look you up in our system',
+    'kiosk.phone.continue': 'Continue',
+
+    'kiosk.back': 'Back',
+    'kiosk.step': 'Step {n} of {total}',
+    'kiosk.skip': 'Skip',
+
+    'kiosk.new.title': 'Tell us a bit about you',
+    'kiosk.new.firstName': 'First name',
+    'kiosk.new.lastName': 'Last name',
+    'kiosk.new.service': 'What service?',
+    'kiosk.new.source': 'How did you hear about us?',
+
+    'kiosk.returning.visit': 'Visit #{n} with us',
+    'kiosk.returning.welcome': 'Welcome back, {name}!',
+    'kiosk.returning.service': 'What service today?',
+
+    'kiosk.source.walk-by': 'Walk-by',
+    'kiosk.source.google': 'Google',
+    'kiosk.source.instagram': 'Instagram',
+    'kiosk.source.tiktok': 'TikTok',
+    'kiosk.source.friend': 'Friend',
+    'kiosk.source.other': 'Other',
+
+    'kiosk.success.welcome': 'Welcome, {name}!',
+    'kiosk.success.welcomeBack': 'Welcome back, {name}!',
+    'kiosk.success.queued': 'You\'re in the queue',
+    'kiosk.success.position': 'Position',
+    'kiosk.success.eta': 'Estimated wait',
+    'kiosk.success.min': 'min',
+    'kiosk.success.relax':
+      'Relax nearby. We\'ll call you when your barber is ready.',
+    'kiosk.success.done': 'Done',
   },
 }
 
