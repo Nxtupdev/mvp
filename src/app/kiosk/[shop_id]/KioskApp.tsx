@@ -14,10 +14,11 @@
  *   - returningCustomer  → service-only (recognized phone)
  *   - success            → confirmation + queue position
  *
- * Wired today: `splash` + `phone`. The phone screen currently mocks
- * the client lookup by always routing to `newCustomer`. The next PR
- * adds the real /api/kiosk/lookup-client endpoint + the form +
- * success screens.
+ * Wired today: `splash` + `phone` + `newCustomer`. The phone screen
+ * currently mocks the client lookup (always routes to newCustomer);
+ * the success screen is still a placeholder. Next PR adds the real
+ * /api/kiosk/lookup-client endpoint, the SuccessScreen, and the
+ * /api/kiosk/checkin POST that actually creates the queue entry.
  *
  * The legacy /q/[shop_id] flow continues to handle real check-ins
  * until this state machine is complete.
@@ -29,33 +30,43 @@ import { useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n-types'
 import { KioskHeader } from './_components/KioskHeader'
+import { NewCustomerScreen } from './_components/NewCustomerScreen'
 import { PhoneScreen } from './_components/PhoneScreen'
 import { ScreenContainer } from './_components/ScreenContainer'
 import { SplashScreen } from './_components/SplashScreen'
+import type { ReferralSource, Service, Shop } from './_types'
 
 // ────────────────────────────────────────────────────────────────────
 // Types
 
 type Step = 'splash' | 'phone' | 'newCustomer' | 'returningCustomer' | 'success'
 
+type NewCustomerFormState = {
+  firstName: string
+  lastName: string
+  serviceId: string | null
+  source: ReferralSource | null
+}
+
 type KioskAppProps = {
-  shop: {
-    id: string
-    name: string
-    is_open: boolean
-    max_queue_size: number
-    logo_url: string | null
-  }
+  shop: Shop
+  services: Service[]
   initialWaitingCount: number
 }
 
 // ────────────────────────────────────────────────────────────────────
 // Component
 
-export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
+export function KioskApp({ shop, services, initialWaitingCount }: KioskAppProps) {
   const { setLocale } = useLocale()
   const [step, setStep] = useState<Step>('splash')
   const [phone, setPhone] = useState<string>('')
+  const [newCustomerForm, setNewCustomerForm] = useState<NewCustomerFormState>({
+    firstName: '',
+    lastName: '',
+    serviceId: null,
+    source: null,
+  })
 
   // Naive ETA heuristic for the persistent header: 6–10 minutes per
   // person ahead. Replace later with a server-side estimate that
@@ -78,6 +89,16 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
     // happens in the next PR — it'll hit /api/kiosk/lookup-client
     // and branch to either `newCustomer` or `returningCustomer`.
     setStep('newCustomer')
+  }
+
+  function handleNewCustomerFormChange(patch: Partial<NewCustomerFormState>) {
+    setNewCustomerForm((prev) => ({ ...prev, ...patch }))
+  }
+
+  function handleNewCustomerSubmit() {
+    // TODO: POST /api/kiosk/checkin with phone + newCustomerForm,
+    // then advance to success with the returned queue position + ETA.
+    setStep('success')
   }
 
   return (
@@ -114,11 +135,23 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
             </ScreenContainer>
           )}
 
-          {(step === 'newCustomer' ||
-            step === 'returningCustomer' ||
-            step === 'success') && (
+          {step === 'newCustomer' && (
+            <ScreenContainer key="newCustomer" background="flat">
+              <NewCustomerScreen
+                services={services}
+                values={newCustomerForm}
+                onChange={handleNewCustomerFormChange}
+                onSubmit={handleNewCustomerSubmit}
+                onBack={() => setStep('phone')}
+                currentStep={2}
+                totalSteps={3}
+              />
+            </ScreenContainer>
+          )}
+
+          {(step === 'returningCustomer' || step === 'success') && (
             <ScreenContainer key={step} background="flat">
-              <PlaceholderScreen step={step} onBack={() => setStep('phone')} />
+              <PlaceholderScreen step={step} onBack={() => setStep('newCustomer')} />
             </ScreenContainer>
           )}
         </AnimatePresence>
@@ -134,11 +167,10 @@ function PlaceholderScreen({
   step,
   onBack,
 }: {
-  step: Exclude<Step, 'splash' | 'phone'>
+  step: 'returningCustomer' | 'success'
   onBack: () => void
 }) {
   const labels: Record<typeof step, string> = {
-    newCustomer: 'New customer form',
     returningCustomer: 'Returning customer',
     success: 'Success',
   }
@@ -164,7 +196,7 @@ function PlaceholderScreen({
           focus-visible:ring-emerald-400
         "
       >
-        ← Back to phone entry
+        ← Back
       </button>
     </div>
   )

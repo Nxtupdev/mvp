@@ -34,19 +34,29 @@ export default async function KioskPage({
 
   if (!shop) notFound()
 
-  // Just the count of people waiting — used by the persistent header.
-  // The check-in form itself doesn't need full queue details on first
-  // paint; if we need a freshly-recalculated ETA later, the API will
-  // return it after we POST a new entry.
-  const { count: waitingCount } = await supabase
-    .from('queue_entries')
-    .select('*', { count: 'exact', head: true })
-    .eq('shop_id', shop_id)
-    .eq('status', 'waiting')
+  // Three queries in parallel:
+  //   1. waiting count for the persistent header
+  //   2. services catalog (filtered to active, ordered by sort_order)
+  //      — drives the service grid on the new/returning customer screens
+  //   3. (future) realtime channel for live header updates
+  const [{ count: waitingCount }, { data: services }] = await Promise.all([
+    supabase
+      .from('queue_entries')
+      .select('*', { count: 'exact', head: true })
+      .eq('shop_id', shop_id)
+      .eq('status', 'waiting'),
+    supabase
+      .from('services')
+      .select('id, name, duration_minutes')
+      .eq('shop_id', shop_id)
+      .eq('active', true)
+      .order('sort_order', { ascending: true }),
+  ])
 
   return (
     <KioskApp
       shop={shop}
+      services={services ?? []}
       initialWaitingCount={waitingCount ?? 0}
     />
   )

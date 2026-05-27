@@ -132,8 +132,14 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.new.title': 'Cuéntanos un poco',
     'kiosk.new.firstName': 'Nombre',
     'kiosk.new.lastName': 'Apellido',
+    'kiosk.new.firstNamePlaceholder': 'Juan',
+    'kiosk.new.lastNamePlaceholder': 'Pérez',
     'kiosk.new.service': '¿Qué servicio?',
     'kiosk.new.source': '¿Cómo nos conociste?',
+    'kiosk.new.continue': 'Continuar',
+    'kiosk.new.noServices':
+      'Esta barbería aún no ha configurado sus servicios.',
+    'kiosk.minutes.short': 'min',
 
     'kiosk.returning.visit': 'Visita #{n} con nosotros',
     'kiosk.returning.welcome': '¡Bienvenido de vuelta, {name}!',
@@ -269,8 +275,14 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.new.title': 'Tell us a bit about you',
     'kiosk.new.firstName': 'First name',
     'kiosk.new.lastName': 'Last name',
+    'kiosk.new.firstNamePlaceholder': 'John',
+    'kiosk.new.lastNamePlaceholder': 'Smith',
     'kiosk.new.service': 'What service?',
     'kiosk.new.source': 'How did you hear about us?',
+    'kiosk.new.continue': 'Continue',
+    'kiosk.new.noServices':
+      'This shop hasn\'t set up its services yet.',
+    'kiosk.minutes.short': 'min',
 
     'kiosk.returning.visit': 'Visit #{n} with us',
     'kiosk.returning.welcome': 'Welcome back, {name}!',
