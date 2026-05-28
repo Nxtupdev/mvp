@@ -1,25 +1,24 @@
 'use client'
 
 /**
- * NewCustomerScreen — Screen 3a of the kiosk check-in flow.
+ * NewCustomerScreen — Screen 3 of the kiosk check-in flow.
  *
- * One screen, three sections:
- *   1. Name        — first name (required) + last name (optional)
- *   2. Service     — single-select grid from the shop's catalog
- *   3. Source      — referral attribution (optional, can Skip)
+ * Two sections:
+ *   1. Name    — first name only (required)
+ *   2. Source  — referral attribution (optional)
  *
- * Why one screen instead of three: cuts perceived friction. The form
- * is gated so Continue is only enabled when the two required pieces
- * are present. Section headers and the cards inside each section get
- * a soft stagger on mount; we deliberately avoid per-field animation
- * (would feel busy on a public kiosk used by mixed audiences).
+ * Why this lean: the original design had four fields (first + last
+ * name, service selection, source). Frank cut last name and service
+ * to make check-in feel instant — neither was load-bearing for the
+ * core walk-in queue use case. Service capture moves to whatever the
+ * barber negotiates in person; last name was never used downstream.
+ *
+ * Continue is gated on firstName only. Source is optional (and the
+ * SourcePicker handles its own toggle / clear behavior).
  *
  * Layout fits portrait tablet (1024×768) comfortably without scroll.
- * On phone the content does scroll naturally — the persistent header
- * (KioskHeader) stays sticky at the top.
- *
- * Touch targets: name inputs h-14, service cards h-28+, source
- * buttons h-24, Continue h-16 — all comfortably above the 56px floor.
+ * Touch targets: first name input h-14, source buttons h-24,
+ * Continue h-16 — all comfortably above the 56px floor.
  */
 
 import { motion, useReducedMotion } from 'framer-motion'
@@ -28,35 +27,21 @@ import { useState } from 'react'
 
 import { useLocale } from '@/lib/i18n'
 import { ProgressDots } from './ProgressDots'
-import { ServiceCardGrid } from './ServiceCardGrid'
 import { SourcePicker } from './SourcePicker'
-import type { ReferralSource, Service } from '../_types'
+import type { ReferralSource } from '../_types'
 
 // ────────────────────────────────────────────────────────────────────
 // Types
 
 export type NewCustomerFormValues = {
   firstName: string
-  lastName: string
-  /** Null when the shop hasn't configured any services yet (the
-   *  service section is hidden in that case). */
-  serviceId: string | null
   source: ReferralSource | null
 }
 
 type NewCustomerScreenProps = {
-  services: Service[]
-  /** Phone the user already entered (display-only — they came from the
-   *  PhoneScreen). */
-  phoneDisplay?: string
   /** Persisted form state (parent owns it so back-nav doesn't wipe). */
-  values: {
-    firstName: string
-    lastName: string
-    serviceId: string | null
-    source: ReferralSource | null
-  }
-  onChange: (patch: Partial<NewCustomerScreenProps['values']>) => void
+  values: NewCustomerFormValues
+  onChange: (patch: Partial<NewCustomerFormValues>) => void
   onSubmit: (final: NewCustomerFormValues) => void
   onBack: () => void
   currentStep?: number
@@ -71,7 +56,6 @@ function interpolate(template: string, vars: Record<string, string | number>): s
 // Component
 
 export function NewCustomerScreen({
-  services,
   values,
   onChange,
   onSubmit,
@@ -83,14 +67,8 @@ export function NewCustomerScreen({
   const shouldReduceMotion = useReducedMotion()
   const [attempted, setAttempted] = useState(false)
 
-  // If the shop hasn't configured services yet, the whole service
-  // section is hidden and Continue is gated only on firstName. Real
-  // shops will always have services seeded, but we don't want a
-  // mis-configured shop to lock customers out of check-in.
-  const shopHasServices = services.length > 0
   const firstNameValid = values.firstName.trim().length > 0
-  const serviceValid = !shopHasServices || values.serviceId !== null
-  const canContinue = firstNameValid && serviceValid
+  const canContinue = firstNameValid
 
   function handleSubmit() {
     if (!canContinue) {
@@ -99,10 +77,6 @@ export function NewCustomerScreen({
     }
     onSubmit({
       firstName: values.firstName.trim(),
-      lastName: values.lastName.trim(),
-      // serviceId is null only when the shop has no services — that's
-      // intentional and matches the column being nullable in DB.
-      serviceId: shopHasServices ? values.serviceId! : null,
       source: values.source,
     })
   }
@@ -164,44 +138,20 @@ export function NewCustomerScreen({
 
           {/* Section 1 — Name */}
           <motion.section {...sectionTransition(0.2)} className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-              <NameInput
-                value={values.firstName}
-                onChange={(v) => onChange({ firstName: v })}
-                label={t('kiosk.new.firstName')}
-                placeholder={t('kiosk.new.firstNamePlaceholder')}
-                required
-                invalid={attempted && !firstNameValid}
-                autoComplete="given-name"
-                autoFocus
-              />
-              <NameInput
-                value={values.lastName}
-                onChange={(v) => onChange({ lastName: v })}
-                label={t('kiosk.new.lastName')}
-                placeholder={t('kiosk.new.lastNamePlaceholder')}
-                autoComplete="family-name"
-              />
-            </div>
+            <NameInput
+              value={values.firstName}
+              onChange={(v) => onChange({ firstName: v })}
+              label={t('kiosk.new.firstName')}
+              placeholder={t('kiosk.new.firstNamePlaceholder')}
+              required
+              invalid={attempted && !firstNameValid}
+              autoComplete="given-name"
+              autoFocus
+            />
           </motion.section>
 
-          {/* Section 2 — Service (hidden when the shop has none) */}
-          {shopHasServices && (
-            <motion.section {...sectionTransition(0.3)} className="flex flex-col gap-4">
-              <SectionHeader
-                text={t('kiosk.new.service')}
-                showAttention={attempted && !serviceValid}
-              />
-              <ServiceCardGrid
-                services={services}
-                selectedId={values.serviceId}
-                onSelect={(id) => onChange({ serviceId: id })}
-              />
-            </motion.section>
-          )}
-
-          {/* Section 3 — Source */}
-          <motion.section {...sectionTransition(0.4)} className="flex flex-col gap-4">
+          {/* Section 2 — Source */}
+          <motion.section {...sectionTransition(0.3)} className="flex flex-col gap-4">
             <SectionHeader text={t('kiosk.new.source')} />
             <SourcePicker
               selected={values.source}
@@ -210,7 +160,7 @@ export function NewCustomerScreen({
           </motion.section>
 
           {/* Continue */}
-          <motion.div {...sectionTransition(0.5)} className="mt-2">
+          <motion.div {...sectionTransition(0.4)} className="mt-2">
             <button
               type="button"
               onClick={handleSubmit}
@@ -240,25 +190,14 @@ export function NewCustomerScreen({
 }
 
 // ────────────────────────────────────────────────────────────────────
-// SectionHeader — text + optional attention dot when section is the
-// blocker for Continue.
+// SectionHeader — text label, used for the source section so it
+// matches the original three-section visual rhythm even though we're
+// down to two now.
 
-function SectionHeader({
-  text,
-  showAttention = false,
-}: {
-  text: string
-  showAttention?: boolean
-}) {
+function SectionHeader({ text }: { text: string }) {
   return (
-    <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-100 sm:text-2xl">
+    <h2 className="text-xl font-semibold tracking-tight text-zinc-100 sm:text-2xl">
       {text}
-      {showAttention && (
-        <span
-          aria-hidden
-          className="inline-block h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.6)]"
-        />
-      )}
     </h2>
   )
 }

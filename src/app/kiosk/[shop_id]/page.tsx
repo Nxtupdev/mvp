@@ -12,8 +12,8 @@ import { KioskApp } from './KioskApp'
  * the legacy /q/[shop_id] flow intact while we roll out the redesign.
  *
  * Only shop metadata + the current waiting count are fetched here. All
- * subsequent state (selected language, phone, name, service, source)
- * lives in the client component KioskApp.
+ * subsequent state (selected language, phone, name, source) lives in
+ * the client component KioskApp.
  *
  * Design spec: planning/design/checkin-kiosk-spec.md
  * Sample reference: planning/design/samples/splash-screen.tsx
@@ -34,29 +34,19 @@ export default async function KioskPage({
 
   if (!shop) notFound()
 
-  // Three queries in parallel:
-  //   1. waiting count for the persistent header
-  //   2. services catalog (filtered to active, ordered by sort_order)
-  //      — drives the service grid on the new/returning customer screens
-  //   3. (future) realtime channel for live header updates
-  const [{ count: waitingCount }, { data: services }] = await Promise.all([
-    supabase
-      .from('queue_entries')
-      .select('*', { count: 'exact', head: true })
-      .eq('shop_id', shop_id)
-      .eq('status', 'waiting'),
-    supabase
-      .from('services')
-      .select('id, name, duration_minutes')
-      .eq('shop_id', shop_id)
-      .eq('active', true)
-      .order('sort_order', { ascending: true }),
-  ])
+  // Just the count of people waiting — used by the persistent header.
+  // (We used to also fetch the services catalog, but Frank cut service
+  // capture from the kiosk to make check-in feel instant. The DB table
+  // still exists for future use.)
+  const { count: waitingCount } = await supabase
+    .from('queue_entries')
+    .select('*', { count: 'exact', head: true })
+    .eq('shop_id', shop_id)
+    .eq('status', 'waiting')
 
   return (
     <KioskApp
       shop={shop}
-      services={services ?? []}
       initialWaitingCount={waitingCount ?? 0}
     />
   )

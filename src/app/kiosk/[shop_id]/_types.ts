@@ -6,12 +6,6 @@
  * `src/lib/`.
  */
 
-export type Service = {
-  id: string
-  name: string
-  duration_minutes: number
-}
-
 /**
  * Referral source — closed list. Must stay in sync with the CHECK
  * constraint on `clients.referral_source` (see migration 032).

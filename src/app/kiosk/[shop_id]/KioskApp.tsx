@@ -10,8 +10,8 @@
  * Steps:
  *   - splash             → language picker (always first)
  *   - phone              → phone entry → look up returning customer
- *   - newCustomer        → name + service + source (first-time)
- *   - returningCustomer  → service-only (recognized phone)
+ *   - newCustomer        → name + source (first-time)
+ *   - returningCustomer  → welcome back + confirm (recognized phone)
  *   - success            → confirmation + queue position
  *
  * Wired today: `splash` + `phone` + `newCustomer` + `success`. The
@@ -36,7 +36,7 @@ import { PhoneScreen } from './_components/PhoneScreen'
 import { ScreenContainer } from './_components/ScreenContainer'
 import { SplashScreen } from './_components/SplashScreen'
 import { SuccessScreen } from './_components/SuccessScreen'
-import type { ReferralSource, Service, Shop } from './_types'
+import type { ReferralSource, Shop } from './_types'
 
 // ────────────────────────────────────────────────────────────────────
 // Types
@@ -45,8 +45,6 @@ type Step = 'splash' | 'phone' | 'newCustomer' | 'returningCustomer' | 'success'
 
 type NewCustomerFormState = {
   firstName: string
-  lastName: string
-  serviceId: string | null
   source: ReferralSource | null
 }
 
@@ -61,14 +59,11 @@ type CheckInResult = {
 
 type KioskAppProps = {
   shop: Shop
-  services: Service[]
   initialWaitingCount: number
 }
 
 const INITIAL_FORM: NewCustomerFormState = {
   firstName: '',
-  lastName: '',
-  serviceId: null,
   source: null,
 }
 
@@ -91,7 +86,7 @@ function estimateEta(positionsAhead: number): { min: number; max: number } {
 // ────────────────────────────────────────────────────────────────────
 // Component
 
-export function KioskApp({ shop, services, initialWaitingCount }: KioskAppProps) {
+export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
   const { setLocale } = useLocale()
   const [step, setStep] = useState<Step>('splash')
   const [phone, setPhone] = useState<string>('')
@@ -178,7 +173,6 @@ export function KioskApp({ shop, services, initialWaitingCount }: KioskAppProps)
           {step === 'newCustomer' && (
             <ScreenContainer key="newCustomer" background="flat">
               <NewCustomerScreen
-                services={services}
                 values={newCustomerForm}
                 onChange={handleNewCustomerFormChange}
                 onSubmit={handleNewCustomerSubmit}
