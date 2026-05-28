@@ -302,21 +302,36 @@ export async function PATCH(
       }
     }
 
-    // ── Register late arrival if applicable (migration 019) ─────
-    // Only when coming back from OFFLINE — break→available is a
-    // mid-shift re-entry, not a "llegada tarde". The SQL function
-    // checks shop.late_arrival_threshold_time and gates the rest
-    // internally; we just trigger it.
-    if (fromStatus === 'offline') {
-      const { error: regErr } = await supabase.rpc('register_late_arrival', {
-        p_barber_id: barber_id,
+    // ── Register late arrival if applicable (migrations 019, 031) ─
+    //
+    // Pre-fix this only ran on offline→available. That left a hack
+    // open: a tardy barber could tap busy first (offline→busy) and
+    // then go available (busy→available), and neither transition
+    // matched the gate, so no peaje. Now we always trigger on any
+    // path INTO 'available' and the SQL function decides whether to
+    // actually create the toll:
+    //
+    //   * Gate 1: shop has no late_arrival_threshold_time → return 0
+    //   * Gate 2: barber already had a state_change to 'available'
+    //             today → return 0 (no double-charging on mid-day
+    //             busy→available or break→available re-entries)
+    //   * Gate 3: current local time < threshold → return 0
+    //
+    // So a legitimate mid-day busy→available (the barber was already
+    // 'available' earlier today) trips Gate 2 and exits cleanly. A
+    // barber who arrived before the threshold trips Gate 3. The only
+    // path that creates rows is "first available of the day, after
+    // the threshold" — which is exactly the rule.
+    const { error: regErr } = await supabase.rpc('register_late_arrival', {
+      p_barber_id: barber_id,
+    })
+    if (regErr) {
+      console.error('[late_arrival_toll] register failed', {
+        barber_id,
+        fromStatus,
+        toStatus: 'available',
+        error: regErr.message,
       })
-      if (regErr) {
-        console.error('[late_arrival_toll] register failed', {
-          barber_id,
-          error: regErr.message,
-        })
-      }
     }
 
     logs.push({
@@ -425,6 +440,33 @@ export async function PATCH(
       })
     }
   } else if (newStatus === 'busy') {
+    // ── Close the offline→busy late-arrival hack ──────────────
+    //
+    // Before this check: a tardy barber could tap 'busy' first
+    // from offline, then later go available, and nothing flagged
+    // them as late. Now we also trigger the late check on any
+    // path INTO 'busy' that isn't a mid-day available→busy.
+    //
+    // The SQL function's gates still apply (threshold null /
+    // already-active-today / before-threshold), so a barber who
+    // taps busy at 8:00 AM with a 9:00 AM threshold creates no
+    // toll. Only "first presence of the day, after threshold"
+    // produces rows. See the bigger comment in the available
+    // branch above for the full rationale.
+    if (fromStatus !== 'available') {
+      const { error: regErr } = await supabase.rpc('register_late_arrival', {
+        p_barber_id: barber_id,
+      })
+      if (regErr) {
+        console.error('[late_arrival_toll] register failed', {
+          barber_id,
+          fromStatus,
+          toStatus: 'busy',
+          error: regErr.message,
+        })
+      }
+    }
+
     const { data: called } = await supabase
       .from('queue_entries')
       .select('id, client_name, position')
