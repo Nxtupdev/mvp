@@ -8,8 +8,8 @@ import { KioskApp } from './KioskApp'
  * Route: /kiosk/[shop_id]
  *
  * Loaded by the tablet mounted at the shop entrance, and also reachable
- * by customers scanning the QR code on their phone (responsive). Keeps
- * the legacy /q/[shop_id] flow intact while we roll out the redesign.
+ * by customers scanning the QR code on their phone (responsive). The
+ * canonical check-in surface — replaced the legacy /q/[shop_id] flow.
  *
  * Only shop metadata + the current waiting count are fetched here. All
  * subsequent state (selected language, phone, name, source) lives in

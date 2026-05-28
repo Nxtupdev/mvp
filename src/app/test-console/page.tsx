@@ -102,9 +102,9 @@ export default async function Home() {
 
             <Section title="Cliente — Check-in">
               <LinkRow
-                href={`/q/${shop.id}`}
-                label="QR check-in público"
-                hint={`Lo que ve el cliente al escanear el QR (${shop.name})`}
+                href={`/kiosk/${shop.id}`}
+                label="Kiosk check-in"
+                hint={`Lo que ve el cliente al escanear el QR o tocar la tablet en la entrada (${shop.name})`}
               />
             </Section>
 

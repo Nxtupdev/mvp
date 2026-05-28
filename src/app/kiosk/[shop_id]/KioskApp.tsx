@@ -26,9 +26,6 @@
  * `error` slot on ReturningCustomerScreen. We surface the server's
  * Spanish error message verbatim — it's already user-facing copy
  * ("La barbería está cerrada", "La cola está llena", etc.).
- *
- * The legacy /q/[shop_id] flow continues to handle real check-ins
- * for shops that haven't migrated to the kiosko yet.
  */
 
 import { AnimatePresence } from 'framer-motion'

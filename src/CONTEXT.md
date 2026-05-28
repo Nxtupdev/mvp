@@ -11,9 +11,9 @@ Webapp de NXTUP construida en **Next.js (App Router) + TypeScript + Tailwind + s
 | **TV Display** | `/display/[shop_id]` | Fire TV / Fire Stick (Silk browser) |
 | **Barber App** (backup) | `/barber` | Phone / iPad PWA, in-shop WiFi only |
 | **Owner Dashboard** | `/dashboard` | Desktop / iPad |
-| **Client Check-in (QR)** | `/q/[shop_id]` | Phone del cliente (browser, PWA install opcional) |
+| **Client Check-in (Kiosk)** | `/kiosk/[shop_id]` | Tablet en la entrada de la barbería, o phone del cliente vía QR |
 
-Todas leen y escriben al mismo Supabase project vía Realtime. Las 3 internas (display/barber/owner) requieren in-shop WiFi. La de cliente (`/q/[shop_id]`) es **pública** — cualquiera con el QR puede registrarse.
+Todas leen y escriben al mismo Supabase project vía Realtime. Las 3 internas (display/barber/owner) requieren in-shop WiFi. La de cliente (`/kiosk/[shop_id]`) es **pública** — cualquiera con el QR o tap en la tablet puede registrarse.
 
 ## How Work Gets Here
 
@@ -54,7 +54,7 @@ Cuando trabajes en este workspace, carga:
 - [ ] Realtime updates funcionan en TV display al cambiar estado del barber
 - [ ] PWA installable en iPad (manifest + iconos correctos)
 - [ ] Build de producción funciona en Fire TV (Silk browser)
-- [ ] Client check-in (`/q/[shop_id]`) funciona en iOS Safari y Chrome Android sin instalar app
+- [ ] Client check-in (`/kiosk/[shop_id]`) funciona en iOS Safari y Chrome Android sin instalar app
 - [ ] Endpoint público de check-in tiene rate-limit y validación anti-spam
 
 ## What NOT to Do

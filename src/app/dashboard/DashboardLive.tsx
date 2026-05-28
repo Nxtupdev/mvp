@@ -163,7 +163,7 @@ export default function DashboardLive({
     setToggleLoading(false)
   }
 
-  const checkinUrl = origin ? `${origin}/q/${shop.id}` : ''
+  const checkinUrl = origin ? `${origin}/kiosk/${shop.id}` : ''
   const displayUrl = origin ? `${origin}/display/${shop.id}` : ''
 
   function copy(target: 'checkin' | 'display', value: string) {
