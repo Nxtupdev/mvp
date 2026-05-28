@@ -186,7 +186,7 @@ export function NewCustomerScreen({
                 disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
               "
             >
-              {submitting ? '…' : t('kiosk.new.continue')}
+              {t('kiosk.new.continue')}
             </button>
             {serverError && (
               <p className="mt-3 text-center text-sm text-rose-400">

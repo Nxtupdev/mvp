@@ -225,7 +225,7 @@ export function PhoneScreen({
             disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
           "
         >
-          {submitting ? '…' : t('kiosk.phone.continue')}
+          {t('kiosk.phone.continue')}
         </button>
 
         {serverError && (

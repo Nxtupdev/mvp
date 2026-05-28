@@ -164,7 +164,7 @@ export function ReturningCustomerScreen({
               disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
             "
           >
-            {submitting ? '…' : t('kiosk.returning.continue')}
+            {t('kiosk.returning.continue')}
           </button>
 
           {error && (
