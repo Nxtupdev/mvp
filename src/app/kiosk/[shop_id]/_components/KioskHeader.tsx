@@ -62,14 +62,17 @@ export function KioskHeader({
         backdrop-blur-xl
       "
     >
-      {/* Left: logo + shop name */}
+      {/* Left: logo + shop name.
+          Logo box is square (h-8 w-8) with object-contain so wide or
+          tall logos sit centered without throwing off the header
+          alignment — matches the treatment used in dashboard headers. */}
       <div className="flex items-center gap-3">
         {shopLogoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={shopLogoUrl}
             alt={`${shopName} logo`}
-            className="h-8 w-auto object-contain"
+            className="h-8 w-8 object-contain"
           />
         ) : (
           <span
