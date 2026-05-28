@@ -40,6 +40,7 @@ import { ReturningCustomerScreen } from './_components/ReturningCustomerScreen'
 import { ScreenContainer } from './_components/ScreenContainer'
 import { SplashScreen } from './_components/SplashScreen'
 import { SuccessScreen } from './_components/SuccessScreen'
+import { useQueueCount } from './_hooks/useQueueCount'
 import type { ReferralSource, Shop } from './_types'
 
 // ────────────────────────────────────────────────────────────────────
@@ -127,8 +128,13 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
   const [checkInSubmitting, setCheckInSubmitting] = useState(false)
   const [checkInError, setCheckInError] = useState<string | null>(null)
 
+  // Live waiting count via Supabase Realtime — keeps the persistent
+  // header honest as customers come and go while the kiosk stays open.
+  // initialWaitingCount seeds the first paint (no flash of 0) before
+  // the subscription kicks in.
+  const waitingCount = useQueueCount(shop.id, initialWaitingCount)
   const headerEta =
-    initialWaitingCount === 0 ? null : estimateHeaderEta(initialWaitingCount)
+    waitingCount === 0 ? null : estimateHeaderEta(waitingCount)
 
   function handleLanguageSelect(lang: Locale) {
     setLocale(lang)
@@ -266,7 +272,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
       <KioskHeader
         shopName={shop.name}
         shopLogoUrl={shop.logo_url}
-        waitingCount={initialWaitingCount}
+        waitingCount={waitingCount}
         eta={headerEta}
       />
 
