@@ -135,6 +135,9 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.new.continue': 'Continuar',
 
     'kiosk.returning.welcome': '¡Bienvenido de vuelta, {name}!',
+    'kiosk.returning.visit.first': 'Tu primera visita registrada',
+    'kiosk.returning.visit.many': 'Visita #{n} con nosotros',
+    'kiosk.returning.continue': 'Continuar',
 
     'kiosk.source.walk-by': 'De pasada',
     'kiosk.source.google': 'Google',
@@ -269,6 +272,9 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.new.continue': 'Continue',
 
     'kiosk.returning.welcome': 'Welcome back, {name}!',
+    'kiosk.returning.visit.first': 'Your first recorded visit',
+    'kiosk.returning.visit.many': 'Visit #{n} with us',
+    'kiosk.returning.continue': 'Continue',
 
     'kiosk.source.walk-by': 'Walk-by',
     'kiosk.source.google': 'Google',

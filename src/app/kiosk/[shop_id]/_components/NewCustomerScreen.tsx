@@ -44,6 +44,10 @@ type NewCustomerScreenProps = {
   onChange: (patch: Partial<NewCustomerFormValues>) => void
   onSubmit: (final: NewCustomerFormValues) => void
   onBack: () => void
+  /** True while the parent's /api/kiosk/checkin call is in flight. */
+  submitting?: boolean
+  /** Server-side error message to render below the CTA, if any. */
+  serverError?: string | null
   currentStep?: number
   totalSteps?: number
 }
@@ -60,6 +64,8 @@ export function NewCustomerScreen({
   onChange,
   onSubmit,
   onBack,
+  submitting = false,
+  serverError = null,
   currentStep = 2,
   totalSteps = 3,
 }: NewCustomerScreenProps) {
@@ -164,7 +170,7 @@ export function NewCustomerScreen({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!canContinue}
+              disabled={!canContinue || submitting}
               className="
                 group relative flex h-16 w-full items-center justify-center
                 overflow-hidden rounded-2xl text-lg font-medium
@@ -180,8 +186,13 @@ export function NewCustomerScreen({
                 disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
               "
             >
-              {t('kiosk.new.continue')}
+              {submitting ? '…' : t('kiosk.new.continue')}
             </button>
+            {serverError && (
+              <p className="mt-3 text-center text-sm text-rose-400">
+                {serverError}
+              </p>
+            )}
           </motion.div>
         </div>
       </div>

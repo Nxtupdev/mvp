@@ -51,6 +51,10 @@ type PhoneScreenProps = {
    *  newCustomer or returningCustomer. */
   onSubmit: () => void
   onBack: () => void
+  /** True while the parent's /api/kiosk/lookup-client call is in flight. */
+  submitting?: boolean
+  /** Server-side error message to render below the CTA, if any. */
+  serverError?: string | null
   /** Step indicator — flexible so we can later switch totals
    *  (e.g., returning customers might be a different N). */
   currentStep?: number
@@ -66,6 +70,8 @@ export function PhoneScreen({
   onChange,
   onSubmit,
   onBack,
+  submitting = false,
+  serverError = null,
   currentStep = 1,
   totalSteps = 3,
 }: PhoneScreenProps) {
@@ -203,7 +209,7 @@ export function PhoneScreen({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!isValid}
+          disabled={!isValid || submitting}
           className="
             group relative flex h-16 w-full items-center justify-center
             overflow-hidden rounded-2xl text-lg font-medium
@@ -219,8 +225,14 @@ export function PhoneScreen({
             disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
           "
         >
-          {t('kiosk.phone.continue')}
+          {submitting ? '…' : t('kiosk.phone.continue')}
         </button>
+
+        {serverError && (
+          <p className="mt-3 text-center text-sm text-rose-400">
+            {serverError}
+          </p>
+        )}
       </motion.div>
     </div>
   )
