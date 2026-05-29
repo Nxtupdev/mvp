@@ -59,7 +59,7 @@ const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
 ]
 
 const STATUS_LABEL: Record<string, string> = {
-  available: 'Activo',
+  available: 'Disponible',
   busy: 'Ocupado',
   break: 'Break',
   offline: 'Off',

@@ -244,7 +244,7 @@ export default function ShareBarberModal({
         </div>
 
         <p className="text-nxtup-dim text-[11px] leading-relaxed text-center">
-          El barbero verá su panel para marcar Active / Busy / Break. Desde
+          El barbero verá su panel para marcar Disponible / Busy / Break. Desde
           ahí puede instalar la app en su pantalla de inicio.
         </p>
       </div>

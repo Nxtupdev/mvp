@@ -500,7 +500,7 @@ export default function BarberDashboard({
       {/* Action buttons */}
       <section className="grid grid-cols-3 gap-2 mb-2">
         <ActionButton
-          label="ACTIVE"
+          label="AVAILABLE"
           tone="active"
           current={barber.status === 'available'}
           loading={pending === 'active'}
@@ -614,7 +614,7 @@ function StatusLine({
       </p>
     )
   }
-  return <p className="text-nxtup-muted text-sm">Active</p>
+  return <p className="text-nxtup-muted text-sm">Available</p>
 }
 
 function BreakStatus({

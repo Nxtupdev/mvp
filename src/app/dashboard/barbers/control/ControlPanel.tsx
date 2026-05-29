@@ -60,7 +60,7 @@ type Shop = {
 }
 
 const STATUS_LABEL: Record<Status, string> = {
-  available: 'Active',
+  available: 'Available',
   busy: 'Busy',
   break: 'Break',
   offline: 'Offline',
@@ -297,7 +297,7 @@ function BarberControlRow({
       {/* Action buttons — 2x2 on narrow screens, single row on wide */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <ActionButton
-          label="Active"
+          label="Available"
           tone="active"
           current={barber.status === 'available'}
           disabled={pending}

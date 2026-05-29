@@ -4,7 +4,7 @@ import BarberDeviceScreen from '@/components/BarberDeviceScreen'
 import type { Barber, Entry, Shop } from './DeviceGrid'
 
 const STATUS_LABEL: Record<Barber['status'], string> = {
-  available: 'Active',
+  available: 'Available',
   busy: 'Busy',
   break: 'Break',
   offline: 'Off',

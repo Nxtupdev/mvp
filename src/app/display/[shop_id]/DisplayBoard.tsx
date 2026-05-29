@@ -422,7 +422,7 @@ export default function DisplayBoard({
       {/* 3 columns */}
       <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line">
         <Column
-          title="Active"
+          title="Available"
           tone="active"
           count={activeFifo.length + activeCalledBarbers.length}
           density={density}

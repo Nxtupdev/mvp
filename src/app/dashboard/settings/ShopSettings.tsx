@@ -310,7 +310,7 @@ export default function ShopSettings({
             <div className="grid grid-cols-2 gap-4">
               <Field
                 label="Hora límite"
-                hint={`Hora local en ${timezone}. Después de esto, OFFLINE→ACTIVE paga peaje.`}
+                hint={`Hora local en ${timezone}. Después de esto, OFFLINE→DISPONIBLE paga peaje.`}
               >
                 <input
                   type="time"

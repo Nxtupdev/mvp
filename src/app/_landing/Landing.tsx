@@ -412,7 +412,7 @@ function TVVisual() {
         fontWeight="bold"
         className="fill-nxtup-active"
       >
-        ACTIVE
+        AVAILABLE
       </text>
       <text
         x="100"

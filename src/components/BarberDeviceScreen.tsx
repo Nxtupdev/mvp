@@ -170,7 +170,7 @@ export default function BarberDeviceScreen({
         }`}
       >
         <DeviceButton
-          label="ACTIVE"
+          label="AVAILABLE"
           tone="active"
           highlighted={currentHighlight === 'available'}
           loading={pending === 'available'}
@@ -254,7 +254,7 @@ function ScreenBody({
         </p>
         <p className={`${placeholderSize} font-black tracking-tight my-2`}>—</p>
         <p className={`text-nxtup-dim tracking-wider ${hintSize}`}>
-          Toca ACTIVE para iniciar turno
+          Toca AVAILABLE para iniciar turno
         </p>
       </>
     )
@@ -286,7 +286,7 @@ function ScreenBody({
           {currentClient.client_name}
         </p>
         <p className={`text-nxtup-dim tracking-wider ${hintSize}`}>
-          Toca ACTIVE al terminar
+          Toca AVAILABLE al terminar
         </p>
       </>
     )
@@ -342,7 +342,7 @@ function ScreenBody({
       <p
         className={`text-nxtup-muted tracking-widest font-bold ${labelSize}`}
       >
-        ACTIVE
+        AVAILABLE
       </p>
       <p className={`${placeholderSize} font-black tracking-tight my-2`}>—</p>
       <p className={`text-nxtup-dim tracking-wider ${hintSize}`}>
@@ -451,7 +451,7 @@ function BreakBody({
         </p>
       ) : (
         <p className={`text-nxtup-dim tracking-wider ${hintSize}`}>
-          Toca ACTIVE al volver
+          Toca AVAILABLE al volver
         </p>
       )}
     </>

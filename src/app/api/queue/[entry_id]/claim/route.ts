@@ -98,7 +98,7 @@ export async function POST(
   }
   if (claimer.status !== 'available' || !claimer.available_since) {
     return Response.json(
-      { error: 'Tienes que estar ACTIVE para tomar este cliente' },
+      { error: 'Tienes que estar DISPONIBLE para tomar este cliente' },
       { status: 403 },
     )
   }

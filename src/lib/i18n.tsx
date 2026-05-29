@@ -35,7 +35,7 @@ const MESSAGES: Record<Locale, Messages> = {
     'hero.fact1.title': 'FIFO real',
     'hero.fact1.body': 'Orden de llegada, sin atajos',
     'hero.fact2.title': 'Anti-trampa',
-    'hero.fact2.body': 'Activo solo desde el WiFi del shop',
+    'hero.fact2.body': 'Disponible solo desde el WiFi del shop',
     'hero.fact3.title': 'Hardware opcional',
     'hero.fact3.body': 'El NXT TAP en cada estación',
     'hero.fact4.title': 'Bitácora',
@@ -59,7 +59,7 @@ const MESSAGES: Record<Locale, Messages> = {
     'surfaces.device.kicker': 'Para el barbero',
     'surfaces.device.title': 'NXT TAP físico',
     'surfaces.device.body':
-      'Tres botones en su estación. ACTIVE, BUSY, BREAK. El sistema entero gira alrededor de quién tocó qué y cuándo.',
+      'Tres botones en su estación. DISPONIBLE, BUSY, BREAK. El sistema entero gira alrededor de quién tocó qué y cuándo.',
     'surfaces.tv.kicker': 'Para todos',
     'surfaces.tv.title': 'TV en vivo',
     'surfaces.tv.body':
@@ -72,7 +72,7 @@ const MESSAGES: Record<Locale, Messages> = {
       'Tomas el código de NXTUP, lo imprimes, lo pegas en la puerta. El cliente lo escanea desde su celular.',
     'how.step2.title': 'Cada barbero tiene su NXT TAP',
     'how.step2.body':
-      'Un dispositivo en su estación. Tres botones para marcar Active, Busy, Break. Suficiente para ordenar todo el día.',
+      'Un dispositivo en su estación. Tres botones para marcar Disponible, Busy, Break. Suficiente para ordenar todo el día.',
     'how.step3.title': 'La TV muestra la verdad',
     'how.step3.body':
       'En la pared del shop, en vivo: quién sigue, quién está cortando, cuánto falta. Cualquiera puede mirar.',
@@ -115,6 +115,22 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.welcome': 'Bienvenido',
     'kiosk.lang.es': 'Español',
     'kiosk.lang.en': 'English',
+
+    // Status labels — used in the barber device PWA, dashboard
+    // control panel, TV display, devices panel, activity feed, etc.
+    // The DB still stores `status = 'available'` internally; these
+    // are only the human-facing labels.
+    'status.available': 'Disponible',
+    'status.busy': 'Ocupado',
+    'status.break': 'Descanso',
+    'status.offline': 'Offline',
+    'status.available.upper': 'DISPONIBLE',
+
+    // Barber device instructions — the prompt above the big tap
+    // button on each state of the barber's PWA.
+    'barber.tap.start': 'Toca DISPONIBLE para iniciar turno',
+    'barber.tap.done': 'Toca DISPONIBLE al terminar',
+    'barber.tap.return': 'Toca DISPONIBLE al volver',
 
     'kiosk.header.waiting.zero': 'Sin cola · entra directo',
     'kiosk.header.waiting.one': '1 en cola · {min}-{max} min de espera',
@@ -196,7 +212,7 @@ const MESSAGES: Record<Locale, Messages> = {
     'surfaces.device.kicker': 'For the barber',
     'surfaces.device.title': 'NXT TAP device',
     'surfaces.device.body':
-      'Three buttons at every station: ACTIVE, BUSY, BREAK. The whole system runs on who tapped what, when.',
+      'Three buttons at every station: AVAILABLE, BUSY, BREAK. The whole system runs on who tapped what, when.',
     'surfaces.tv.kicker': 'For everyone',
     'surfaces.tv.title': 'Live TV display',
     'surfaces.tv.body':
@@ -209,7 +225,7 @@ const MESSAGES: Record<Locale, Messages> = {
       'Grab your NXTUP code, print it, tape it to the entrance. Clients scan it with their phone.',
     'how.step2.title': 'Each barber gets a NXT TAP',
     'how.step2.body':
-      'A device on every chair. Three buttons for Active, Busy, Break. Enough to run the whole day.',
+      'A device on every chair. Three buttons for Available, Busy, Break. Enough to run the whole day.',
     'how.step3.title': 'The TV tells the truth',
     'how.step3.body':
       'On the shop\'s wall, live: who\'s next, who\'s cutting, how long until your turn. Anyone can look.',
@@ -252,6 +268,16 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.welcome': 'Welcome',
     'kiosk.lang.es': 'Español',
     'kiosk.lang.en': 'English',
+
+    'status.available': 'Available',
+    'status.busy': 'Busy',
+    'status.break': 'Break',
+    'status.offline': 'Offline',
+    'status.available.upper': 'AVAILABLE',
+
+    'barber.tap.start': 'Tap AVAILABLE to start your shift',
+    'barber.tap.done': 'Tap AVAILABLE when you finish',
+    'barber.tap.return': 'Tap AVAILABLE when you return',
 
     'kiosk.header.waiting.zero': 'No queue · walk right in',
     'kiosk.header.waiting.one': '1 in queue · {min}-{max} min wait',
