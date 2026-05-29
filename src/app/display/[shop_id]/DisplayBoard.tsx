@@ -800,8 +800,17 @@ function QueueTicker({
   // sensación de "robotic".
   const durationSec = Math.max(20, items.length * 5)
 
+  // Position en la cola actual (no el `entry.position` del DB, que es
+  // un counter histórico que nunca decrementa). El primer cliente
+  // esperando es #1 sin importar cuántos hayan pasado por la cola
+  // antes en el día.
+  const itemsWithQueuePosition = items.map((item, idx) => ({
+    ...item,
+    queuePosition: idx + 1,
+  }))
+
   // Render twice for seamless infinite loop (see comment in globals.css).
-  const tickerCells = [...items, ...items]
+  const tickerCells = [...itemsWithQueuePosition, ...itemsWithQueuePosition]
 
   return (
     <footer className="border-t border-nxtup-line bg-nxtup-bg overflow-hidden">
@@ -811,7 +820,7 @@ function QueueTicker({
           animation: `queue-ticker ${durationSec}s linear infinite`,
         }}
       >
-        {tickerCells.map(({ entry, isCalled }, idx) => (
+        {tickerCells.map(({ entry, isCalled, queuePosition }, idx) => (
           <span
             key={`${entry.id}-${idx}`}
             className="inline-flex items-center gap-4 px-10"
@@ -822,7 +831,7 @@ function QueueTicker({
               </span>
             ) : (
               <span className="text-nxtup-active text-3xl font-black tabular-nums">
-                #{entry.position}
+                #{queuePosition}
               </span>
             )}
             <span
@@ -832,13 +841,15 @@ function QueueTicker({
             >
               {entry.client_name}
             </span>
-            {/* Bullet separator entre items — escondido en el último
-                de cada copia para que no haya doble cuando se loopea. */}
-            {idx < tickerCells.length - 1 && (
-              <span className="text-nxtup-dim text-3xl pl-10" aria-hidden>
-                ·
-              </span>
-            )}
+            {/* Bullet separator después de CADA item, incluido el
+                último de cada copia. Eso mantiene el espaciado
+                uniforme entre el final de un loop y el inicio del
+                siguiente — sin gap visible al reiniciar la
+                animación. El último separator del DOM queda
+                offscreen detrás del overflow-hidden. */}
+            <span className="text-nxtup-dim text-3xl pl-10" aria-hidden>
+              ·
+            </span>
           </span>
         ))}
       </div>
