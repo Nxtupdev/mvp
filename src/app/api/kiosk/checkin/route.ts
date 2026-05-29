@@ -153,6 +153,16 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Source is required on first visit (server-side gate that mirrors
+  // the frontend gating in NewCustomerScreen). For returning clients
+  // we ignore whatever they send — the column is first-visit-only.
+  if (!isReturning && !source) {
+    return Response.json(
+      { error: 'source es requerido para nuevos clientes' },
+      { status: 400 },
+    )
+  }
+
   // ── Daily rate limit per phone per shop (3 max) ─────────────
   // Re-implemented against the new client_id linkage. Falls back
   // to phone match for any legacy entries pre-migration 032.

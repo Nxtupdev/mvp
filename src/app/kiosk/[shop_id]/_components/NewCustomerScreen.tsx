@@ -74,7 +74,8 @@ export function NewCustomerScreen({
   const [attempted, setAttempted] = useState(false)
 
   const firstNameValid = values.firstName.trim().length > 0
-  const canContinue = firstNameValid
+  const sourceValid = values.source !== null
+  const canContinue = firstNameValid && sourceValid
 
   function handleSubmit() {
     if (!canContinue) {
@@ -156,9 +157,13 @@ export function NewCustomerScreen({
             />
           </motion.section>
 
-          {/* Section 2 — Source */}
+          {/* Section 2 — Source (required) */}
           <motion.section {...sectionTransition(0.3)} className="flex flex-col gap-4">
-            <SectionHeader text={t('kiosk.new.source')} />
+            <SectionHeader
+              text={t('kiosk.new.source')}
+              required
+              showAttention={attempted && !sourceValid}
+            />
             <SourcePicker
               selected={values.source}
               onSelect={(s) => onChange({ source: s })}
@@ -201,14 +206,30 @@ export function NewCustomerScreen({
 }
 
 // ────────────────────────────────────────────────────────────────────
-// SectionHeader — text label, used for the source section so it
-// matches the original three-section visual rhythm even though we're
-// down to two now.
+// SectionHeader — text label with required-asterisk and an attention
+// dot. The dot lights up only after a failed Continue attempt and the
+// section is the blocker — keeps the form quiet on first paint and
+// loud when the user needs guidance.
 
-function SectionHeader({ text }: { text: string }) {
+function SectionHeader({
+  text,
+  required = false,
+  showAttention = false,
+}: {
+  text: string
+  required?: boolean
+  showAttention?: boolean
+}) {
   return (
-    <h2 className="text-xl font-semibold tracking-tight text-zinc-100 sm:text-2xl">
+    <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-100 sm:text-2xl">
       {text}
+      {required && <span className="text-rose-400">*</span>}
+      {showAttention && (
+        <span
+          aria-hidden
+          className="inline-block h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.6)]"
+        />
+      )}
     </h2>
   )
 }

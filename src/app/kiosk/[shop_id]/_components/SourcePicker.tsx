@@ -4,8 +4,11 @@
  * SourcePicker — referral attribution capture, first-visit only.
  *
  * 6 icon+label buttons matching the closed list on `clients.
- * referral_source` (migration 032). Single-select with toggle: tap a
- * selected button to clear it; tap a different one to switch.
+ * referral_source` (migration 032). Single-select. The user can
+ * switch between options freely; tapping the currently-selected
+ * button is a no-op (we removed the old "tap to clear" toggle now
+ * that NewCustomerScreen requires a source before Continue
+ * enables).
  *
  * Icons:
  *   - Walk-by   → MapPin (Lucide, mono)
@@ -18,10 +21,6 @@
  * Brand icons keep their official colors regardless of selection
  * state — the selection indicator is the surrounding ring + bg, not
  * an icon color shift. That way recognizable marks stay recognizable.
- *
- * There is intentionally no "Skip" link: source is optional from the
- * caller's perspective (NewCustomerScreen doesn't gate Continue on
- * it), and the toggle behavior covers the "I changed my mind" case.
  *
  * Layout: 3 columns on tablet, 2 on phone. Each button h-24 (96px) —
  * well above the 56px touch-target floor.
@@ -69,8 +68,13 @@ export function SourcePicker({ selected, onSelect }: SourcePickerProps) {
   const itemV = shouldReduceMotion ? reducedVariants : itemVariants
 
   function handleSelect(source: ReferralSource) {
-    // Toggle: tapping the selected button clears it.
-    onSelect(selected === source ? null : source)
+    // Source is now required at the call site (NewCustomerScreen
+    // gates Continue on `values.source !== null`). We dropped the
+    // "tap to clear" toggle: the user can switch between options
+    // freely but can't end up with no selection. Tapping the
+    // currently-selected button is a no-op.
+    if (selected === source) return
+    onSelect(source)
   }
 
   return (
