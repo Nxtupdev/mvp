@@ -71,9 +71,18 @@ export async function POST(
   })
 
   if (error) {
+    // Pasamos el mensaje crudo de Postgres al frontend para que se vea
+    // qué pasa sin tener que mirar logs. Incluye `code`, `details` y
+    // `hint` si vienen — el frontend puede usar el `error` legible y
+    // los otros campos son metadata para debug en consola.
     console.error('[toll/clear] RPC failed', error)
     return Response.json(
-      { error: 'No se pudo quitar la penalidad' },
+      {
+        error: error.message || 'No se pudo quitar la penalidad',
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      },
       { status: 500 },
     )
   }

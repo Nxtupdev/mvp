@@ -92,9 +92,16 @@ export async function POST(
   })
 
   if (error) {
+    // Pasamos el mensaje crudo de Postgres al frontend para debug
+    // en línea — el usuario ve qué falló sin tener que mirar logs.
     console.error('[fifo/move] RPC failed', error)
     return Response.json(
-      { error: 'No se pudo mover el barbero' },
+      {
+        error: error.message || 'No se pudo mover el barbero',
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      },
       { status: 500 },
     )
   }
