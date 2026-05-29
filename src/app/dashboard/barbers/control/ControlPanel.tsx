@@ -66,6 +66,20 @@ const STATUS_LABEL: Record<Status, string> = {
   offline: 'Offline',
 }
 
+// Orden visual de los cards en el Centro de Mando.
+// Pensamiento: el dueño quiere ver primero a quien está activo
+// y compitiendo por turnos (Available, sorteado por FIFO desde
+// el #1), luego los Busy (atendiendo), los que están en Break, y
+// al final los Offline. Coincide con el patrón del TV display y
+// hace que los botones ↑↓ tengan sentido visual — el primero
+// de la lista es el #1 de la fila.
+const STATUS_DISPLAY_ORDER: Record<Status, number> = {
+  available: 0,
+  busy: 1,
+  break: 2,
+  offline: 3,
+}
+
 const STATUS_COLOR: Record<Status, string> = {
   available: 'text-nxtup-active',
   busy: 'text-nxtup-busy',
@@ -165,6 +179,26 @@ export default function ControlPanel({
   // the status label. Helps the dueño see who's truly first.
   const fifoOrder = buildBarberOrder(barbers)
 
+  // Sorted copy for visual display. Available barbers first
+  // ordered by FIFO (oldest available_since = #1, top of list).
+  // Without this, the order was arbitrary and the ↑/↓ buttons felt
+  // disconnected from what the dueño saw on screen.
+  const sortedBarbers = [...barbers].sort((a, b) => {
+    const statusDiff =
+      STATUS_DISPLAY_ORDER[a.status] - STATUS_DISPLAY_ORDER[b.status]
+    if (statusDiff !== 0) return statusDiff
+    if (a.status === 'available' && b.status === 'available') {
+      const aT = a.available_since
+        ? new Date(a.available_since).getTime()
+        : Number.POSITIVE_INFINITY
+      const bT = b.available_since
+        ? new Date(b.available_since).getTime()
+        : Number.POSITIVE_INFINITY
+      if (aT !== bT) return aT - bT
+    }
+    return a.name.localeCompare(b.name)
+  })
+
   // ── Action: change barber state ─────────────────────────────
   async function changeState(barberId: string, target: Status) {
     if (pendingBy[barberId]) return
@@ -231,7 +265,25 @@ export default function ControlPanel({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'No se pudo mover el barbero')
+        // Traducir los errores semánticos crudos de la RPC SQL a
+        // copy amigable en español. Si no matchea, fallback al
+        // mensaje del servidor o al genérico.
+        const raw = String(data.error ?? '')
+        if (raw === 'no neighbor in that direction') {
+          setError(
+            direction === 'up'
+              ? 'Ya está en el primer lugar de la fila'
+              : 'Ya está en el último lugar de la fila',
+          )
+        } else if (raw === 'barber not in available state') {
+          setError('Solo se puede mover si el barbero está Available')
+        } else if (raw === 'barber has no FIFO position') {
+          setError('El barbero no está en la fila')
+        } else if (raw.startsWith('barber is paying toll')) {
+          setError('Tiene penalidad activa — quítala antes de moverlo')
+        } else {
+          setError(data.error ?? 'No se pudo mover el barbero')
+        }
       }
     } catch {
       setError('Error de red')
@@ -268,7 +320,7 @@ export default function ControlPanel({
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {barbers.map(barber => (
+          {sortedBarbers.map(barber => (
             <BarberControlRow
               key={barber.id}
               barber={barber}
