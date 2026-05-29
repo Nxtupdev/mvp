@@ -568,6 +568,29 @@ export async function PATCH(
     // offline → reset the per-shift break counter and any held position.
     // Also wipe the not-guaranteed bookkeeping so an upcoming break
     // starts from a clean slate.
+    //
+    // ── Reasignar clientes colgados (migración 040) ────────────
+    // ANTES del UPDATE del barbero, mover sus queue_entries en
+    // called/in_progress al próximo barbero disponible (o de vuelta
+    // a waiting si no hay nadie libre). Sin esto, un cliente
+    // asignado al barbero que se va offline quedaba en el aire —
+    // 'called' eventualmente lo agarraba el cascade del 018 (tras
+    // 2 min) pero 'in_progress' quedaba para siempre.
+    const { error: reassignErr } = await supabase.rpc(
+      'reassign_barber_clients_on_offline',
+      { p_barber_id: barber_id },
+    )
+    if (reassignErr) {
+      console.error('[state/offline] reassign failed', {
+        barber_id,
+        error: reassignErr.message,
+      })
+      // Best-effort: continuamos con el offline aunque la reasignación
+      // haya fallado, para no dejar al barbero atrapado en su estado
+      // actual. El cron del 018 sigue siendo un fallback para los
+      // 'called' colgados.
+    }
+
     await supabase
       .from('barbers')
       .update({
