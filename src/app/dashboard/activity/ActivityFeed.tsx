@@ -10,7 +10,7 @@ type Action =
   | 'position_kept'
   | 'position_lost'
   | 'shop_settings_changed'
-  // Migration 018 — cascada de 90s sobre 'called' sin respuesta.
+  // Migration 018 + 035 — cascada de 2 min sobre 'called' sin respuesta.
   | 'no_show'
   | 'no_show_no_takers'
   // Migrations 021 + 028 — auto-offline. Sub-razón en metadata.reason:
@@ -307,13 +307,13 @@ function describe(event: Event): string {
       return 'cambió la configuración del shop'
     }
     case 'no_show': {
-      // Cascada de 90s — el barbero no respondió al cliente
-      // llamado, el sistema lo mandó offline y pasó el cliente
-      // al siguiente disponible.
+      // Cascada de 2 min (migración 035) — el barbero no respondió
+      // al cliente llamado, el sistema lo mandó offline y pasó el
+      // cliente al siguiente disponible.
       const name = (event.metadata as { client_name?: string })?.client_name
       return name
-        ? `no respondió a ${name} → mandado offline (cascada 90s)`
-        : 'no respondió al cliente → mandado offline (cascada 90s)'
+        ? `no respondió a ${name} → mandado offline (cascada 2 min)`
+        : 'no respondió al cliente → mandado offline (cascada 2 min)'
     }
     case 'no_show_no_takers': {
       // Cascada disparó pero no había barbero disponible para
