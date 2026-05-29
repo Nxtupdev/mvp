@@ -372,25 +372,6 @@ export default function DisplayBoard({
   const density: Density =
     maxColumnCount <= 4 ? 'lg' : maxColumnCount <= 8 ? 'md' : 'sm'
 
-  // ── Next client strip ─────────────────────────────────────────
-  // The "siguiente" event we want to surface: a called pair (most urgent),
-  // OR the first waiting client + the FIFO #1 barber who'd take them.
-  let nextLabel: { client: string; barberId: string | null } | null = null
-  if (calledEntries[0]) {
-    nextLabel = {
-      client: calledEntries[0].client_name,
-      barberId: calledEntries[0].barber_id,
-    }
-  } else if (waitingEntries[0]) {
-    nextLabel = {
-      client: waitingEntries[0].client_name,
-      barberId: activeFifo[0]?.id ?? null,
-    }
-  }
-  const nextBarber = nextLabel?.barberId
-    ? barbers.find(b => b.id === nextLabel!.barberId) ?? null
-    : null
-
   return (
     <main className="min-h-screen flex flex-col cursor-none select-none">
       {/* Header */}
@@ -496,12 +477,13 @@ export default function DisplayBoard({
         </Column>
       </section>
 
-      {/* Bottom strip — next client */}
-      <NextStrip
-        next={nextLabel}
-        nextBarber={nextBarber}
-        waitingCount={waitingEntries.length}
-        wasCalled={Boolean(calledEntries[0])}
+      {/* Bottom strip — ticker rotando todos los clientes en cola.
+          Reemplaza al viejo NextStrip que solo mostraba el próximo
+          cliente. El cintillo se queda fijo aunque la pantalla scrolee
+          con muchos barberos. */}
+      <QueueTicker
+        calledFirst={calledEntries[0] ?? null}
+        waitingEntries={waitingEntries}
       />
     </main>
   )
@@ -765,18 +747,45 @@ function BreakCard({
 // Bottom strip
 // ──────────────────────────────────────────────────────────────
 
-function NextStrip({
-  next,
-  nextBarber,
-  waitingCount,
-  wasCalled,
+/**
+ * QueueTicker — bottom strip que rota TODOS los clientes en cola.
+ *
+ * Por qué reemplaza al viejo NextStrip: la TV puede tener muchos
+ * barberos y eso obliga a scroll vertical. El NextStrip (footer normal
+ * en el DOM flow) terminaba debajo del scroll y los clientes no se
+ * veían. Este componente queda fijo en el bottom (es el último child
+ * del main flex-col, así que respeta el viewport) y muestra todos los
+ * nombres pasando en horizontal para que se lean sin scrollear.
+ *
+ * Loop seamless: el contenido se renderiza dos veces lado a lado y la
+ * animación CSS traslada de translateX(0) a translateX(-50%). Cuando
+ * la animación se reinicia, la posición 0 muestra otra vez la primera
+ * copia — sin salto visible.
+ *
+ * Velocidad proporcional al número de items para mantener cómoda la
+ * lectura: ~5s por cliente, mínimo 20s. Con 4 clientes = 20s; con 12
+ * clientes = 60s. Cada cliente ocupa ~igual tiempo en pantalla
+ * independientemente del tamaño de la cola.
+ *
+ * El primer entry recibe tratamiento visual destacado si está
+ * actualmente en `called` (el barbero ya lo llamó) — emerald + label
+ * "Llamando" en vez del número de posición.
+ *
+ * Respeta `prefers-reduced-motion` vía la regla en globals.css —
+ * animación off y la segunda copia oculta para no duplicar visualmente.
+ */
+function QueueTicker({
+  calledFirst,
+  waitingEntries,
 }: {
-  next: { client: string; barberId: string | null } | null
-  nextBarber: Barber | null
-  waitingCount: number
-  wasCalled: boolean
+  calledFirst: Entry | null
+  waitingEntries: Entry[]
 }) {
-  if (!next) {
+  const items: Array<{ entry: Entry; isCalled: boolean }> = []
+  if (calledFirst) items.push({ entry: calledFirst, isCalled: true })
+  for (const e of waitingEntries) items.push({ entry: e, isCalled: false })
+
+  if (items.length === 0) {
     return (
       <footer className="border-t border-nxtup-line px-12 py-5 flex items-center justify-center">
         <p className="text-nxtup-dim text-xl uppercase tracking-[0.3em]">
@@ -786,32 +795,52 @@ function NextStrip({
     )
   }
 
+  // 5s por entry, mínimo 20s. Si hay 1 solo cliente la animación
+  // sigue corriendo pero a velocidad cómoda — el loop seamless evita
+  // sensación de "robotic".
+  const durationSec = Math.max(20, items.length * 5)
+
+  // Render twice for seamless infinite loop (see comment in globals.css).
+  const tickerCells = [...items, ...items]
+
   return (
-    <footer className="border-t border-nxtup-line px-12 py-5 flex items-center justify-between gap-8">
-      <div className="flex items-center gap-4 min-w-0">
-        <span
-          className={`text-xs uppercase tracking-[0.4em] font-black ${wasCalled ? 'text-nxtup-active' : 'text-nxtup-muted'}`}
-        >
-          {wasCalled ? 'Llamando' : 'Siguiente'}
-        </span>
-        <span className="text-white text-3xl font-black tracking-tight truncate">
-          {next.client}
-        </span>
-      </div>
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="text-nxtup-dim text-3xl">→</span>
-        {nextBarber ? (
-          <>
-            <Avatar avatar={nextBarber.avatar} name={nextBarber.name} size={44} />
-            <span className="text-white text-2xl font-bold truncate">
-              {nextBarber.name}
+    <footer className="border-t border-nxtup-line bg-nxtup-bg overflow-hidden">
+      <div
+        className="queue-ticker-track flex whitespace-nowrap py-5"
+        style={{
+          animation: `queue-ticker ${durationSec}s linear infinite`,
+        }}
+      >
+        {tickerCells.map(({ entry, isCalled }, idx) => (
+          <span
+            key={`${entry.id}-${idx}`}
+            className="inline-flex items-center gap-4 px-10"
+          >
+            {isCalled ? (
+              <span className="text-xs uppercase tracking-[0.4em] font-black text-nxtup-active">
+                Llamando
+              </span>
+            ) : (
+              <span className="text-nxtup-active text-3xl font-black tabular-nums">
+                #{entry.position}
+              </span>
+            )}
+            <span
+              className={`text-3xl font-black tracking-tight ${
+                isCalled ? 'text-nxtup-active' : 'text-white'
+              }`}
+            >
+              {entry.client_name}
             </span>
-          </>
-        ) : (
-          <span className="text-nxtup-muted text-xl">
-            {waitingCount > 1 ? `+${waitingCount} en cola` : 'sin barbero asignado'}
+            {/* Bullet separator entre items — escondido en el último
+                de cada copia para que no haya doble cuando se loopea. */}
+            {idx < tickerCells.length - 1 && (
+              <span className="text-nxtup-dim text-3xl pl-10" aria-hidden>
+                ·
+              </span>
+            )}
           </span>
-        )}
+        ))}
       </div>
     </footer>
   )

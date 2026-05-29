@@ -120,3 +120,24 @@ html, body {
     animation: none !important;
   }
 }
+
+/* ── TV display: queue ticker ────────────────────────────────────────────────
+   Used by the bottom strip of /display/[shop_id] to show the entire waiting
+   queue scrolling horizontally. The content is rendered TWICE side-by-side
+   in the JSX; translating from 0 to -50% gives a seamless infinite loop
+   (when we wrap back to 0, the second copy is exactly where the first was). */
+@keyframes queue-ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-ticker-track {
+    animation: none !important;
+    /* When motion is reduced, the duplicated content would just sit there
+       at the start position. Hide the second copy to avoid visual confusion. */
+  }
+  .queue-ticker-track > :nth-child(n+2) {
+    display: none;
+  }
+}
