@@ -18,6 +18,12 @@ type Action =
   //   * 'busy_too_long' — 3h congelado en busy (idle 021)
   //   * 'break_expired' — pasó break_minutes + grace (028)
   | 'idle_timeout_offline'
+  // Migration 037 — el dueño quita la penalidad de un barbero
+  // (override manual desde el Centro de Mando).
+  | 'toll_cleared_by_owner'
+  // Migration 037 — el dueño mueve un barbero un slot arriba o
+  // abajo en la FIFO (swap de available_since).
+  | 'fifo_moved_by_owner'
 
 type Event = {
   id: string
@@ -56,6 +62,8 @@ const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
   { value: 'no_show_no_takers', label: 'No-show sin reemplazo' },
   { value: 'idle_timeout_offline', label: 'Auto-offline (timeout)' },
   { value: 'shop_settings_changed', label: 'Cambios de config' },
+  { value: 'toll_cleared_by_owner', label: 'Peaje quitado por dueño' },
+  { value: 'fifo_moved_by_owner', label: 'Movido en fila por dueño' },
 ]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -284,6 +292,8 @@ const ACTION_ACCENT: Record<Action, string> = {
   no_show: 'text-nxtup-busy',
   no_show_no_takers: 'text-nxtup-busy',
   idle_timeout_offline: 'text-nxtup-dim',
+  toll_cleared_by_owner: 'text-orange-400',
+  fifo_moved_by_owner: 'text-nxtup-active',
 }
 
 function describe(event: Event): string {
@@ -336,6 +346,21 @@ function describe(event: Event): string {
       }
       // available_no_action
       return 'sin actividad por 3h → offline automático'
+    }
+    case 'toll_cleared_by_owner': {
+      // El dueño quitó la penalidad del barbero desde el Centro
+      // de Mando. Mostramos el detalle para que se vea que es una
+      // acción del dueño y no un fallo automático del peaje.
+      const wasLate = (event.metadata as { was_late?: boolean })?.was_late
+      return wasLate
+        ? 'penalidad quitada por el dueño'
+        : 'obligaciones de peaje limpiadas por el dueño'
+    }
+    case 'fifo_moved_by_owner': {
+      const direction = (event.metadata as { direction?: string })?.direction
+      return direction === 'up'
+        ? 'movido un slot arriba en la fila por el dueño'
+        : 'movido un slot abajo en la fila por el dueño'
     }
   }
 }

@@ -1,0 +1,110 @@
+import { NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+/**
+ * Owner-only: mover un barbero un slot arriba o abajo en la FIFO.
+ *
+ * Route: POST /api/barbers/[barber_id]/fifo/move
+ * Body:  { direction: 'up' | 'down' }
+ *
+ * Diseñado para los botones ↑/↓ del Centro de Mando. Reglas técnicas
+ * impuestas por la RPC:
+ *   * El barbero debe estar en status='available' con available_since
+ *     no null (= dentro de la FIFO).
+ *   * No puede tener peaje (late_toll_remaining = 0). Si lo tiene,
+ *     el dueño primero lo libera con /toll/clear y luego lo mueve.
+ *   * Debe existir un vecino en la dirección pedida.
+ *
+ * Mecánica: swap atómico del `available_since` con el vecino
+ * inmediato. Eso preserva las posiciones relativas de los demás
+ * barberos.
+ *
+ * Auth: cookie del dueño. Verifica ownership del shop del barbero
+ * antes de llamar la RPC. Otros endpoints del control panel siguen
+ * el mismo patrón.
+ *
+ * Response:
+ *   200 {
+ *     direction: 'up' | 'down',
+ *     swapped_with: uuid,
+ *     new_available_since: iso8601
+ *   }
+ *   400 si la dirección es inválida
+ *   401 si no hay sesión
+ *   403 si el barbero no pertenece al owner autenticado
+ *   404 si el barbero no existe
+ *   409 si el barbero tiene peaje o no hay vecino o no está
+ *       en estado available — devolvemos el `error` literal de la
+ *       RPC para que el frontend muestre un mensaje claro
+ *   500 si la RPC falla por causa inesperada
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ barber_id: string }> },
+) {
+  const { barber_id } = await params
+
+  let body: { direction?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return Response.json({ error: 'Body inválido' }, { status: 400 })
+  }
+
+  if (body.direction !== 'up' && body.direction !== 'down') {
+    return Response.json(
+      { error: "direction debe ser 'up' o 'down'" },
+      { status: 400 },
+    )
+  }
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return Response.json({ error: 'No autenticado' }, { status: 401 })
+  }
+
+  const { data: barber } = await supabase
+    .from('barbers')
+    .select('id, shop_id, shops:shop_id(owner_id)')
+    .eq('id', barber_id)
+    .single()
+
+  if (!barber) {
+    return Response.json({ error: 'Barbero no encontrado' }, { status: 404 })
+  }
+
+  const ownerId = (barber as { shops?: { owner_id?: string } | null }).shops
+    ?.owner_id
+  if (ownerId !== user.id) {
+    return Response.json(
+      { error: 'No tienes permisos para este barbero' },
+      { status: 403 },
+    )
+  }
+
+  const { data, error } = await supabase.rpc('move_barber_fifo', {
+    p_barber_id: barber_id,
+    p_direction: body.direction,
+  })
+
+  if (error) {
+    console.error('[fifo/move] RPC failed', error)
+    return Response.json(
+      { error: 'No se pudo mover el barbero' },
+      { status: 500 },
+    )
+  }
+
+  // La RPC devuelve un JSON. Si trae `error`, es un conflicto
+  // semántico (peaje activo, sin vecino, status incorrecto) — lo
+  // exponemos al frontend con 409 para que muestre el mensaje.
+  if (data && typeof data === 'object' && 'error' in data) {
+    return Response.json(data, { status: 409 })
+  }
+
+  return Response.json(data ?? {})
+}

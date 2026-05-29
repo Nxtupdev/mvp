@@ -189,6 +189,57 @@ export default function ControlPanel({
     }
   }
 
+  // ── Action: clear late-arrival toll (owner override) ─────────
+  // Botón "Quitar penalidad" del Centro de Mando. Útil cuando un
+  // peaje se aplicó por bug nuestro o por discreción del dueño.
+  // Reutiliza el mismo pendingBy para evitar tap doble mientras la
+  // request está en flight.
+  async function clearToll(barberId: string) {
+    if (pendingBy[barberId]) return
+    setPendingBy(p => ({ ...p, [barberId]: true }))
+    setError('')
+    try {
+      const res = await fetch(`/api/barbers/${barberId}/toll/clear`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'No se pudo quitar la penalidad')
+      }
+      // Realtime refresca el counter localmente.
+    } catch {
+      setError('Error de red')
+    } finally {
+      setPendingBy(p => ({ ...p, [barberId]: false }))
+    }
+  }
+
+  // ── Action: move barber up/down in the FIFO ──────────────────
+  // Swap del `available_since` con el vecino. Solo aplicable a
+  // barberos en 'available' sin peaje (la RPC valida y devuelve
+  // 409 con mensaje claro si no se puede). Usamos esos mensajes
+  // verbatim — ya están en español user-friendly.
+  async function moveFifo(barberId: string, direction: 'up' | 'down') {
+    if (pendingBy[barberId]) return
+    setPendingBy(p => ({ ...p, [barberId]: true }))
+    setError('')
+    try {
+      const res = await fetch(`/api/barbers/${barberId}/fifo/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'No se pudo mover el barbero')
+      }
+    } catch {
+      setError('Error de red')
+    } finally {
+      setPendingBy(p => ({ ...p, [barberId]: false }))
+    }
+  }
+
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
       <Link
@@ -226,6 +277,8 @@ export default function ControlPanel({
               entry={entries.find(e => e.barber_id === barber.id) ?? null}
               pending={pendingBy[barber.id] ?? false}
               onChange={s => changeState(barber.id, s)}
+              onClearToll={() => clearToll(barber.id)}
+              onMoveFifo={dir => moveFifo(barber.id, dir)}
             />
           ))}
         </ul>
@@ -247,6 +300,8 @@ function BarberControlRow({
   entry,
   pending,
   onChange,
+  onClearToll,
+  onMoveFifo,
 }: {
   barber: Barber
   shop: Shop
@@ -254,12 +309,21 @@ function BarberControlRow({
   entry: Entry | null
   pending: boolean
   onChange: (next: Status) => void
+  onClearToll: () => void
+  onMoveFifo: (direction: 'up' | 'down') => void
 }) {
   // Late-arrival toll (migración 019): si > 0, este barbero está
   // pagando peaje — ring naranja en la fila para que el dueño lo
   // detecte de un vistazo desde el Centro de Mando.
   const lateToll = barber.late_toll_remaining ?? 0
   const isLate = lateToll > 0
+  // FIFO controls (↑/↓): solo disponibles si el barbero está en la
+  // cola activa Y limpio. Si tiene peaje, primero le quitas la
+  // penalidad y luego lo mueves — regla pedida por Frank.
+  const canMoveInFifo =
+    barber.status === 'available' &&
+    barber.available_since !== null &&
+    !isLate
 
   return (
     <li
@@ -325,6 +389,66 @@ function BarberControlRow({
           onClick={() => onChange('offline')}
         />
       </div>
+
+      {/* Owner override row — solo aparece cuando hay algo accionable.
+          Quitar peaje (cuando tiene late_toll_remaining > 0) y/o
+          mover en FIFO (cuando está available y limpio). Vive abajo
+          de los 4 botones de status para no competir visualmente
+          con el flujo principal. */}
+      {(isLate || canMoveInFifo) && (
+        <div className="flex items-center gap-2 pt-1">
+          {isLate && (
+            <button
+              type="button"
+              onClick={onClearToll}
+              disabled={pending}
+              className="
+                flex-1 rounded-lg border border-orange-500/40 bg-orange-500/10
+                px-3 py-2 text-orange-300 text-xs font-bold tracking-wide
+                hover:bg-orange-500/20 hover:border-orange-500/60
+                transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+            >
+              Quitar penalidad
+            </button>
+          )}
+          {canMoveInFifo && (
+            <>
+              <button
+                type="button"
+                onClick={() => onMoveFifo('up')}
+                disabled={pending}
+                aria-label="Subir en la cola"
+                className="
+                  rounded-lg border border-nxtup-dim bg-nxtup-bg
+                  px-3 py-2 text-white text-sm font-bold
+                  hover:bg-nxtup-line/60 hover:border-nxtup-muted
+                  transition-colors
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                "
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                onClick={() => onMoveFifo('down')}
+                disabled={pending}
+                aria-label="Bajar en la cola"
+                className="
+                  rounded-lg border border-nxtup-dim bg-nxtup-bg
+                  px-3 py-2 text-white text-sm font-bold
+                  hover:bg-nxtup-line/60 hover:border-nxtup-muted
+                  transition-colors
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                "
+              >
+                ↓
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </li>
   )
 }
