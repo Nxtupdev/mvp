@@ -63,6 +63,10 @@ type DeviceClient = {
   id: string
   client_name: string
   position: number
+  // Tiempo en que el sistema llamó al cliente (le asignó el barbero).
+  // Necesario para mostrar el timer de 2 min al barbero en el PWA y
+  // que sepa cuánto tiempo le queda antes de la cascada del 018/041.
+  called_at: string | null
 } | null
 
 type ActionTone = 'active' | 'busy' | 'break' | 'offline'
@@ -194,13 +198,13 @@ export default function BarberDashboard({
         await Promise.all([
           supabase
             .from('queue_entries')
-            .select('id, client_name, position')
+            .select('id, client_name, position, called_at')
             .eq('barber_id', barber.id)
             .eq('status', 'called')
             .maybeSingle(),
           supabase
             .from('queue_entries')
-            .select('id, client_name, position')
+            .select('id, client_name, position, called_at')
             .eq('barber_id', barber.id)
             .eq('status', 'in_progress')
             .maybeSingle(),
@@ -636,9 +640,14 @@ function StatusLine({
   }
   if (barber.status === 'available' && calledClient) {
     return (
-      <p className="text-nxtup-active text-sm font-medium">
-        → Llamado: {calledClient.client_name}
-      </p>
+      <div className="flex flex-col gap-1">
+        <p className="text-nxtup-active text-sm font-medium">
+          → Llamado: {calledClient.client_name}
+        </p>
+        {calledClient.called_at && (
+          <CalledCountdown calledAt={calledClient.called_at} />
+        )}
+      </div>
     )
   }
   if (barber.status === 'available' && fifoPosition !== undefined) {
@@ -837,6 +846,60 @@ function AvatarPickerModal({
         )}
       </div>
     </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// CalledCountdown — timer de 2 min entre que se le llama al cliente
+// y el cron de no-show. Da feedback claro al barbero de cuánto le
+// queda para tocar BUSY antes de que el cliente se cascadee y él
+// pase a un break de 15 min (migración 041).
+//
+// Refresca cada 1s con su propio interval — no usamos el nowTick
+// global de 3s porque para un timer mm:ss un step de 3s se ve
+// raro (saltos de segundos).
+// ──────────────────────────────────────────────────────────────
+
+function CalledCountdown({ calledAt }: { calledAt: string }) {
+  const TOTAL_MS = 120_000 // 2 min
+  const calledAtMs = new Date(calledAt).getTime()
+  const [now, setNow] = useState(Date.now)
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const elapsed = now - calledAtMs
+  const remaining = TOTAL_MS - elapsed
+
+  if (remaining <= 0) {
+    return (
+      <p className="text-nxtup-busy text-xs font-bold uppercase tracking-widest">
+        ⚠ vencido
+      </p>
+    )
+  }
+
+  const totalSec = Math.ceil(remaining / 1000)
+  const min = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  const isUrgent = remaining <= 30_000 // últimos 30s
+
+  return (
+    <p
+      className={`
+        text-xs font-bold tabular-nums uppercase tracking-widest
+        inline-flex items-center gap-1.5
+        ${isUrgent ? 'text-nxtup-busy animate-pulse' : 'text-orange-400'}
+      `}
+    >
+      <span aria-hidden>⏱</span>
+      {String(min).padStart(2, '0')}:{String(sec).padStart(2, '0')}
+      <span className="text-nxtup-muted font-medium">
+        para tocar BUSY
+      </span>
+    </p>
   )
 }
 

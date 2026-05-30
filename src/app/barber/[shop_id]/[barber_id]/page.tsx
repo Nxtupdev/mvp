@@ -129,13 +129,13 @@ export default async function BarberPage({
   const [{ data: calledClient }, { data: currentClient }] = await Promise.all([
     supabase
       .from('queue_entries')
-      .select('id, client_name, position')
+      .select('id, client_name, position, called_at')
       .eq('barber_id', barber_id)
       .eq('status', 'called')
       .maybeSingle(),
     supabase
       .from('queue_entries')
-      .select('id, client_name, position')
+      .select('id, client_name, position, called_at')
       .eq('barber_id', barber_id)
       .eq('status', 'in_progress')
       .maybeSingle(),

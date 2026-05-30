@@ -317,13 +317,19 @@ function describe(event: Event): string {
       return 'cambió la configuración del shop'
     }
     case 'no_show': {
-      // Cascada de 2 min (migración 035) — el barbero no respondió
-      // al cliente llamado, el sistema lo mandó offline y pasó el
-      // cliente al siguiente disponible.
+      // Cascada de 2 min (migraciones 035 + 041) — el barbero no
+      // respondió al cliente llamado, el sistema lo mandó a un
+      // break corto de 15 min (con su posición FIFO retenida) y
+      // pasó el cliente al siguiente disponible. Si vuelve dentro
+      // de los 15 min, recupera su turno; si no, el cron del 028
+      // lo manda a offline definitivo.
       const name = (event.metadata as { client_name?: string })?.client_name
+      const sentTo = (event.metadata as { sent_to?: string })?.sent_to
+      const target =
+        sentTo === 'break_15min' ? 'break 15 min' : 'offline'
       return name
-        ? `no respondió a ${name} → mandado offline (cascada 2 min)`
-        : 'no respondió al cliente → mandado offline (cascada 2 min)'
+        ? `no respondió a ${name} → mandado a ${target} (cascada 2 min)`
+        : `no respondió al cliente → mandado a ${target} (cascada 2 min)`
     }
     case 'no_show_no_takers': {
       // Cascada disparó pero no había barbero disponible para
