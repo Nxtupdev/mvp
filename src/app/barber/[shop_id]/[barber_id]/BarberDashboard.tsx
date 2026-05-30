@@ -533,7 +533,7 @@ export default function BarberDashboard({
           onClick={() => press('break')}
         />
       </section>
-      <section className="mb-2">
+      <section className="grid grid-cols-1 mb-2">
         <ActionButton
           label="OFFLINE"
           tone="offline"
