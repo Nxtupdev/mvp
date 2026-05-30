@@ -61,7 +61,7 @@ type DeviceClient = {
   position: number
 } | null
 
-type ActionTone = 'active' | 'busy' | 'break'
+type ActionTone = 'active' | 'busy' | 'break' | 'offline'
 
 // ──────────────────────────────────────────────────────────────
 // Component
@@ -338,7 +338,13 @@ export default function BarberDashboard({
   async function press(target: ActionTone) {
     if (pending) return
     const apiTarget =
-      target === 'active' ? 'available' : target === 'busy' ? 'busy' : 'break'
+      target === 'active'
+        ? 'available'
+        : target === 'busy'
+          ? 'busy'
+          : target === 'break'
+            ? 'break'
+            : 'offline'
     setPending(target)
     setError('')
     try {
@@ -497,7 +503,10 @@ export default function BarberDashboard({
         />
       </section>
 
-      {/* Action buttons */}
+      {/* Action buttons — los 3 principales arriba, OFFLINE ancho
+          debajo. OFFLINE típicamente se usa al final de la jornada
+          o en pausas largas; separarlo del row principal evita
+          taps accidentales mid-shift. */}
       <section className="grid grid-cols-3 gap-2 mb-2">
         <ActionButton
           label="AVAILABLE"
@@ -522,6 +531,16 @@ export default function BarberDashboard({
           loading={pending === 'break'}
           disabled={!!pending && pending !== 'break'}
           onClick={() => press('break')}
+        />
+      </section>
+      <section className="mb-2">
+        <ActionButton
+          label="OFFLINE"
+          tone="offline"
+          current={barber.status === 'offline'}
+          loading={pending === 'offline'}
+          disabled={!!pending && pending !== 'offline'}
+          onClick={() => press('offline')}
         />
       </section>
 
@@ -720,6 +739,11 @@ function ActionButton({
       bg: 'bg-amber-500',
       border: 'border-amber-400',
       text: 'text-amber-300',
+    },
+    offline: {
+      bg: 'bg-zinc-500',
+      border: 'border-zinc-600',
+      text: 'text-zinc-400',
     },
   }
   const p = palette[tone]
