@@ -14,6 +14,10 @@ type Entry = {
   status: 'waiting' | 'called' | 'in_progress'
   barber_id: string | null
   created_at: string
+  // Tiempo en que se llamó al cliente. Null para 'waiting'. Usado
+  // por ActiveCalledCard para mostrar el timer de 2 min hacia abajo
+  // (cascada del 018/035/041).
+  called_at: string | null
 }
 
 type Barber = {
@@ -250,7 +254,9 @@ export default function DisplayBoard({
     const fetchEntries = async () => {
       const { data } = await supabase
         .from('queue_entries')
-        .select('id, position, client_name, status, barber_id, created_at')
+        .select(
+          'id, position, client_name, status, barber_id, created_at, called_at',
+        )
         .eq('shop_id', shop.id)
         .in('status', ['waiting', 'called', 'in_progress'])
         .order('position', { ascending: true })
@@ -426,6 +432,7 @@ export default function DisplayBoard({
                 key={b.id}
                 barber={b}
                 clientName={call?.client_name ?? '—'}
+                calledAt={call?.called_at ?? null}
                 density={density}
               />
             )
@@ -604,10 +611,12 @@ function ActiveCard({
 function ActiveCalledCard({
   barber,
   clientName,
+  calledAt,
   density,
 }: {
   barber: Barber
   clientName: string
+  calledAt: string | null
   density: Density
 }) {
   const s = SIZE[density]
@@ -632,7 +641,73 @@ function ActiveCalledCard({
           → {clientName}
         </p>
       </div>
+      {calledAt && <CalledCountdown calledAt={calledAt} />}
     </li>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// CalledCountdown — timer mm:ss hacia abajo desde 2:00 que indica
+// cuánto le queda al barbero para tocar BUSY antes de que el cron
+// del 018/041 lo mande a un break de 15 min.
+//
+// Para el TV display lo mostramos visible a distancia: tabular-nums
+// grandes, padding generoso, badge naranja. En los últimos 30s
+// pasa a rojo + animate-pulse.
+//
+// Self-contained — usa su propio interval de 1s para que los
+// segundos se vean fluidos, en lugar del fetchEntries/fetchBarbers
+// que solo corre on realtime events (puede tardar varios segundos
+// entre triggers).
+// ──────────────────────────────────────────────────────────────
+function CalledCountdown({ calledAt }: { calledAt: string }) {
+  const TOTAL_MS = 120_000
+  const calledAtMs = new Date(calledAt).getTime()
+  const [now, setNow] = useState(Date.now)
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const elapsed = now - calledAtMs
+  const remaining = TOTAL_MS - elapsed
+
+  if (remaining <= 0) {
+    return (
+      <div className="flex-shrink-0 px-3 py-1.5 rounded-md bg-nxtup-busy/15 border border-nxtup-busy/60 animate-pulse">
+        <span className="text-nxtup-busy font-black tabular-nums text-2xl uppercase tracking-widest">
+          ⚠
+        </span>
+      </div>
+    )
+  }
+
+  const totalSec = Math.ceil(remaining / 1000)
+  const min = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  const isUrgent = remaining <= 30_000
+
+  return (
+    <div
+      className={`
+        flex-shrink-0 px-3 py-1.5 rounded-md border
+        ${
+          isUrgent
+            ? 'bg-nxtup-busy/15 border-nxtup-busy/60 animate-pulse'
+            : 'bg-orange-500/10 border-orange-400/40'
+        }
+      `}
+    >
+      <span
+        className={`
+          font-black tabular-nums text-2xl
+          ${isUrgent ? 'text-nxtup-busy' : 'text-orange-400'}
+        `}
+      >
+        {String(min).padStart(2, '0')}:{String(sec).padStart(2, '0')}
+      </span>
+    </div>
   )
 }
 
