@@ -809,8 +809,28 @@ function QueueTicker({
     queuePosition: idx + 1,
   }))
 
+  // ── Asegurar que el contenido cubra siempre el viewport ────────
+  // El loop seamless requiere que el "ancho del set original"
+  // (antes de duplicar) sea ≥ ancho de la pantalla. Si solo hay 1
+  // cliente, el ancho del item es ~300px y el viewport del TV es
+  // ~1920px → gap visible cuando la animación traslada, antes que
+  // aparezca la segunda copia.
+  //
+  // Solución: repetir el set original hasta tener al menos
+  // MIN_ITEMS_FOR_COVERAGE entradas, luego duplicar como siempre.
+  // Con 8 items × ~300px = ~2400px > ancho de cualquier TV típico.
+  const MIN_ITEMS_FOR_COVERAGE = 8
+  const repeated: typeof itemsWithQueuePosition = []
+  while (repeated.length < MIN_ITEMS_FOR_COVERAGE) {
+    for (const item of itemsWithQueuePosition) {
+      repeated.push(item)
+    }
+  }
+
   // Render twice for seamless infinite loop (see comment in globals.css).
-  const tickerCells = [...itemsWithQueuePosition, ...itemsWithQueuePosition]
+  // El translateX(-50%) mueve exactamente la mitad del contenido —
+  // la segunda mitad arranca donde estaba la primera = sin salto.
+  const tickerCells = [...repeated, ...repeated]
 
   return (
     <footer className="border-t border-nxtup-line bg-nxtup-bg overflow-hidden">
