@@ -11,7 +11,11 @@ import {
   type ShopAvatar,
 } from '@/components/avatars'
 import { InstallButton } from '@/components/InstallButton'
-import { buildBarberOrder, buildHeldPositions } from '@/lib/queue-order'
+import {
+  buildBarberOrder,
+  buildHeldPositions,
+  sortByQueueOrder,
+} from '@/lib/queue-order'
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -164,8 +168,9 @@ export default function BarberDashboard({
       }
     }
 
-    // We still fetch peers to compute FIFO position locally — we just don't
-    // render the peer list anymore.
+    // Fetch peers (incluye offline). El roster visual los muestra
+    // al final de la lista; los cálculos de FIFO (buildBarberOrder)
+    // ya filtran por status='available' internamente.
     const fetchPeers = async () => {
       const { data } = await supabase
         .from('barbers')
@@ -173,7 +178,6 @@ export default function BarberDashboard({
           'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
         )
         .eq('shop_id', shopId)
-        .neq('status', 'offline')
         .order('name')
       if (data) {
         setPeers(
@@ -550,6 +554,18 @@ export default function BarberDashboard({
         </p>
       )}
 
+      {/* Roster — turnos de todos los barberos del shop. Lo que el
+          barbero quiere ver desde fuera del shop (típicamente en
+          break) para saber cómo se mueven los turnos sin tener que
+          volver al TV físicamente. Realtime — actualiza solo cuando
+          alguien cambia de estado. */}
+      <PeerRoster
+        currentBarberId={barber.id}
+        peers={peers}
+        shop={shop}
+        nowTick={nowTick}
+      />
+
       {/* Footer — install + kiosk shortcut */}
       <footer className="mt-auto pt-10 flex flex-col items-center gap-4">
         {/* InstallButton hides itself when already installed or unsupported,
@@ -820,6 +836,236 @@ function AvatarPickerModal({
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// PeerRoster — lista de todos los barberos del shop con su estado.
+//
+// El barbero que está fuera del shop (típico en break) quiere ver
+// cómo se mueven los turnos sin tener que volver al TV físico:
+//   * Quién está disponible y en qué posición FIFO está
+//   * Quién está atendiendo
+//   * Quién está en break y cuánto tiempo le queda + si mantiene
+//     su posición o no
+//   * Quién está offline (al final)
+//
+// Realtime — el subscriber al canal de barbers (en el useEffect
+// principal del componente) ya refresca el array `peers`. Este
+// componente solo lo renderiza.
+// ──────────────────────────────────────────────────────────────
+
+function PeerRoster({
+  currentBarberId,
+  peers,
+  shop,
+  nowTick,
+}: {
+  currentBarberId: string
+  peers: Peer[]
+  shop: Shop
+  nowTick: number
+}) {
+  // `peers` ya incluye al barbero actual (el initial fetch trae
+  // todos los del shop). Si por alguna razón no estuviera, lo
+  // saltamos — el componente principal renderea su propio status
+  // arriba de los botones.
+  const order = useMemo(() => buildBarberOrder(peers), [peers])
+  const held = useMemo(() => buildHeldPositions(peers), [peers])
+  const sorted = useMemo(
+    () => sortByQueueOrder(peers, order),
+    [peers, order],
+  )
+
+  const availableCount = peers.filter(p => p.status === 'available').length
+
+  // Sin barberos = layout en setup. Skipeamos render.
+  if (sorted.length === 0) return null
+
+  return (
+    <section className="mt-8 pt-6 border-t border-nxtup-line">
+      <header className="flex items-center justify-between mb-3">
+        <h2 className="text-nxtup-muted text-xs uppercase tracking-[0.25em] font-bold">
+          Turnos de barberos
+        </h2>
+        <span className="text-nxtup-muted text-xs tabular-nums">
+          {availableCount} {availableCount === 1 ? 'disponible' : 'disponibles'}
+        </span>
+      </header>
+
+      <ul className="flex flex-col gap-2">
+        {sorted.map(peer => (
+          <PeerRosterRow
+            key={peer.id}
+            peer={peer}
+            isSelf={peer.id === currentBarberId}
+            fifoPosition={order.get(peer.id)}
+            heldPosition={held.get(peer.id)}
+            shop={shop}
+            nowTick={nowTick}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function PeerRosterRow({
+  peer,
+  isSelf,
+  fifoPosition,
+  heldPosition,
+  shop,
+  nowTick,
+}: {
+  peer: Peer
+  isSelf: boolean
+  fifoPosition: number | undefined
+  heldPosition: number | undefined
+  shop: Shop
+  nowTick: number
+}) {
+  // Color del dot en función del status real.
+  const dotColor: Record<Status, string> = {
+    available: 'bg-nxtup-active',
+    busy: 'bg-nxtup-busy',
+    break: 'bg-nxtup-break',
+    offline: 'bg-nxtup-dim',
+  }
+
+  // Right-side context: depende del status.
+  let detail: React.ReactNode = null
+  if (peer.status === 'available') {
+    if (fifoPosition !== undefined) {
+      detail = (
+        <span className="text-nxtup-active font-bold tabular-nums">
+          #{fifoPosition}
+        </span>
+      )
+    } else {
+      // available sin available_since = le acaban de asignar cliente
+      // (status='called' implícito). Se considera "atendiendo".
+      detail = (
+        <span className="text-nxtup-muted text-xs uppercase tracking-wider">
+          Llamando
+        </span>
+      )
+    }
+  } else if (peer.status === 'busy') {
+    detail = (
+      <span className="text-nxtup-busy text-xs uppercase tracking-wider">
+        Atendiendo
+      </span>
+    )
+  } else if (peer.status === 'break') {
+    detail = (
+      <BreakRemainingLine
+        peer={peer}
+        shop={shop}
+        heldPosition={heldPosition}
+        nowTick={nowTick}
+      />
+    )
+  } else {
+    detail = (
+      <span className="text-nxtup-dim text-xs uppercase tracking-wider">
+        Offline
+      </span>
+    )
+  }
+
+  return (
+    <li
+      className={`
+        flex items-center gap-3 rounded-lg px-3 py-2
+        ${
+          isSelf
+            ? 'bg-nxtup-line border border-nxtup-muted/40'
+            : 'border border-transparent'
+        }
+      `}
+    >
+      <span
+        className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor[peer.status]}`}
+        aria-hidden
+      />
+      <Avatar avatar={peer.avatar} name={peer.name} size={28} />
+      <p
+        className={`
+          flex-1 min-w-0 truncate text-sm font-bold tracking-tight
+          ${peer.status === 'offline' ? 'text-nxtup-muted' : 'text-white'}
+        `}
+      >
+        {peer.name}
+        {isSelf && (
+          <span className="ml-2 text-[10px] uppercase tracking-widest text-nxtup-muted">
+            tú
+          </span>
+        )}
+      </p>
+      <div className="flex-shrink-0 text-right">{detail}</div>
+    </li>
+  )
+}
+
+// Sub-componente para el detalle de barberos en break — calcula
+// minutos restantes basado en nowTick (1 vez por segundo via el
+// reactive clock que ya existe). Si la cola es 'guaranteed' y
+// no está invalidated, también muestra la posición que mantendrá.
+function BreakRemainingLine({
+  peer,
+  shop,
+  heldPosition,
+  nowTick,
+}: {
+  peer: Peer
+  shop: Shop
+  heldPosition: number | undefined
+  nowTick: number
+}) {
+  if (!peer.break_started_at) {
+    return (
+      <span className="text-nxtup-break text-xs uppercase tracking-wider">
+        Break
+      </span>
+    )
+  }
+
+  const breakMinutes =
+    peer.break_minutes_at_start ??
+    ((peer.breaks_taken_today ?? 1) <= 1
+      ? shop.first_break_minutes
+      : shop.next_break_minutes)
+
+  const startedAt = new Date(peer.break_started_at).getTime()
+  const totalMs = breakMinutes * 60 * 1000
+  const elapsedMs = nowTick - startedAt
+  const remainingMs = totalMs - elapsedMs
+  const remainingMin = Math.ceil(remainingMs / 60000)
+
+  const isOverdue = remainingMin <= 0
+  const positionLost = peer.break_invalidated === true
+
+  return (
+    <div className="flex flex-col items-end leading-tight">
+      <span
+        className={`text-xs font-bold tabular-nums ${
+          isOverdue ? 'text-nxtup-busy' : 'text-nxtup-break'
+        }`}
+      >
+        {isOverdue ? 'vencido' : `${remainingMin} min`}
+      </span>
+      {heldPosition !== undefined && !positionLost && (
+        <span className="text-[10px] text-nxtup-muted uppercase tracking-wider">
+          vuelve a #{heldPosition}
+        </span>
+      )}
+      {positionLost && (
+        <span className="text-[10px] text-nxtup-busy uppercase tracking-wider">
+          perdió turno
+        </span>
+      )}
     </div>
   )
 }

@@ -93,7 +93,9 @@ export default async function BarberPage({
         'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
       )
       .eq('shop_id', shop_id)
-      .neq('status', 'offline')
+      // We now include offline barbers so the PWA can render the
+      // full roster section ("Turnos de barberos"). Filters per-status
+      // happen in the UI.
       .order('name'),
     supabase
       .from('queue_entries')
