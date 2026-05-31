@@ -27,6 +27,10 @@ type Barber = {
   avatar: string | null
   available_since: string | null
   break_held_since: string | null
+  // Necesarios para mostrar el countdown del break al dueño
+  // (cuántos min restantes hasta que el cron 028 lo mande offline).
+  break_started_at: string | null
+  break_minutes_at_start: number | null
   // Set by the API in 'not_guaranteed' break_mode shops once any
   // barber below this one completes a walk-in during their break.
   // buildHeldPositions() reads this to drop their "Vuelve a #N" badge.
@@ -104,7 +108,7 @@ export default function DashboardLive({
           .order('position', { ascending: true }),
         supabase
           .from('barbers')
-          .select('id, name, status, avatar, available_since, break_held_since, break_invalidated, late_toll_remaining')
+          .select('id, name, status, avatar, available_since, break_held_since, break_started_at, break_minutes_at_start, break_invalidated, late_toll_remaining')
           .eq('shop_id', shop.id)
           .order('name'),
         supabase
@@ -392,9 +396,16 @@ export default function DashboardLive({
                                 Vuelve a #{heldPos}
                               </span>
                             )}
-                            <span className="text-nxtup-muted text-xs uppercase tracking-widest">
-                              {BARBER_LABEL[b.status]}
-                            </span>
+                            {b.status === 'break' && b.break_started_at ? (
+                              <BreakCountdownInline
+                                breakStartedAt={b.break_started_at}
+                                breakMinutesAtStart={b.break_minutes_at_start}
+                              />
+                            ) : (
+                              <span className="text-nxtup-muted text-xs uppercase tracking-widest">
+                                {BARBER_LABEL[b.status]}
+                              </span>
+                            )}
                           </li>
                         )
                       })}
@@ -472,5 +483,55 @@ function ShareRow({
         </button>
       </div>
     </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// BreakCountdownInline — minutos restantes del break del barbero,
+// renderizados en línea junto a los demás badges del dashboard live.
+//
+// El interval propio (cada 30s) es suficiente — el break dura
+// 15-30 min típicamente, así que actualizar cada 30s da resolución
+// fina sin re-render churn.
+//
+// Cuando se vence el tiempo, muestra "vencido" en rojo y empieza a
+// pulsar — visual signal de que el cron 028 ya debería haberlo
+// mandado offline o el barbero está sobre la grace.
+// ──────────────────────────────────────────────────────────────
+function BreakCountdownInline({
+  breakStartedAt,
+  breakMinutesAtStart,
+}: {
+  breakStartedAt: string
+  breakMinutesAtStart: number | null
+}) {
+  const [now, setNow] = useState(Date.now)
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Si no tenemos el snapshot del minutos al iniciar break (caso
+  // raro de barberos pre-009), assumimos 15 min como floor para no
+  // mostrar números absurdos.
+  const totalMin = breakMinutesAtStart ?? 15
+  const startedAtMs = new Date(breakStartedAt).getTime()
+  const elapsedMs = now - startedAtMs
+  const elapsedMin = Math.floor(elapsedMs / 60_000)
+  const remainingMin = totalMin - elapsedMin
+
+  if (remainingMin <= 0) {
+    return (
+      <span className="text-xs font-bold uppercase tracking-widest text-nxtup-busy animate-pulse">
+        vencido
+      </span>
+    )
+  }
+
+  return (
+    <span className="text-xs font-bold uppercase tracking-widest text-nxtup-break tabular-nums">
+      {remainingMin} min
+    </span>
   )
 }
