@@ -34,14 +34,23 @@ const DURATION_PRESETS = [
 
 export default function AdminPanelTokensManager({
   shops,
+  preselectShopId,
 }: {
   shops: ShopOption[]
+  preselectShopId?: string | null
 }) {
   const [tokens, setTokens] = useState<TokenRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [selectedShop, setSelectedShop] = useState<string>(shops[0]?.id ?? '')
+  // Pre-selección: si el URL trae ?shop=<uuid> y matchea uno de los
+  // shops del dropdown, arrancamos con ese seleccionado. Sino, el
+  // primero de la lista.
+  const defaultShop =
+    preselectShopId && shops.some(s => s.id === preselectShopId)
+      ? preselectShopId
+      : shops[0]?.id ?? ''
+  const [selectedShop, setSelectedShop] = useState<string>(defaultShop)
   const [createHours, setCreateHours] = useState(24 * 7)
   const [createLabel, setCreateLabel] = useState('')
   const [creating, setCreating] = useState(false)
@@ -140,14 +149,13 @@ export default function AdminPanelTokensManager({
   }
 
   return (
-    <main className="min-h-screen bg-nxtup-bg text-white">
-      <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
-        <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
-          NXTUP · Admin
-        </p>
-        <h1 className="text-3xl font-black tracking-tight mb-2">
-          Links del Centro de Mando
-        </h1>
+    <main className="px-6 sm:px-10 py-10 max-w-3xl">
+      <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
+        Sistema · Acceso temporal
+      </p>
+      <h1 className="text-3xl font-black tracking-tight mb-2">
+        Links del Centro de Mando
+      </h1>
         <p className="text-nxtup-muted text-sm mb-8 max-w-prose">
           Genera links temporales que dan acceso solo al Centro de Mando de un shop
           específico — sin que el dueño tenga que entrar al dashboard. Tú generas
@@ -310,7 +318,6 @@ export default function AdminPanelTokensManager({
             </ul>
           )}
         </section>
-      </div>
     </main>
   )
 }
