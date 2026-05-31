@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getClientIp } from '@/lib/client-ip'
 import { buildBarberOrder } from '@/lib/queue-order'
+import { validatePanelToken } from '@/lib/panel-token'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
 type Status = (typeof VALID)[number]
@@ -21,8 +22,10 @@ export async function PATCH(
 
   // Auth: either the request carries owner cookies (web flow) OR an
   // x-device-token header that matches the global DEVICE_API_TOKEN (hardware
-  // NXT TAP devices that have no cookies). Device-token requests use a
-  // service-role client to bypass RLS — gated entirely by the token check.
+  // NXT TAP devices that have no cookies) OR an x-panel-token header from
+  // a Centro de Mando temporary access link (migración 043). Device and
+  // panel-token requests use a service-role client to bypass RLS — they're
+  // gated entirely by the token check.
   const deviceToken = request.headers.get('x-device-token')
   const expectedDeviceToken = process.env.DEVICE_API_TOKEN
   const isDeviceRequest = Boolean(
@@ -31,7 +34,24 @@ export async function PATCH(
   if (deviceToken && !isDeviceRequest) {
     return Response.json({ error: 'Token de device inválido' }, { status: 401 })
   }
-  const supabase = isDeviceRequest ? createAdminClient() : await createClient()
+
+  // Panel token (Centro de Mando temporal). Si está presente y es válido,
+  // devuelve el shop_id al que el token da acceso. Sin este header, la
+  // ruta sigue funcionando exactamente igual que antes — owner cookie o
+  // device token.
+  const panelTokenHeader = request.headers.get('x-panel-token')
+  const panelTokenShopId = panelTokenHeader
+    ? await validatePanelToken(request)
+    : null
+  const isPanelTokenRequest = Boolean(panelTokenShopId)
+  if (panelTokenHeader && !isPanelTokenRequest) {
+    return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
+  }
+
+  const supabase =
+    isDeviceRequest || isPanelTokenRequest
+      ? createAdminClient()
+      : await createClient()
 
   // Read the barber + their shop's config in parallel so we have everything
   // needed for the keep-position-on-break logic in one round trip.
@@ -44,6 +64,17 @@ export async function PATCH(
     .single()
 
   if (!barber) return Response.json({ error: 'Barbero no encontrado' }, { status: 404 })
+
+  // ── Scope-limit del panel token al shop del barbero ─────────
+  // Un token del shop A NO puede cambiar barberos del shop B aunque
+  // sea técnicamente válido. Esta es la garantía clave que hace que
+  // los links de Centro de Mando sean seguros para compartir.
+  if (isPanelTokenRequest && panelTokenShopId !== barber.shop_id) {
+    return Response.json(
+      { error: 'El token no tiene acceso a este barbero' },
+      { status: 403 },
+    )
+  }
 
   // Idempotent guard: if the barber is already in the requested state,
   // do nothing. Prevents accidental double-taps from re-firing side
@@ -128,6 +159,7 @@ export async function PATCH(
   if (
     !isDeviceRequest &&
     !isOwnerRequest &&
+    !isPanelTokenRequest &&
     !isAbsenceClaim &&
     shop.trusted_public_ip
   ) {

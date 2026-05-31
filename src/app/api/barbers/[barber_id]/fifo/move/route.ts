@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { validatePanelToken } from '@/lib/panel-token'
 
 /**
  * Owner-only: mover un barbero un slot arriba o abajo en la FIFO.
@@ -58,14 +60,18 @@ export async function POST(
     )
   }
 
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return Response.json({ error: 'No autenticado' }, { status: 401 })
+  // Panel token (Centro de Mando temporal — migración 043). Si está
+  // presente y es válido, autoriza esta request sin cookie de dueño.
+  const panelTokenHeader = request.headers.get('x-panel-token')
+  const panelTokenShopId = panelTokenHeader
+    ? await validatePanelToken(request)
+    : null
+  if (panelTokenHeader && !panelTokenShopId) {
+    return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
   }
+  const isPanelTokenRequest = Boolean(panelTokenShopId)
+
+  const supabase = isPanelTokenRequest ? createAdminClient() : await createClient()
 
   const { data: barber } = await supabase
     .from('barbers')
@@ -77,13 +83,31 @@ export async function POST(
     return Response.json({ error: 'Barbero no encontrado' }, { status: 404 })
   }
 
-  const ownerId = (barber as { shops?: { owner_id?: string } | null }).shops
-    ?.owner_id
-  if (ownerId !== user.id) {
-    return Response.json(
-      { error: 'No tienes permisos para este barbero' },
-      { status: 403 },
-    )
+  // Auth path 1: cookie del dueño autenticado (flujo original).
+  // Auth path 2: header x-panel-token cuyo shop_id matchea el del barbero.
+  if (isPanelTokenRequest) {
+    // Scope-limit: token del shop A no puede mover barberos del shop B.
+    if ((barber as { shop_id: string }).shop_id !== panelTokenShopId) {
+      return Response.json(
+        { error: 'El token no tiene acceso a este barbero' },
+        { status: 403 },
+      )
+    }
+  } else {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ error: 'No autenticado' }, { status: 401 })
+    }
+    const ownerId = (barber as { shops?: { owner_id?: string } | null }).shops
+      ?.owner_id
+    if (ownerId !== user.id) {
+      return Response.json(
+        { error: 'No tienes permisos para este barbero' },
+        { status: 403 },
+      )
+    }
   }
 
   const { data, error } = await supabase.rpc('move_barber_fifo', {

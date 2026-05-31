@@ -108,11 +108,27 @@ export default function ControlPanel({
   shop,
   initialBarbers,
   initialEntries,
+  panelToken,
 }: {
   shop: Shop
   initialBarbers: Barber[]
   initialEntries: Entry[]
+  /**
+   * Opcional. Cuando el ControlPanel se monta vía /panel/[shop_id]
+   * (acceso temporal sin cookie de dueño), se le pasa el token para
+   * que cada fetch incluya el header `x-panel-token`. Si no viene,
+   * el componente se comporta exactamente como antes: la API
+   * autoriza vía cookie del dueño.
+   */
+  panelToken?: string | null
 }) {
+  // Helper local para añadir el header x-panel-token a cada request
+  // cuando estamos en modo Centro de Mando temporal. Centraliza la
+  // lógica para no olvidar el header en alguna acción nueva.
+  const authHeaders = (extra?: Record<string, string>): Record<string, string> => ({
+    ...(extra ?? {}),
+    ...(panelToken ? { 'x-panel-token': panelToken } : {}),
+  })
   const [barbers, setBarbers] = useState<Barber[]>(() =>
     normalizeBarbers(initialBarbers),
   )
@@ -207,7 +223,7 @@ export default function ControlPanel({
     try {
       const res = await fetch(`/api/barbers/${barberId}/state`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ status: target }),
       })
       if (!res.ok) {
@@ -235,6 +251,7 @@ export default function ControlPanel({
     try {
       const res = await fetch(`/api/barbers/${barberId}/toll/clear`, {
         method: 'POST',
+        headers: authHeaders(),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -260,7 +277,7 @@ export default function ControlPanel({
     try {
       const res = await fetch(`/api/barbers/${barberId}/fifo/move`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ direction }),
       })
       if (!res.ok) {
@@ -294,16 +311,19 @@ export default function ControlPanel({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
-      <Link
-        href="/dashboard/barbers"
-        className="text-nxtup-muted hover:text-white text-xs uppercase tracking-[0.2em] inline-flex items-center gap-1 mb-4 transition-colors"
-      >
-        ← Barbers
-      </Link>
+      {!panelToken && (
+        <Link
+          href="/dashboard/barbers"
+          className="text-nxtup-muted hover:text-white text-xs uppercase tracking-[0.2em] inline-flex items-center gap-1 mb-4 transition-colors"
+        >
+          ← Barbers
+        </Link>
+      )}
       <h1 className="text-3xl font-black tracking-tight mb-2">Centro de mando</h1>
       <p className="text-nxtup-muted text-sm mb-8 max-w-prose">
-        Cambia el estado de cualquier barbero remotamente. Útil si alguien se fue
-        sin tocar BREAK, o si necesitas reorganizar la fila desde fuera del shop.
+        {panelToken
+          ? `${shop.name} · Cambia el estado de cualquier barbero. Si se fue sin tocar BREAK o necesitas reorganizar la fila, lo haces desde aquí.`
+          : 'Cambia el estado de cualquier barbero remotamente. Útil si alguien se fue sin tocar BREAK, o si necesitas reorganizar la fila desde fuera del shop.'}
       </p>
 
       {error && (

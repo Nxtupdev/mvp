@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { validatePanelToken } from '@/lib/panel-token'
 
 /**
  * Owner-only: quitar la penalidad (late_arrival_toll) de un barbero.
@@ -32,38 +34,65 @@ import { createClient } from '@/lib/supabase/server'
  *   500 si la RPC falla
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ barber_id: string }> },
 ) {
   const { barber_id } = await params
-  const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return Response.json({ error: 'No autenticado' }, { status: 401 })
+  // Panel token (Centro de Mando temporal — migración 043). Si está
+  // presente y es válido, autoriza esta request sin necesidad de cookie
+  // de dueño. Usamos admin client (bypass RLS) gated por el token.
+  const panelTokenHeader = request.headers.get('x-panel-token')
+  const panelTokenShopId = panelTokenHeader
+    ? await validatePanelToken(request)
+    : null
+  if (panelTokenHeader && !panelTokenShopId) {
+    return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
   }
+  const isPanelTokenRequest = Boolean(panelTokenShopId)
 
-  // Verificar ownership: el barbero debe estar en un shop cuyo
-  // owner_id sea el user actual. Si no, 403.
-  const { data: barber } = await supabase
-    .from('barbers')
-    .select('id, shop_id, shops:shop_id(owner_id)')
-    .eq('id', barber_id)
-    .single()
+  const supabase = isPanelTokenRequest ? createAdminClient() : await createClient()
 
-  if (!barber) {
-    return Response.json({ error: 'Barbero no encontrado' }, { status: 404 })
-  }
-
-  const ownerId = (barber as { shops?: { owner_id?: string } | null }).shops
-    ?.owner_id
-  if (ownerId !== user.id) {
-    return Response.json(
-      { error: 'No tienes permisos para este barbero' },
-      { status: 403 },
-    )
+  // Auth path 1: cookie del dueño autenticado (flujo original).
+  // Auth path 2: header x-panel-token cuyo shop_id matchea el shop
+  // del barbero. Cada path tiene su propio early-return en 401/403.
+  if (isPanelTokenRequest) {
+    // Scope-limit: token del shop A no puede clear-toll de barberos
+    // del shop B.
+    const { data: barber } = await supabase
+      .from('barbers')
+      .select('shop_id')
+      .eq('id', barber_id)
+      .single()
+    if (!barber) {
+      return Response.json({ error: 'Barbero no encontrado' }, { status: 404 })
+    }
+    if ((barber as { shop_id: string }).shop_id !== panelTokenShopId) {
+      return Response.json(
+        { error: 'El token no tiene acceso a este barbero' },
+        { status: 403 },
+      )
+    }
+  } else {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ error: 'No autenticado' }, { status: 401 })
+    }
+    const { data: ownerCheck } = await supabase
+      .from('barbers')
+      .select('shops:shop_id(owner_id)')
+      .eq('id', barber_id)
+      .single()
+    const ownerId = (ownerCheck as { shops?: { owner_id?: string } | null } | null)
+      ?.shops?.owner_id
+    if (ownerId !== user.id) {
+      return Response.json(
+        { error: 'No tienes permisos para este barbero' },
+        { status: 403 },
+      )
+    }
   }
 
   const { data, error } = await supabase.rpc('clear_barber_toll', {
