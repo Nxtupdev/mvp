@@ -73,6 +73,10 @@ export type AvatarId =
   | 'palm'
   | 'dominoes'
   | 'maracas'
+  | 'cigar'
+  | 'plantain'
+  | 'tambora'
+  | 'coconut'
   // NOTE: The 'rich' family infrastructure is kept below (AvatarStyle
   // type, rich() helper, RichFrame component, render branch) but no
   // rich icons currently ship — my first attempt at hand-coded SVG
@@ -486,6 +490,36 @@ export const AVATARS: AvatarDef[] = [
       <path d="M8 12l-2 6-2 2" />
       <ellipse cx="16" cy="8" rx="3" ry="4" />
       <path d="M16 12l2 6 2 2" />
+    </g>
+  )),
+  stroke('cigar', 'Tabaco', () => (
+    <g {...STROKE}>
+      <path d="M3 13h15l3-1v4l-3-1H3z" />
+      <path d="M6 13v3" />
+      <path d="M19 4c1 1-1 2 0 3M22 6c1 1-1 2 0 3" />
+    </g>
+  )),
+  stroke('plantain', 'Plátano', () => (
+    <g {...STROKE}>
+      <path d="M4 20c-1-8 5-15 13-15 1 2 1 4-1 5-2 8-7 12-12 10z" />
+      <path d="M16 5l1-2" />
+    </g>
+  )),
+  stroke('tambora', 'Tambora', () => (
+    <g {...STROKE}>
+      <ellipse cx="12" cy="6" rx="7" ry="2" />
+      <ellipse cx="12" cy="18" rx="7" ry="2" />
+      <path d="M5 6v12M19 6v12" />
+      <path d="M9 6v12M15 6v12" />
+    </g>
+  )),
+  stroke('coconut', 'Coco', () => (
+    <g {...STROKE}>
+      <circle cx="12" cy="13" r="8" />
+      <circle cx="9" cy="11" r="0.8" fill="currentColor" />
+      <circle cx="15" cy="11" r="0.8" fill="currentColor" />
+      <ellipse cx="12" cy="15" rx="1.2" ry="0.8" fill="currentColor" />
+      <path d="M10 3l2 3 2-3" />
     </g>
   )),
 
