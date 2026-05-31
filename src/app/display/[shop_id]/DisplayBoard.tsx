@@ -379,7 +379,7 @@ export default function DisplayBoard({
     maxColumnCount <= 4 ? 'lg' : maxColumnCount <= 8 ? 'md' : 'sm'
 
   return (
-    <main className="min-h-screen flex flex-col cursor-none select-none">
+    <main className="h-screen flex flex-col cursor-none select-none overflow-hidden">
       {/* Header */}
       <header className="flex items-center justify-between px-12 py-5 border-b border-nxtup-line gap-8">
         <div className="flex items-center gap-5 min-w-0">
@@ -406,8 +406,11 @@ export default function DisplayBoard({
         </div>
       </header>
 
-      {/* 3 columns */}
-      <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line">
+      {/* 3 columns. `min-h-0` es crítico: por default los items
+          de flex/grid tienen min-height auto, lo que les permite
+          crecer más allá del contenedor. Con min-h-0 podemos
+          encogerlas y dejar que la columna individual scrollee. */}
+      <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line min-h-0">
         <Column
           title="Available"
           tone="active"
@@ -525,8 +528,12 @@ function Column({
   }
   const s = SIZE[density]
   return (
-    <div className="bg-nxtup-bg flex flex-col">
-      <div className={`flex items-center justify-between px-8 ${s.colHeaderPad}`}>
+    // min-h-0 + overflow-hidden permite que la columna sea más
+    // chica que su contenido (necesario para que el ul interno
+    // scrollee). El header de columna queda fijo arriba, el ul
+    // hace overflow-y-auto si la lista no cabe.
+    <div className="bg-nxtup-bg flex flex-col min-h-0 overflow-hidden">
+      <div className={`flex items-center justify-between px-8 ${s.colHeaderPad} flex-shrink-0`}>
         <div className="flex items-center gap-3">
           <span
             className={`w-3 h-3 rounded-full ${dot[tone]}`}
@@ -542,7 +549,7 @@ function Column({
           {count}
         </span>
       </div>
-      <ul className={`flex flex-col flex-1 ${s.listGap} ${s.colPad}`}>
+      <ul className={`flex flex-col flex-1 overflow-y-auto min-h-0 ${s.listGap} ${s.colPad}`}>
         {children}
       </ul>
     </div>
