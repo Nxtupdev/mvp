@@ -29,6 +29,7 @@ const DURATION_PRESETS = [
   { label: '1 hora', hours: 1 },
   { label: '24 horas', hours: 24 },
   { label: '7 días', hours: 24 * 7 },
+  { label: '15 días', hours: 24 * 15 },
   { label: '30 días', hours: 24 * 30 },
 ]
 
@@ -212,7 +213,7 @@ export default function AdminPanelTokensManager({
             <span className="text-nxtup-muted text-xs uppercase tracking-widest font-bold block mb-2">
               Duración
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {DURATION_PRESETS.map(p => (
                 <button
                   key={p.hours}
