@@ -511,10 +511,12 @@ export default function BarberDashboard({
         />
       </section>
 
-      {/* Action buttons — los 3 principales arriba, OFFLINE ancho
-          debajo. OFFLINE típicamente se usa al final de la jornada
-          o en pausas largas; separarlo del row principal evita
-          taps accidentales mid-shift. */}
+      {/* Action buttons — solo los 3 principales: AVAILABLE, BUSY,
+          BREAK. OFFLINE se movió al final de la pantalla (debajo del
+          PeerRoster) por feedback del dueño: los barberos lo tocaban
+          por accidente mid-shift y perdían su turno al volver. Ahora
+          tienen que scrollear intencionalmente al fondo para llegar
+          a él — no hay excusa de tap accidental. */}
       <section className="grid grid-cols-3 gap-2 mb-2">
         <ActionButton
           label="AVAILABLE"
@@ -541,16 +543,6 @@ export default function BarberDashboard({
           onClick={() => press('break')}
         />
       </section>
-      <section className="grid grid-cols-1 mb-2">
-        <ActionButton
-          label="OFFLINE"
-          tone="offline"
-          current={barber.status === 'offline'}
-          loading={pending === 'offline'}
-          disabled={!!pending && pending !== 'offline'}
-          onClick={() => press('offline')}
-        />
-      </section>
 
       {error && (
         <p className="text-nxtup-busy text-sm mt-4 text-center" role="alert">
@@ -569,6 +561,22 @@ export default function BarberDashboard({
         shop={shop}
         nowTick={nowTick}
       />
+
+      {/* OFFLINE — movido aquí intencionalmente debajo del PeerRoster
+          para que requiera scroll intencional. El barbero tiene que
+          pasar visualmente por TODA la cola y la lista de compañeros
+          antes de llegar al botón. Eso prácticamente elimina los
+          taps accidentales mid-shift que reportó el dueño. */}
+      <section className="grid grid-cols-1 mt-8 mb-2">
+        <ActionButton
+          label="OFFLINE"
+          tone="offline"
+          current={barber.status === 'offline'}
+          loading={pending === 'offline'}
+          disabled={!!pending && pending !== 'offline'}
+          onClick={() => press('offline')}
+        />
+      </section>
 
       {/* Footer — install + kiosk shortcut */}
       <footer className="mt-auto pt-10 flex flex-col items-center gap-4">
