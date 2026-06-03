@@ -70,8 +70,12 @@ export function ScreenContainer({
       {/* Hero background — only rendered for splash + success */}
       {background === 'hero' && <AuroraBackground />}
 
-      {/* Content sits above the aurora layer */}
-      <div className="relative z-10 flex flex-1 flex-col">{children}</div>
+      {/* Content sits above the aurora layer. min-h-0 acompaña al
+          flex-1 para que los hijos puedan respetar la constraint de
+          altura del padre — sin esto, los contenidos de las screens
+          pueden crecer ignorando el viewport y empujar los CTAs
+          off-screen. Bug clásico de flexbox. */}
+      <div className="relative z-10 flex flex-1 min-h-0 flex-col">{children}</div>
     </motion.div>
   )
 }

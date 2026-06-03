@@ -280,7 +280,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
         eta={headerEta}
       />
 
-      <main className="relative flex flex-1 flex-col">
+      <main className="relative flex flex-1 flex-col min-h-0">
         <AnimatePresence mode="wait" initial={false}>
           {step === 'splash' && (
             <ScreenContainer key="splash" background="hero">

@@ -93,9 +93,13 @@ export function ReturningCustomerScreen({
   })
 
   return (
-    <div className="flex flex-1 flex-col">
+    // min-h-0 es CRÍTICO para que el flex respete la constraint del
+    // padre. Sin esto los hijos asumen min-height: auto = tamaño del
+    // contenido, y todo crece más que el viewport, empujando el CTA
+    // off-screen. Bug clásico de flexbox.
+    <div className="flex flex-1 flex-col min-h-0">
       {/* ─── Top row: back + step indicator ─── */}
-      <div className="flex items-center justify-between px-6 pt-6 sm:px-12 sm:pt-8">
+      <div className="flex items-center justify-between px-6 pt-6 sm:px-12 sm:pt-8 flex-shrink-0">
         <button
           type="button"
           onClick={onBack}
@@ -127,8 +131,10 @@ export function ReturningCustomerScreen({
           el área disponible. Si por algún motivo el viewport es muy
           chico, overflow-y-auto permite scroll interno (raro pero
           posible). El botón Confirmar NO vive aquí — está en su
-          propia sección fija al fondo. */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6 py-8 sm:gap-8 sm:px-12">
+          propia sección fija al fondo.
+          min-h-0 garantiza que el flex respete la constraint del
+          padre y permita el overflow-y-auto activarse correctamente. */}
+      <div className="flex flex-1 min-h-0 flex-col items-center justify-center gap-6 overflow-y-auto px-6 py-8 sm:gap-8 sm:px-12">
         <div className="flex flex-col items-center gap-4 text-center">
           <motion.h1
             {...fadeUp(0.1)}

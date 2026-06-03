@@ -99,9 +99,13 @@ export function NewCustomerScreen({
   })
 
   return (
-    <div className="flex flex-1 flex-col">
+    // min-h-0 es CRÍTICO para que el flex respete la constraint del
+    // padre. Sin esto los hijos asumen min-height: auto = tamaño del
+    // contenido, y todo crece más que el viewport, empujando el CTA
+    // off-screen. Bug clásico de flexbox.
+    <div className="flex flex-1 flex-col min-h-0">
       {/* ─── Top row: back + step indicator ─── */}
-      <div className="flex items-center justify-between px-6 pt-6 sm:px-12 sm:pt-8">
+      <div className="flex items-center justify-between px-6 pt-6 sm:px-12 sm:pt-8 flex-shrink-0">
         <button
           type="button"
           onClick={onBack}
@@ -130,8 +134,11 @@ export function NewCustomerScreen({
           El formulario (título + name + source picker) scrollea
           internamente si el viewport es chico. Pero el botón
           Confirmar NO vive aquí — está en una sección fija al fondo
-          para que siempre sea visible y nunca se corte. */}
-      <div className="flex-1 overflow-y-auto px-6 pt-8 sm:px-12 sm:pt-10">
+          para que siempre sea visible y nunca se corte.
+          min-h-0 acompañado del flex-1 garantiza que el scroll
+          interno funcione correctamente cuando el contenido excede
+          la altura disponible. */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-8 sm:px-12 sm:pt-10">
         <div className="mx-auto flex max-w-2xl flex-col gap-10 pb-6 sm:gap-12">
           {/* Title */}
           <motion.h1
