@@ -122,8 +122,13 @@ export function ReturningCustomerScreen({
         </div>
       </div>
 
-      {/* ─── Center: welcome + visit count + CTA ─── */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-12 sm:gap-12 sm:px-12">
+      {/* ─── Center: welcome + visit count ───
+          El mensaje de bienvenida queda centrado verticalmente en
+          el área disponible. Si por algún motivo el viewport es muy
+          chico, overflow-y-auto permite scroll interno (raro pero
+          posible). El botón Confirmar NO vive aquí — está en su
+          propia sección fija al fondo. */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6 py-8 sm:gap-8 sm:px-12">
         <div className="flex flex-col items-center gap-4 text-center">
           <motion.h1
             {...fadeUp(0.1)}
@@ -143,8 +148,18 @@ export function ReturningCustomerScreen({
             {visitLine}
           </motion.p>
         </div>
+      </div>
 
-        <motion.div {...fadeUp(0.3)} className="w-full max-w-md">
+      {/* ─── Sticky bottom CTA ───
+          Botón Confirmar fijo al fondo del viewport — siempre visible,
+          nunca se corta, sin importar el tamaño del tablet. Mismo
+          patrón que NewCustomerScreen para que el usuario siempre
+          encuentre el botón en el mismo lugar visual. */}
+      <motion.div
+        {...fadeUp(0.3)}
+        className="flex-shrink-0 border-t border-white/[0.04] bg-[#0A0A0B] px-6 py-4 sm:px-12 sm:py-5"
+      >
+        <div className="mx-auto w-full max-w-md">
           <button
             type="button"
             onClick={onContinue}
@@ -172,8 +187,8 @@ export function ReturningCustomerScreen({
               {error}
             </p>
           )}
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -126,9 +126,13 @@ export function NewCustomerScreen({
         </div>
       </div>
 
-      {/* ─── Scrollable form body ─── */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6 pt-8 sm:px-12 sm:pt-10">
-        <div className="mx-auto flex max-w-2xl flex-col gap-10 sm:gap-12">
+      {/* ─── Scrollable form body ───
+          El formulario (título + name + source picker) scrollea
+          internamente si el viewport es chico. Pero el botón
+          Confirmar NO vive aquí — está en una sección fija al fondo
+          para que siempre sea visible y nunca se corte. */}
+      <div className="flex-1 overflow-y-auto px-6 pt-8 sm:px-12 sm:pt-10">
+        <div className="mx-auto flex max-w-2xl flex-col gap-10 pb-6 sm:gap-12">
           {/* Title */}
           <motion.h1
             {...sectionTransition(0.1)}
@@ -169,38 +173,47 @@ export function NewCustomerScreen({
               onSelect={(s) => onChange({ source: s })}
             />
           </motion.section>
-
-          {/* Continue */}
-          <motion.div {...sectionTransition(0.4)} className="mt-2">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canContinue || submitting}
-              className="
-                group relative flex h-16 w-full items-center justify-center
-                overflow-hidden rounded-2xl text-lg font-medium
-                transition-all duration-300
-                focus-visible:outline-none focus-visible:ring-2
-                focus-visible:ring-emerald-400 focus-visible:ring-offset-2
-                focus-visible:ring-offset-[#0A0A0B]
-                enabled:bg-emerald-400 enabled:text-zinc-950
-                enabled:shadow-[0_0_40px_rgba(52,211,153,0.35)]
-                enabled:hover:bg-emerald-300
-                enabled:active:scale-[0.99]
-                disabled:cursor-not-allowed disabled:bg-white/[0.04]
-                disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
-              "
-            >
-              {t('kiosk.new.continue')}
-            </button>
-            {serverError && (
-              <p className="mt-3 text-center text-sm text-rose-400">
-                {serverError}
-              </p>
-            )}
-          </motion.div>
         </div>
       </div>
+
+      {/* ─── Sticky bottom CTA ───
+          Botón Confirmar fijo al fondo del viewport — siempre visible
+          sin importar el tamaño del tablet ni cuánto contenido haya
+          arriba. El border-top + bg-base lo separan visualmente del
+          formulario scrolleable de arriba. */}
+      <motion.div
+        {...sectionTransition(0.4)}
+        className="flex-shrink-0 border-t border-white/[0.04] bg-[#0A0A0B] px-6 py-4 sm:px-12 sm:py-5"
+      >
+        <div className="mx-auto max-w-2xl">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canContinue || submitting}
+            className="
+              group relative flex h-16 w-full items-center justify-center
+              overflow-hidden rounded-2xl text-lg font-medium
+              transition-all duration-300
+              focus-visible:outline-none focus-visible:ring-2
+              focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+              focus-visible:ring-offset-[#0A0A0B]
+              enabled:bg-emerald-400 enabled:text-zinc-950
+              enabled:shadow-[0_0_40px_rgba(52,211,153,0.35)]
+              enabled:hover:bg-emerald-300
+              enabled:active:scale-[0.99]
+              disabled:cursor-not-allowed disabled:bg-white/[0.04]
+              disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
+            "
+          >
+            {t('kiosk.new.continue')}
+          </button>
+          {serverError && (
+            <p className="mt-3 text-center text-sm text-rose-400">
+              {serverError}
+            </p>
+          )}
+        </div>
+      </motion.div>
     </div>
   )
 }
