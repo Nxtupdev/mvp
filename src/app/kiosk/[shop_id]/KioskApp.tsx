@@ -268,7 +268,11 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0A0A0B] text-zinc-50">
+    // h-[100dvh] = altura exacta del viewport dinámico (cuenta con la
+    // barra del navegador móvil). overflow-hidden mata el scroll vertical.
+    // touch-manipulation elimina el delay de 300ms del double-tap-zoom
+    // en iOS — los taps responden instantáneo sin necesidad de PWA.
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#0A0A0B] text-zinc-50 touch-manipulation">
       <KioskHeader
         shopName={shop.name}
         shopLogoUrl={shop.logo_url}

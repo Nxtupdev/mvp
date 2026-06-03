@@ -1,3 +1,4 @@
+import type { Viewport } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { KioskApp } from './KioskApp'
@@ -18,6 +19,25 @@ import { KioskApp } from './KioskApp'
  * Design spec: planning/design/checkin-kiosk-spec.md
  * Sample reference: planning/design/samples/splash-screen.tsx
  */
+
+// Viewport específico del kiosk — sobreescribe el del root layout:
+//   * maximumScale + userScalable=false: bloquea pinch-zoom (un cliente
+//     curioso pellizcando rompe la UI del check-in).
+//   * viewportFit cover: la UI cubre los notches del iPad/iPhone sin
+//     dejar barras blancas.
+//   * interactiveWidget=resizes-content: cuando aparece el teclado del
+//     sistema (entrada de teléfono en modo phone, no kiosk), Safari
+//     redimensiona el viewport en vez de cubrir contenido.
+export const viewport: Viewport = {
+  themeColor: '#000000',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
+}
+
 export default async function KioskPage({
   params,
 }: {
