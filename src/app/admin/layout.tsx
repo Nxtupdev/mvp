@@ -46,10 +46,27 @@ export default async function AdminLayout({
   const isAdmin = isAdminUser(user.email)
   const roleLabel = getRoleLabel(role)
 
+  // Nombre para el saludo del sidebar. Orden de prioridad:
+  //   1) user_metadata.full_name (lo que tú metas al crear el user
+  //      en Supabase Dashboard, ej: {"full_name": "Juan Pérez"})
+  //   2) user_metadata.name (alias común)
+  //   3) parte del email antes del @ (fallback dignificado)
+  const metadata = (user.user_metadata ?? {}) as {
+    full_name?: string
+    name?: string
+  }
+  const emailLocal = (user.email ?? '').split('@')[0] ?? ''
+  const displayName =
+    metadata.full_name?.trim() ||
+    metadata.name?.trim() ||
+    emailLocal ||
+    ''
+
   return (
     <div className="min-h-screen bg-nxtup-bg text-white flex">
       <AdminSidebar
         adminEmail={user.email ?? ''}
+        displayName={displayName}
         isAdmin={isAdmin}
         roleLabel={roleLabel}
       />

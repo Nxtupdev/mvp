@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { canAccessAdminRoutes } from '@/lib/admin-auth'
 import DashboardLive from './DashboardLive'
 
 export default async function DashboardPage() {
@@ -14,7 +15,12 @@ export default async function DashboardPage() {
     .select('id, name, is_open, max_queue_size, logo_url')
     .eq('owner_id', user.id)
     .maybeSingle()
-  if (!shop) redirect('/onboarding')
+  if (!shop) {
+    // Admins y socios no son dueños de shop — mandarlos a su panel
+    // en vez de tirarlos al onboarding (que es para crear barbería).
+    if (canAccessAdminRoutes(user.email)) redirect('/admin')
+    redirect('/onboarding')
+  }
 
   const [{ data: entries }, { data: barbers }] = await Promise.all([
     supabase

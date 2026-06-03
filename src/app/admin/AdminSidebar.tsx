@@ -128,10 +128,14 @@ const NAV: NavItem[] = [
 
 export default function AdminSidebar({
   adminEmail,
+  displayName,
   isAdmin,
   roleLabel,
 }: {
   adminEmail: string
+  /** Nombre humano para el saludo. Si está vacío, no se muestra el bloque
+   *  de Bienvenida (cae al email y rol solamente). */
+  displayName: string
   isAdmin: boolean
   roleLabel: string
 }) {
@@ -176,13 +180,24 @@ export default function AdminSidebar({
 
       <div className="px-5 py-4 border-t border-nxtup-line">
         <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-1">
-          Sesión
+          Bienvenido
         </p>
-        <p className="text-white text-xs font-medium truncate" title={adminEmail}>
+        {displayName && (
+          <p
+            className="text-white text-sm font-bold tracking-tight truncate"
+            title={displayName}
+          >
+            {displayName}
+          </p>
+        )}
+        <p
+          className="text-nxtup-muted text-[11px] font-medium truncate mt-0.5"
+          title={adminEmail}
+        >
           {adminEmail}
         </p>
         {roleLabel && (
-          <p className="text-nxtup-active text-[10px] uppercase tracking-[0.2em] font-bold mt-0.5">
+          <p className="text-nxtup-active text-[10px] uppercase tracking-[0.2em] font-bold mt-1.5">
             {roleLabel}
           </p>
         )}
