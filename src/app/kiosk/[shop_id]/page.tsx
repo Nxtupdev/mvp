@@ -1,7 +1,30 @@
-import type { Viewport } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { KioskApp } from './KioskApp'
+
+// Metadata específico del kiosk — sobreescribe el del root layout.
+// La key crítica es `manifest`: apunta al manifest dinámico de ESTE
+// shop, no al global. Cuando el dueño instala como PWA, el icono del
+// home screen lanza directo al kiosk del shop.
+//
+// appleWebApp.title controla el label que aparece debajo del icono
+// en iOS — para distinguirlo del PWA del owner/barber dashboard.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shop_id: string }>
+}): Promise<Metadata> {
+  const { shop_id } = await params
+  return {
+    manifest: `/kiosk/${shop_id}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      title: 'NXTUP Kiosk',
+      statusBarStyle: 'black-translucent',
+    },
+  }
+}
 
 /**
  * NXTUP Check-In Kiosk — Server entrypoint.

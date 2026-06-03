@@ -24,6 +24,7 @@
 
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
 
+import { InstallButton } from '@/components/InstallButton'
 import type { Locale } from '@/lib/i18n-types'
 
 // ────────────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ export function SplashScreen({
   const buttonV = shouldReduceMotion ? reducedVariants : buttonVariants
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-8 py-12">
+    <div className="relative flex flex-1 flex-col items-center justify-center px-8 py-12">
       <div className="flex max-w-2xl flex-col items-center gap-12 sm:gap-16">
         {/* ─── Shop Logo ───
             Sin contenedor glass — el logo flota libre. Los logos
@@ -173,6 +174,17 @@ export function SplashScreen({
             onClick={() => onLanguageSelect('en')}
           />
         </motion.div>
+      </div>
+
+      {/* ─── Botón de instalar (solo durante setup del kiosk) ───
+          InstallButton se auto-oculta cuando ya está instalado
+          (display-mode standalone). Solo lo ve el dueño cuando
+          configura el tablet por primera vez en el navegador. Una
+          vez agregado al home screen del iPad, este botón
+          desaparece para siempre. Posición absolute al fondo para
+          no interferir con la jerarquía visual del splash. */}
+      <div className="absolute inset-x-0 bottom-4 flex justify-center">
+        <InstallButton variant="subtle" />
       </div>
     </div>
   )
