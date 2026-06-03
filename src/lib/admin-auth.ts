@@ -56,12 +56,19 @@ export function getAdminRole(email: string | null | undefined): AdminRole | null
 
 /**
  * Label humano para mostrar en el sidebar debajo del email.
- * Admin → "Founder" (más cálido y de jerarquía que "Admin"),
- * Partner → "Owner" — para que los socios sientan ownership real
- * del negocio aunque sea vista de lectura.
+ *
+ * Ambos roles muestran "Cofounder" — decisión del equipo para que
+ * los socios sientan paridad en el branding, no inferioridad.
+ * La diferencia de permisos sigue siendo real internamente (admin
+ * puede crear/revocar, partner solo ve), pero el badge social es el
+ * mismo.
+ *
+ * Para diferenciar funciones específicas se usa el campo opcional
+ * `user_metadata.title` (CEO, CTO, COO, etc.) leído por el layout
+ * y mostrado debajo del rol — sin necesidad de cambios de código.
  */
 export function getRoleLabel(role: AdminRole | null): string {
-  if (role === 'admin') return 'Founder'
-  if (role === 'partner') return 'Owner'
+  if (role === 'admin') return 'Cofounder'
+  if (role === 'partner') return 'Cofounder'
   return ''
 }

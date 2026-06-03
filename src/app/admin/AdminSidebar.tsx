@@ -131,13 +131,17 @@ export default function AdminSidebar({
   displayName,
   isAdmin,
   roleLabel,
+  titleLabel,
 }: {
   adminEmail: string
-  /** Nombre humano para el saludo. Si está vacío, no se muestra el bloque
-   *  de Bienvenida (cae al email y rol solamente). */
+  /** Nombre humano para el saludo. Si está vacío, cae al email solo. */
   displayName: string
   isAdmin: boolean
+  /** Rol social. Hoy ambos roles son "Cofounder". */
   roleLabel: string
+  /** Cargo opcional (CEO, CTO, COO, etc.) — viene de user_metadata.title.
+   *  Si está vacío, no se renderiza el segundo subtítulo. */
+  titleLabel: string
 }) {
   const pathname = usePathname()
   const visibleNav = NAV.filter(item => isAdmin || !item.adminOnly)
@@ -199,6 +203,11 @@ export default function AdminSidebar({
         {roleLabel && (
           <p className="text-nxtup-active text-[10px] uppercase tracking-[0.2em] font-bold mt-1.5">
             {roleLabel}
+          </p>
+        )}
+        {titleLabel && (
+          <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.2em] font-bold mt-0.5">
+            {titleLabel}
           </p>
         )}
         <Link
