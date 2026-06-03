@@ -1,21 +1,30 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isAdminUser } from '@/lib/admin-auth'
+import {
+  canAccessAdminRoutes,
+  getAdminRole,
+  getRoleLabel,
+  isAdminUser,
+} from '@/lib/admin-auth'
 import AdminSidebar from './AdminSidebar'
 
 // ============================================================
 // /admin/* — Super-admin dashboard de NXTUP
 //
 // Layout compartido para todas las rutas /admin/*. Centraliza:
-//   * Auth gate: cookie + email en ADMIN_EMAILS env var.
-//     Sin esto → redirect a / (home marketing). Las páginas
-//     hijas asumen que el usuario YA es admin y no repiten
-//     el check.
+//   * Auth gate: cookie + email en ADMIN_EMAILS o PARTNER_EMAILS.
+//     Sin estar en ninguna lista → redirect a / (home marketing).
 //   * Shell visual: sidebar a la izquierda + main a la derecha.
 //
-// Patrón: para agregar una nueva sección admin solo creas
-// /admin/[feature]/page.tsx + un link en AdminSidebar. La auth
-// y el shell vienen gratis.
+// Dos niveles de acceso:
+//   * Admin (Frank): ve y puede tocar TODO incluido panel-tokens
+//   * Socio (otros owners): ve las páginas view-only — home,
+//     shops, estadísticas, etc. NO ven panel-tokens (oculto en
+//     sidebar y bloqueado a nivel de página).
+//
+// Patrón: para agregar una nueva sección view-only solo creas
+// /admin/[feature]/page.tsx y un link en AdminSidebar. Las páginas
+// destructivas deben agregar su propio `if (!isAdminUser) redirect`.
 // ============================================================
 
 export const dynamic = 'force-dynamic'
@@ -31,11 +40,19 @@ export default async function AdminLayout({
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
-  if (!isAdminUser(user.email)) redirect('/')
+  if (!canAccessAdminRoutes(user.email)) redirect('/')
+
+  const role = getAdminRole(user.email)
+  const isAdmin = isAdminUser(user.email)
+  const roleLabel = getRoleLabel(role)
 
   return (
     <div className="min-h-screen bg-nxtup-bg text-white flex">
-      <AdminSidebar adminEmail={user.email ?? ''} />
+      <AdminSidebar
+        adminEmail={user.email ?? ''}
+        isAdmin={isAdmin}
+        roleLabel={roleLabel}
+      />
       <div className="flex-1 min-w-0 lg:ml-64">{children}</div>
     </div>
   )

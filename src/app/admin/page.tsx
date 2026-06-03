@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isAdminUser } from '@/lib/admin-auth'
 
 // ============================================================
 // /admin — Home del super-admin
@@ -9,12 +11,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 // adelante puede crecer con: gráficos de actividad, alertas
 // (shops sin actividad en X días), incidentes recientes, etc.
 //
-// La auth la maneja /admin/layout.tsx — esta página asume admin.
+// La auth la maneja /admin/layout.tsx — esta página asume admin
+// o socio. Los KPI cards y quick links destructivos se renderizan
+// condicionalmente según el rol.
 // ============================================================
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminHomePage() {
+  // Determinar rol para condicionar UI destructiva
+  const cookieClient = await createClient()
+  const {
+    data: { user },
+  } = await cookieClient.auth.getUser()
+  const isAdmin = isAdminUser(user?.email)
+
   const admin = createAdminClient()
 
   // Todas las queries en paralelo para que el page sea snappy
@@ -45,7 +56,7 @@ export default async function AdminHomePage() {
   const totalShops = shops.length
   const openShops = shops.filter(s => s.is_open).length
 
-  const stats = [
+  const stats: { label: string; value: string; sub: string; href: string | null }[] = [
     {
       label: 'Shops totales',
       value: String(totalShops),
@@ -64,13 +75,18 @@ export default async function AdminHomePage() {
       sub: 'waiting · called · in_progress',
       href: null,
     },
-    {
+  ]
+
+  // El KPI de panel-tokens solo lo ven los admin (los socios no
+  // tienen visibilidad sobre esa sección).
+  if (isAdmin) {
+    stats.push({
       label: 'Panel tokens activos',
       value: String(tokensActiveResp.count ?? 0),
       sub: 'no revocados ni expirados',
       href: '/admin/panel-tokens',
-    },
-  ]
+    })
+  }
 
   return (
     <main className="px-6 sm:px-10 py-10 max-w-5xl">
@@ -118,15 +134,27 @@ export default async function AdminHomePage() {
               Lista global con dueño, status y queue actual.
             </p>
           </Link>
-          <Link
-            href="/admin/panel-tokens"
-            className="rounded-xl border border-nxtup-line bg-nxtup-line/30 hover:border-white p-4 transition-colors"
-          >
-            <p className="text-white font-bold mb-1">Generar link de Centro de Mando</p>
-            <p className="text-nxtup-muted text-xs">
-              Acceso temporal al panel de un shop, sin entrar al dashboard.
-            </p>
-          </Link>
+          {isAdmin ? (
+            <Link
+              href="/admin/panel-tokens"
+              className="rounded-xl border border-nxtup-line bg-nxtup-line/30 hover:border-white p-4 transition-colors"
+            >
+              <p className="text-white font-bold mb-1">Generar link de Centro de Mando</p>
+              <p className="text-nxtup-muted text-xs">
+                Acceso temporal al panel de un shop, sin entrar al dashboard.
+              </p>
+            </Link>
+          ) : (
+            <Link
+              href="/admin/stats"
+              className="rounded-xl border border-nxtup-line bg-nxtup-line/30 hover:border-white p-4 transition-colors"
+            >
+              <p className="text-white font-bold mb-1">Ver estadísticas</p>
+              <p className="text-nxtup-muted text-xs">
+                Reportes operativos y financieros del negocio.
+              </p>
+            </Link>
+          )}
         </div>
       </section>
     </main>
