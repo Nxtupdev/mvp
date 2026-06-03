@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
 import { createClient } from '@/lib/supabase/server'
+import { canAccessAdminRoutes } from '@/lib/admin-auth'
 import { InstallButton } from '@/components/InstallButton'
 import DashboardNav from './DashboardNav'
 import MobileTabBar from './MobileTabBar'
@@ -27,7 +28,13 @@ export default async function DashboardLayout({
     .eq('owner_id', user.id)
     .maybeSingle()
 
-  if (!shop) redirect('/onboarding')
+  if (!shop) {
+    // Admins y socios no son dueños de shop — mandarlos a /admin en
+    // vez del onboarding (que es para crear barbería). Sin este check,
+    // un socio recién logueado caería en el flujo de creación de shop.
+    if (canAccessAdminRoutes(user.email)) redirect('/admin')
+    redirect('/onboarding')
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
