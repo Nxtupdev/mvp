@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 type NavItem = {
   href: string
@@ -143,16 +144,170 @@ export default function AdminSidebar({
 }) {
   const pathname = usePathname()
   const visibleNav = NAV.filter(item => isAdmin || !item.adminOnly)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Cerrar el drawer cuando la ruta cambia. Sin esto, al tocar un nav
+  // item desde el drawer, navegamos pero el drawer queda abierto y
+  // tapando el contenido nuevo. Side effect del cambio de pathname.
+  useEffect(() => {
+    setDrawerOpen(false)
+  }, [pathname])
+
+  // Body scroll lock cuando el drawer está abierto — evita que el
+  // contenido de atrás scrollee accidentalmente al hacer drag sobre
+  // el drawer. Solo en móvil; en desktop el drawer no existe.
+  useEffect(() => {
+    if (!drawerOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [drawerOpen])
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-nxtup-line/40 border-r border-nxtup-line flex-col">
-      <div className="px-5 py-6 border-b border-nxtup-line">
-        <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
-          NXTUP
-        </p>
-        <p className="text-white text-base font-black tracking-tight">
+    <>
+      {/* ───────── Top bar móvil ─────────
+          Solo visible en móvil (lg:hidden). Sticky para que se quede
+          arriba al scrollear el contenido. El botón hamburguesa abre
+          el drawer que tiene el mismo contenido del sidebar desktop. */}
+      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-nxtup-bg/95 backdrop-blur-md border-b border-nxtup-line">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Abrir menú"
+          aria-expanded={drawerOpen}
+          className="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg text-white hover:bg-nxtup-line/60 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" width={22} height={22}>
+            <path
+              d="M4 6h16M4 12h16M4 18h16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <p className="text-white text-sm font-black tracking-tight">
           {isAdmin ? 'Admin' : 'Panel'}
         </p>
+        {/* Spacer para balancear visualmente el botón hamburguesa
+            de la izquierda y mantener el título centrado. */}
+        <div className="w-10" aria-hidden />
+      </header>
+
+      {/* ───────── Drawer móvil (overlay + panel) ─────────
+          Renderizado condicional cuando drawerOpen=true. Backdrop
+          oscuro detrás, panel desde el lado izquierdo con el mismo
+          contenido del sidebar desktop. */}
+      {drawerOpen && (
+        <>
+          <div
+            className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-fade-in"
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden
+          />
+          <aside
+            className="lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-nxtup-bg border-r border-nxtup-line z-50 flex flex-col animate-slide-in"
+            role="dialog"
+            aria-label="Menú de navegación"
+          >
+            <SidebarContent
+              visibleNav={visibleNav}
+              pathname={pathname}
+              isAdmin={isAdmin}
+              displayName={displayName}
+              roleLabel={roleLabel}
+              titleLabel={titleLabel}
+              onNavClick={() => setDrawerOpen(false)}
+              showCloseButton
+              onClose={() => setDrawerOpen(false)}
+            />
+          </aside>
+        </>
+      )}
+
+      {/* ───────── Sidebar desktop ─────────
+          Solo visible en lg+ (hidden lg:flex). Fixed al lado izquierdo,
+          siempre presente. Mismo contenido que el drawer móvil. */}
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-nxtup-line/40 border-r border-nxtup-line flex-col">
+        <SidebarContent
+          visibleNav={visibleNav}
+          pathname={pathname}
+          isAdmin={isAdmin}
+          displayName={displayName}
+          roleLabel={roleLabel}
+          titleLabel={titleLabel}
+        />
+      </aside>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// SidebarContent — el render compartido entre el drawer móvil y el
+// sidebar desktop. Reusa la misma estructura visual + nav + bloque
+// de "Bienvenido / Salir" para que la UX sea idéntica en ambos
+// breakpoints (solo cambia el contenedor que lo envuelve).
+// ─────────────────────────────────────────────────────────────
+
+function SidebarContent({
+  visibleNav,
+  pathname,
+  isAdmin,
+  displayName,
+  roleLabel,
+  titleLabel,
+  onNavClick,
+  showCloseButton = false,
+  onClose,
+}: {
+  visibleNav: NavItem[]
+  pathname: string
+  isAdmin: boolean
+  displayName: string
+  roleLabel: string
+  titleLabel: string
+  /** Callback al tocar un item del nav. Lo usa el drawer móvil para
+   *  cerrarse después de navegar. En desktop se deja undefined. */
+  onNavClick?: () => void
+  /** Si true, muestra una X en la esquina superior derecha. Solo se
+   *  usa en el drawer móvil. */
+  showCloseButton?: boolean
+  onClose?: () => void
+}) {
+  return (
+    <>
+      <div className="px-5 py-6 border-b border-nxtup-line flex items-start justify-between">
+        <div>
+          <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
+            NXTUP
+          </p>
+          <p className="text-white text-base font-black tracking-tight">
+            {isAdmin ? 'Admin' : 'Panel'}
+          </p>
+        </div>
+        {showCloseButton && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar menú"
+            className="-mr-1 -mt-1 flex items-center justify-center w-9 h-9 rounded-lg text-nxtup-muted hover:text-white hover:bg-nxtup-line/60 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" width={20} height={20}>
+              <path
+                d="M6 6l12 12M18 6L6 18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
@@ -165,6 +320,7 @@ export default function AdminSidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold tracking-wide transition-colors ${
                 active
                   ? 'bg-white text-black'
@@ -211,6 +367,6 @@ export default function AdminSidebar({
           </button>
         </form>
       </div>
-    </aside>
+    </>
   )
 }
