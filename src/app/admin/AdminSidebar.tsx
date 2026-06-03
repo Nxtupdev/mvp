@@ -127,14 +127,12 @@ const NAV: NavItem[] = [
 ]
 
 export default function AdminSidebar({
-  adminEmail,
   displayName,
   isAdmin,
   roleLabel,
   titleLabel,
 }: {
-  adminEmail: string
-  /** Nombre humano para el saludo. Si está vacío, cae al email solo. */
+  /** Nombre humano para el saludo. Si está vacío, no se renderiza. */
   displayName: string
   isAdmin: boolean
   /** Rol social. Hoy ambos roles son "Cofounder". */
@@ -188,20 +186,14 @@ export default function AdminSidebar({
         </p>
         {displayName && (
           <p
-            className="text-white text-base font-bold tracking-tight truncate leading-tight"
+            className="text-white text-lg font-bold tracking-tight truncate leading-tight"
             title={displayName}
           >
             {displayName}
           </p>
         )}
-        <p
-          className="text-nxtup-muted text-[11px] font-medium truncate mt-1"
-          title={adminEmail}
-        >
-          {adminEmail}
-        </p>
         {roleLabel && (
-          <p className="text-nxtup-active text-[10px] uppercase tracking-[0.2em] font-bold mt-1.5">
+          <p className="text-nxtup-active text-[10px] uppercase tracking-[0.2em] font-bold mt-2">
             {roleLabel}
           </p>
         )}

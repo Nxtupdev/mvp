@@ -75,7 +75,6 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-nxtup-bg text-white flex">
       <AdminSidebar
-        adminEmail={user.email ?? ''}
         displayName={displayName}
         isAdmin={isAdmin}
         roleLabel={roleLabel}
