@@ -188,14 +188,14 @@ export default function AdminSidebar({
         </p>
         {displayName && (
           <p
-            className="text-white text-sm font-bold tracking-tight truncate"
+            className="text-white text-base font-bold tracking-tight truncate leading-tight"
             title={displayName}
           >
             {displayName}
           </p>
         )}
         <p
-          className="text-nxtup-muted text-[11px] font-medium truncate mt-0.5"
+          className="text-nxtup-muted text-[11px] font-medium truncate mt-1"
           title={adminEmail}
         >
           {adminEmail}
@@ -210,12 +210,14 @@ export default function AdminSidebar({
             {titleLabel}
           </p>
         )}
-        <Link
-          href="/dashboard"
-          className="block mt-3 text-nxtup-muted hover:text-white text-[11px] uppercase tracking-widest"
-        >
-          ← Salir
-        </Link>
+        <form action="/auth/signout" method="POST" className="mt-3">
+          <button
+            type="submit"
+            className="text-nxtup-muted hover:text-white text-[11px] uppercase tracking-widest cursor-pointer transition-colors"
+          >
+            ← Salir
+          </button>
+        </form>
       </div>
     </aside>
   )
