@@ -398,7 +398,12 @@ grant execute on function public.nightly_state_reset() to anon, authenticated;
 
 -- ── 7. Activity log: permitir nuevas acciones ────────────────
 -- Las nuevas acciones sanction_applied y sanction_cleared necesitan
--- ser permitidas por el CHECK constraint. Idempotente.
+-- ser permitidas por el CHECK constraint.
+--
+-- IMPORTANTE: la lista debe INCLUIR todas las acciones acumuladas
+-- históricamente (toll_cleared_by_owner y fifo_moved_by_owner
+-- fueron agregadas en 037/038/039) — sino el ALTER falla con
+-- violación de CHECK por filas existentes.
 
 alter table public.activity_log
   drop constraint if exists activity_log_action_check;
@@ -414,6 +419,8 @@ alter table public.activity_log
     'no_show',
     'no_show_no_takers',
     'idle_timeout_offline',
+    'toll_cleared_by_owner',
+    'fifo_moved_by_owner',
     'sanction_applied',
     'sanction_cleared'
   ));
