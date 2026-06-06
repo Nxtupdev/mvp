@@ -59,16 +59,17 @@ export async function POST(
   const supabase = isPanelTokenRequest ? createAdminClient() : await createClient()
 
   // ── Owner / shop verification + leer estado actual del barbero ──
-  // Una sola query para minimizar round trips. Necesitamos status y
-  // break_started_at además del contador, porque si el barbero está
-  // EN break ahora mismo, "devolver el break" también significa
-  // sacarlo del break y restaurarlo a la posición en la que estaba
-  // justo antes (available_since = break_started_at preserva la
-  // posición FIFO original del barbero).
+  // Una sola query para minimizar round trips. Si el barbero está EN
+  // break, "devolver el break" también significa sacarlo del break y
+  // restaurar su posición FIFO original. La marca de tiempo que el
+  // sistema GUARDA cuando un barbero entra al break es break_held_since
+  // (= su available_since previo). break_started_at es el momento del
+  // tap del break, que está en el FUTURO comparado con available_since
+  // del resto — usarlo nos manda al fondo de la fila.
   const { data: barber } = await supabase
     .from('barbers')
     .select(
-      'id, shop_id, status, breaks_taken_today, break_started_at, shops:shop_id(owner_id)',
+      'id, shop_id, status, breaks_taken_today, break_started_at, break_held_since, shops:shop_id(owner_id)',
     )
     .eq('id', barber_id)
     .single()
@@ -152,15 +153,25 @@ export async function POST(
   }
   const wasOnBreak =
     (barber as { status?: string }).status === 'break'
+  const breakHeldSince = (barber as { break_held_since?: string | null })
+    .break_held_since ?? null
   const breakStartedAt = (barber as { break_started_at?: string | null })
     .break_started_at ?? null
 
   const updatePatch: BarberFields = { breaks_taken_today: newCount }
   if (wasOnBreak) {
     updatePatch.status = 'available'
-    // Fallback a "ahora" si por alguna razón break_started_at está null
-    // (no debería pasar si status='break', pero defensivo).
-    updatePatch.available_since = breakStartedAt ?? new Date().toISOString()
+    // Restaurar la posición FIFO original. Orden de preferencia:
+    //   1. break_held_since — el available_since que TENÍA antes del
+    //      tap del break. Es el campo "oficial" para preservar la
+    //      posición durante el descanso (lo lee el state route cuando
+    //      el barbero termina su break normalmente).
+    //   2. break_started_at — fallback si held_since está null por
+    //      alguna razón. Pone al barbero al fondo de la fila pero al
+    //      menos lo saca del break.
+    //   3. now() — defensivo. Solo si todo lo demás está null.
+    updatePatch.available_since =
+      breakHeldSince ?? breakStartedAt ?? new Date().toISOString()
     updatePatch.break_started_at = null
     updatePatch.break_held_since = null
     updatePatch.break_minutes_at_start = null
