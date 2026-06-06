@@ -89,7 +89,7 @@ export async function POST(
   // Verify claimer is ACTIVE in this shop, fetch peers in one shot.
   const { data: peers } = await supabase
     .from('barbers')
-    .select('id, shop_id, status, available_since, late_toll_remaining')
+    .select('id, shop_id, status, available_since, sanctioned_until')
     .eq('shop_id', shopId)
 
   const claimer = peers?.find(p => p.id === claimerId)
@@ -103,31 +103,36 @@ export async function POST(
     )
   }
 
-  // Toll-aware (migration 019): a barber currently paying the
-  // late-arrival toll can't use "Tomar yo" — that would be the
-  // most obvious way to bypass the toll system.
-  if ((claimer.late_toll_remaining ?? 0) > 0) {
+  // Sanction-aware (migración 047): un barbero sancionado no puede
+  // "Tomar yo" — esa sería la forma más obvia de saltarse la sanción.
+  // El cliente abandonado se considera walk-in (originalmente fue
+  // auto-asignado al negligente), y los sancionados no reciben walk-ins.
+  const nowMs = Date.now()
+  const isClaimerSanctioned =
+    claimer.sanctioned_until !== null &&
+    new Date(claimer.sanctioned_until!).getTime() > nowMs
+  if (isClaimerSanctioned) {
     return Response.json(
       {
         error:
-          'Estás esperando turno (peaje de llegada tarde). No puedes tomar clientes hasta que se complete.',
-        code: 'paying_toll',
+          'Estás sancionado por llegada tarde. No puedes tomar walk-ins hasta que termine la sanción.',
+        code: 'sanctioned',
       },
       { status: 403 },
     )
   }
 
   // Compute "next available" — anyone ACTIVE with a FIFO position,
-  // excluding the negligent barber and toll-paying barbers. The
-  // smallest available_since (earliest into the queue) is the
-  // rightful next claimer.
+  // excluding the negligent barber and sancionados. The smallest
+  // available_since (earliest into the queue) is the rightful next claimer.
   const fifoCandidates = (peers ?? [])
     .filter(
       p =>
         p.id !== negligentBarberId &&
         p.status === 'available' &&
         p.available_since &&
-        (p.late_toll_remaining ?? 0) === 0,
+        (p.sanctioned_until === null ||
+          new Date(p.sanctioned_until).getTime() <= nowMs),
     )
     .sort(
       (a, b) =>

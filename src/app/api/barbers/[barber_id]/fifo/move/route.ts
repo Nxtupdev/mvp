@@ -13,8 +13,11 @@ import { validatePanelToken } from '@/lib/panel-token'
  * impuestas por la RPC:
  *   * El barbero debe estar en status='available' con available_since
  *     no null (= dentro de la FIFO).
- *   * No puede tener peaje (late_toll_remaining = 0). Si lo tiene,
- *     el dueño primero lo libera con /toll/clear y luego lo mueve.
+ *   * Migración 047: el guard `late_toll_remaining > 0` que tenía la RPC
+ *     quedó como no-op porque el sistema de peaje fue reemplazado por
+ *     sanciones de tiempo (sanctioned_until). El dueño puede mover
+ *     sancionados manualmente — la sanción solo bloquea walk-ins, no
+ *     overrides manuales.
  *   * Debe existir un vecino en la dirección pedida.
  *
  * Mecánica: swap atómico del `available_since` con el vecino

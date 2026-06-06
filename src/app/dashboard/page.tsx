@@ -31,7 +31,7 @@ export default async function DashboardPage() {
       .order('position', { ascending: true }),
     supabase
       .from('barbers')
-      .select('id, name, status, avatar, available_since, break_held_since, break_started_at, break_minutes_at_start, break_invalidated, late_toll_remaining')
+      .select('id, name, status, avatar, available_since, break_held_since, break_started_at, break_minutes_at_start, break_invalidated, late_toll_remaining, sanctioned_until')
       .eq('shop_id', shop.id)
       .order('name'),
   ])

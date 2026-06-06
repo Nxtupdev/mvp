@@ -53,7 +53,7 @@ export default async function PanelPage({
     admin
       .from('barbers')
       .select(
-        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
+        'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining, sanctioned_until',
       )
       .eq('shop_id', shop_id)
       .order('name'),

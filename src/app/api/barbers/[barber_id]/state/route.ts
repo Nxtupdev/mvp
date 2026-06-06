@@ -308,33 +308,13 @@ export async function PATCH(
       })
       .eq('id', barber_id)
 
-    // ── Pay late-arrival toll (migration 019, revised 023, 027) ──
-    //
-    // CRITICAL ordering: pay must run AFTER the barber UPDATE above.
-    // Earlier we ran pay first, but the bump it does on
-    // available_since (to keep the existing barber above the late
-    // one — migration 022) was being clobbered by the UPDATE that
-    // sets available_since = nextAvailableSince. Order fixed now.
-    //
-    // Counts any BUSY → AVAILABLE as 1 cut (no queue_entry required).
-    // Most clients in DR/USA shops are walk-ins who never check in,
-    // so requiring a queue_entry made the toll never decrement.
-    // Gaming concern is weak: existing barbers don't WANT to clear
-    // the late's toll faster (they prefer to keep the late blocked),
-    // and the late can't pay their own toll.
-    if (fromStatus === 'busy') {
-      const { error: payErr } = await supabase.rpc('pay_late_arrival_toll', {
-        p_existing_barber_id: barber_id,
-      })
-      if (payErr) {
-        console.error('[late_arrival_toll] pay failed', {
-          barber_id,
-          error: payErr.message,
-        })
-      }
-    }
+    // ── Migración 047 — pay_late_arrival_toll removido ──────────
+    // El sistema viejo de "cortes que deben los existentes al tardío"
+    // ya no existe. Ahora la sanción es por tiempo (sanctioned_until)
+    // y termina sola sin necesidad de pagar nada. Los existentes no
+    // necesitan "pagar cortes" a nadie.
 
-    // ── Register late arrival if applicable (migrations 019, 031) ─
+    // ── Register late arrival if applicable (migraciones 019, 031, 047) ─
     //
     // Pre-fix this only ran on offline→available. That left a hack
     // open: a tardy barber could tap busy first (offline→busy) and
@@ -401,39 +381,41 @@ export async function PATCH(
       }
     }
 
-    // ── Late-arrival gate (migration 019) ──────────────────────
-    // If this barber is currently paying toll, do NOT auto-assign
-    // them a client — that's the whole point of the toll. They
-    // stay in the FIFO visually (orange) but the rotation skips
-    // them until existing barbers each complete their N cuts.
+    // ── Late-arrival sanction gate (migración 047) ─────────────
+    // Si el barbero está sancionado (sanctioned_until > now):
+    //   * SÍ recibe clientes que lo pidieron por nombre (requested).
+    //     Esos clientes vinieron específicamente a él — no se les
+    //     pasa a otro barbero por la sanción del shop.
+    //   * NO recibe walk-ins auto-asignados (unassigned). Esa es
+    //     la "multa" — pierde el flujo de walk-ins por X horas.
     //
-    // Re-read the counter AFTER register_late_arrival ran above
-    // so we see the just-created toll rows.
-    const { data: tollCheck } = await supabase
+    // Re-leemos sanctioned_until DESPUÉS de register_late_arrival
+    // para ver la sanción recién creada (si aplica).
+    const { data: sanctionCheck } = await supabase
       .from('barbers')
-      .select('late_toll_remaining')
+      .select('sanctioned_until')
       .eq('id', barber_id)
       .single()
-    const lateToll = (tollCheck as { late_toll_remaining?: number } | null)
-      ?.late_toll_remaining ?? 0
+    const sanctionedUntil = (sanctionCheck as { sanctioned_until?: string | null } | null)
+      ?.sanctioned_until ?? null
+    const isSanctioned =
+      sanctionedUntil !== null && new Date(sanctionedUntil) > new Date(now)
 
-    // Find next client: specifically requested first, then unassigned.
-    // SKIP this entire block if late-blocked.
-    const { data: requested } = lateToll > 0
-      ? { data: null }
-      : await supabase
-          .from('queue_entries')
-          .select('id, client_name, position')
-          .eq('shop_id', barber.shop_id)
-          .eq('barber_id', barber_id)
-          .eq('status', 'waiting')
-          .order('position', { ascending: true })
-          .limit(1)
-          .maybeSingle()
+    // Cliente específicamente pedido — siempre se busca, incluso si sancionado.
+    const { data: requested } = await supabase
+      .from('queue_entries')
+      .select('id, client_name, position')
+      .eq('shop_id', barber.shop_id)
+      .eq('barber_id', barber_id)
+      .eq('status', 'waiting')
+      .order('position', { ascending: true })
+      .limit(1)
+      .maybeSingle()
 
     let next = requested
 
-    if (!next && lateToll === 0) {
+    // Walk-in unassigned — SOLO si NO está sancionado.
+    if (!next && !isSanctioned) {
       const { data: unassigned } = await supabase
         .from('queue_entries')
         .select('id, client_name, position')
@@ -637,22 +619,12 @@ export async function PATCH(
       })
       .eq('id', barber_id)
 
-    // ── Clear late-arrival toll (migration 019) ────────────────
-    // Going offline = "I'm out". Two cleanups happen:
-    //   1. If this barber was paying toll: they give up the wait,
-    //      their toll rows are deleted.
-    //   2. If other barbers were waiting on THIS one to complete
-    //      cuts: those obligations vanish (they unblock partially).
-    // The SQL function handles both directions.
-    const { error: clearErr } = await supabase.rpc('clear_late_arrival_toll', {
-      p_barber_id: barber_id,
-    })
-    if (clearErr) {
-      console.error('[late_arrival_toll] clear failed', {
-        barber_id,
-        error: clearErr.message,
-      })
-    }
+    // ── Migración 047 — sanción persiste a través del offline ───
+    // Antes (sistema de peaje) limpiábamos toll rows aquí. Ahora la
+    // sanción es por tiempo (sanctioned_until) y debe sobrevivir el
+    // offline — si no, el barbero tardío podría "limpiar" su sanción
+    // simplemente yéndose offline y volviendo. El único proceso que
+    // limpia sanctioned_until es nightly_state_reset (al final del día).
 
     logs.push({
       action: 'state_change',
