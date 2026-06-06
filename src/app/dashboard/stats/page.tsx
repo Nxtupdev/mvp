@@ -212,6 +212,17 @@ export default async function StatsPage({
 
   const cutsByBarber = computeCutsByBarber(current, allBarbers)
   const peak = computePeakHour(current, timeZone)
+
+  // Breakdown del total de walk-ins por status — para que el dueño
+  // entienda por qué el total (12) puede no cuadrar con los cortes
+  // por barbero (suma de status='done'). Reportado como bug por el
+  // dueño de Fade Factory: "math not mathing".
+  const walkInsBreakdown = {
+    attended: current.filter(e => e.status === 'done').length,
+    inProgress: current.filter(e => e.status === 'in_progress').length,
+    waiting: current.filter(e => e.status === 'waiting' || e.status === 'called').length,
+    cancelled: current.filter(e => e.status === 'cancelled').length,
+  }
   const marketingRows = computeMarketingBreakdown(newClientsCurrent)
   const marketingDeltaPct =
     newClientsPrevious.length > 0
@@ -232,6 +243,22 @@ export default async function StatsPage({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title={`Walk-ins ${meta.label.toLowerCase()}`}>
           <BigNumber value={walkInsCurrent.toString()} />
+          {walkInsCurrent > 0 && (
+            <p className="text-nxtup-muted text-xs mb-1 tabular-nums">
+              {[
+                walkInsBreakdown.attended > 0 &&
+                  `${walkInsBreakdown.attended} ${walkInsBreakdown.attended === 1 ? 'atendido' : 'atendidos'}`,
+                walkInsBreakdown.inProgress > 0 &&
+                  `${walkInsBreakdown.inProgress} en silla`,
+                walkInsBreakdown.waiting > 0 &&
+                  `${walkInsBreakdown.waiting} ${walkInsBreakdown.waiting === 1 ? 'esperando' : 'esperando'}`,
+                walkInsBreakdown.cancelled > 0 &&
+                  `${walkInsBreakdown.cancelled} ${walkInsBreakdown.cancelled === 1 ? 'cancelado' : 'cancelados'}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
           <Delta
             kind={
               walkInsDeltaPct === null
