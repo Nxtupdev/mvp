@@ -295,19 +295,20 @@ export async function POST(request: NextRequest) {
   await supabase.rpc('track_client_visit', { p_client_id: clientId })
 
   // ── Immediate match: assign to next free on-time barber ─────
-  // Same logic as the legacy /api/checkin. Skips barbers paying
-  // late toll (late_toll_remaining > 0) — they show in FIFO but
-  // don't receive walk-ins until they've worked off the toll.
+  // Same logic as the legacy /api/checkin. Salta barberos sancionados
+  // (sanctioned_until > now) — siguen visibles en FIFO pero no reciben
+  // walk-ins hasta que termine la sanción (migración 047).
   let assignedBarber: { id: string; name: string } | null = null
   let finalEntry = entry
 
+  const matchNowIso = new Date().toISOString()
   const { data: nextBarber } = await supabase
     .from('barbers')
     .select('id, name, available_since')
     .eq('shop_id', shop_id)
     .eq('status', 'available')
     .not('available_since', 'is', null)
-    .eq('late_toll_remaining', 0)
+    .or(`sanctioned_until.is.null,sanctioned_until.lte.${matchNowIso}`)
     .order('available_since', { ascending: true })
     .limit(1)
     .maybeSingle()

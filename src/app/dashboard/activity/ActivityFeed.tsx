@@ -19,11 +19,19 @@ type Action =
   //   * 'break_expired' — pasó break_minutes + grace (028)
   | 'idle_timeout_offline'
   // Migration 037 — el dueño quita la penalidad de un barbero
-  // (override manual desde el Centro de Mando).
+  // (override manual desde el Centro de Mando). Reusado en 047
+  // como acción legacy del sistema de cortes — el sistema nuevo
+  // genera sanction_applied / sanction_cleared.
   | 'toll_cleared_by_owner'
   // Migration 037 — el dueño mueve un barbero un slot arriba o
   // abajo en la FIFO (swap de available_since).
   | 'fifo_moved_by_owner'
+  // Migración 047 — el sistema (register_late_arrival) detectó
+  // llegada tarde y le puso una sanción de tiempo automática.
+  | 'sanction_applied'
+  // Migración 047 — el dueño levantó la sanción manualmente,
+  // o el nightly_state_reset la limpió al final del día.
+  | 'sanction_cleared'
 
 type Event = {
   id: string
@@ -62,8 +70,10 @@ const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
   { value: 'no_show_no_takers', label: 'No-show sin reemplazo' },
   { value: 'idle_timeout_offline', label: 'Auto-offline (timeout)' },
   { value: 'shop_settings_changed', label: 'Cambios de config' },
-  { value: 'toll_cleared_by_owner', label: 'Peaje quitado por dueño' },
+  { value: 'toll_cleared_by_owner', label: 'Peaje quitado (legacy)' },
   { value: 'fifo_moved_by_owner', label: 'Movido en fila por dueño' },
+  { value: 'sanction_applied', label: 'Sanción aplicada' },
+  { value: 'sanction_cleared', label: 'Sanción levantada' },
 ]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -294,6 +304,8 @@ const ACTION_ACCENT: Record<Action, string> = {
   idle_timeout_offline: 'text-nxtup-dim',
   toll_cleared_by_owner: 'text-orange-400',
   fifo_moved_by_owner: 'text-nxtup-active',
+  sanction_applied: 'text-orange-400',
+  sanction_cleared: 'text-nxtup-active',
 }
 
 function describe(event: Event): string {
@@ -367,6 +379,39 @@ function describe(event: Event): string {
       return direction === 'up'
         ? 'movido un slot arriba en la fila por el dueño'
         : 'movido un slot abajo en la fila por el dueño'
+    }
+    case 'sanction_applied': {
+      // Migración 047 — el sistema detectó llegada tarde y aplicó
+      // sanción de N horas automáticamente. Metadata viene de apply_sanction:
+      // { hours, expires_at, applied_by, reason }.
+      const meta = event.metadata as {
+        hours?: number
+        expires_at?: string
+      }
+      const expiresTime = meta.expires_at
+        ? new Date(meta.expires_at).toLocaleTimeString(undefined, {
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : null
+      if (meta.hours && expiresTime) {
+        return `sancionado ${meta.hours}h por llegada tarde — hasta ${expiresTime}`
+      }
+      if (meta.hours) {
+        return `sancionado ${meta.hours}h por llegada tarde`
+      }
+      return 'sancionado por llegada tarde'
+    }
+    case 'sanction_cleared': {
+      // Migración 047 — sanción levantada. Metadata viene de clear_sanction:
+      // { cleared_by, cleared_at }. cleared_by puede ser:
+      //   * uuid del dueño que lo levantó manualmente
+      //   * null si fue el nightly_state_reset (limpieza al final del día)
+      const meta = event.metadata as { cleared_by?: string | null }
+      if (meta.cleared_by) {
+        return 'sanción levantada por el dueño'
+      }
+      return 'sanción limpiada en el reset nocturno'
     }
   }
 }

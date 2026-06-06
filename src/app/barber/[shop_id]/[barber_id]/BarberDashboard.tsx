@@ -51,10 +51,12 @@ type Barber = {
   // True once any barber below us (snapshot at break start) completed
   // a walk-in. Only set when shop.break_mode = 'not_guaranteed'.
   break_invalidated?: boolean | null
-  // Migration 019 — late arrival toll counter. >0 means this barber
-  // is "paying toll" for arriving late and won't receive auto-assigned
-  // clients until each existing barber completes their N cuts.
+  // Migración 019 (legacy) — counter de cortes pendientes en el sistema
+  // viejo de peaje. La migración 047 lo deja siempre en 0 — no leerlo más.
   late_toll_remaining?: number | null
+  // Migración 047 — sanción por tiempo. Si sanctioned_until > now(), el
+  // barbero no recibe walk-ins (pero sí clientes que lo pidan por nombre).
+  sanctioned_until?: string | null
 }
 
 type Peer = Barber
@@ -102,6 +104,15 @@ export default function BarberDashboard({
     ...initialBarber,
     avatar: isRenderableAvatar(initialBarber.avatar) ? initialBarber.avatar : null,
   })
+  // Tick de 30s para que el banner de sanción desaparezca solo cuando
+  // expire (sin esperar realtime). react-hooks/purity prohíbe leer
+  // Date.now() en render — el state hace la lectura inmutable a nivel
+  // de cada render frame.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
   const [peers, setPeers] = useState<Peer[]>(
     initialPeers.map(p => ({
       ...p,
@@ -162,7 +173,7 @@ export default function BarberDashboard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining, sanctioned_until',
         )
         .eq('id', barber.id)
         .single()
@@ -179,7 +190,7 @@ export default function BarberDashboard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining, sanctioned_until',
         )
         .eq('shop_id', shopId)
         .order('name')
@@ -437,29 +448,39 @@ export default function BarberDashboard({
           bar above can extend to the screen edges. */}
       <div className="flex-1 flex flex-col px-5 pt-8 pb-10">
 
-      {/* Late-arrival toll banner — naranja, persiste hasta que cada
-          barbero existente complete sus N cortes. El barbero ve el
-          contador bajando en vivo (Realtime). Renderizado ANTES del
-          banner de no-show porque el peaje es estado más importante
-          que un peer atascado (un barbero pagando peaje no debería
-          poder usar "Tomar yo" de todas formas — el route lo bloquea). */}
-      {(barber.late_toll_remaining ?? 0) > 0 && (
-        <div className="border border-orange-500/60 bg-orange-500/10 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <span className="text-orange-400 text-xl leading-none mt-0.5">⏳</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-semibold leading-snug">
-              Esperando turno · llegada tarde
-            </p>
-            <p className="text-nxtup-muted text-xs mt-1 leading-relaxed">
-              {barber.late_toll_remaining === 1
-                ? 'Falta 1 barbero por pasarte'
-                : `Faltan ${barber.late_toll_remaining} barberos por pasarte`}{' '}
-              antes de que entres a la rotación. Cada uno debe completar
-              sus cortes; el contador baja automáticamente.
-            </p>
+      {/* Late-arrival sanction banner (migración 047) — naranja, se
+          muestra mientras sanctioned_until está en el futuro. El barbero
+          ve hasta qué hora dura la sanción. Renderizado ANTES del banner
+          de no-show porque la sanción es estado más importante que un
+          peer atascado (un barbero sancionado no debería poder usar
+          "Tomar yo" de todas formas — el route lo bloquea). */}
+      {(() => {
+        const sanctionedUntil = barber.sanctioned_until
+          ? new Date(barber.sanctioned_until)
+          : null
+        const isSanctioned =
+          sanctionedUntil !== null && sanctionedUntil.getTime() > nowMs
+        if (!isSanctioned) return null
+        const endTime = sanctionedUntil!.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+        return (
+          <div className="border border-orange-500/60 bg-orange-500/10 rounded-xl p-4 mb-6 flex items-start gap-3">
+            <span className="text-orange-400 text-xl leading-none mt-0.5">⏳</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-semibold leading-snug">
+                Sancionado por llegada tarde
+              </p>
+              <p className="text-nxtup-muted text-xs mt-1 leading-relaxed">
+                Hasta las <span className="text-white font-semibold">{endTime}</span>{' '}
+                no recibes walk-ins. Sí puedes atender clientes que te pidan
+                por nombre. Vuelve a la rotación cuando termine la sanción.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* No-show takeover banner — only renders when this barber is
           the next-available AND a peer's called client has been

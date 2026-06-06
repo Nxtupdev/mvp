@@ -32,10 +32,15 @@ export default async function SettingsPage() {
     trusted_public_ip?: string | null
     timezone?: string | null
     // Migration 019 — late arrival toll config. Older shops without
-    // the migration applied get `undefined` here and the UI shows
-    // the feature as disabled.
+    // la migración aplicada reciben `undefined` aquí y la UI muestra
+    // la feature como deshabilitada.
+    // Migración 047: el sistema de cortes (cuts_required) fue reemplazado
+    // por sanción de tiempo (sanction_hours). cuts_required queda en el
+    // tipo solo para compatibilidad con server pages legacy — la UI
+    // de Settings solo lee/escribe sanction_hours desde la 047.
     late_arrival_threshold_time?: string | null
     late_arrival_cuts_required?: number | null
+    late_arrival_sanction_hours?: number | null
     is_open: boolean
     logo_url: string | null
   }
@@ -59,6 +64,9 @@ export default async function SettingsPage() {
     timezone: row.timezone ?? 'America/New_York',
     late_arrival_threshold_time: row.late_arrival_threshold_time ?? null,
     late_arrival_cuts_required: (row.late_arrival_cuts_required ?? 2) as 1 | 2,
+    // Migración 047 — default 3h. La columna en DB es numeric(4,2) y
+    // acepta valores como 1.5, 2.5, etc. cuando el dueño usa "personalizado".
+    late_arrival_sanction_hours: row.late_arrival_sanction_hours ?? 3,
     is_open: row.is_open,
     logo_url: row.logo_url,
   }

@@ -19,9 +19,12 @@ type Shop = {
   break_mode: BreakMode
   trusted_public_ip: string | null
   timezone: string
-  // Migration 019 — late arrival toll. NULL = feature disabled.
+  // Migración 019 — late arrival. NULL = feature disabled.
   late_arrival_threshold_time: string | null
+  // Migración 047: cuts_required quedó como columna legacy (no usada por la UI).
+  // sanction_hours es el control activo: numeric(4,2), default 3h.
   late_arrival_cuts_required: 1 | 2
+  late_arrival_sanction_hours: number
   is_open: boolean
   logo_url: string | null
 }
@@ -41,6 +44,10 @@ const TIMEZONE_OPTIONS = [
 const MAX_LOGO_BYTES = 2 * 1024 * 1024
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
 
+// Migración 047 — presets para duración de sanción por llegada tarde.
+// Cualquier valor fuera de aquí entra como "Personalizado".
+const PRESET_SANCTION_HOURS = [1, 2, 3] as const
+
 export default function ShopSettings({
   shop: initial,
   userEmail,
@@ -59,11 +66,16 @@ export default function ShopSettings({
   const [breakMode, setBreakMode] = useState<BreakMode>(initial.break_mode ?? 'guaranteed')
   const [graceMinutes, setGraceMinutes] = useState(initial.break_position_grace_minutes)
   const [timezone, setTimezone] = useState(initial.timezone || 'America/New_York')
-  // ── Late-arrival toll state ──────────────────────────────────
-  // The DB column is `time` (e.g. "12:00:00"). We render it via an
-  // <input type="time"> which uses "HH:MM" — we coerce both ways on
-  // save. lateEnabled is the UI-level toggle that maps to NULL
-  // threshold = disabled.
+  // ── Late-arrival sanction state (migración 047) ──────────────
+  // El DB column threshold es `time` (e.g. "12:00:00"). Lo renderizamos
+  // con <input type="time"> que usa "HH:MM" — coercemos en ambas
+  // direcciones al guardar. lateEnabled es el toggle UI que mapea a
+  // NULL threshold = regla deshabilitada.
+  //
+  // sanction_hours: numeric en DB. Presets 1h/2h/3h o personalizado.
+  // Sin máximo — el nightly_state_reset limpia sanciones cada noche
+  // (aunque una sanción de 50h obviamente no tiene sentido — se cae
+  // al final del día sí o sí).
   const [lateEnabled, setLateEnabled] = useState<boolean>(
     initial.late_arrival_threshold_time != null,
   )
@@ -71,7 +83,14 @@ export default function ShopSettings({
     // Strip seconds for the time input (12:00:00 → 12:00).
     (initial.late_arrival_threshold_time ?? '12:00:00').slice(0, 5),
   )
-  const [lateCuts, setLateCuts] = useState<1 | 2>(initial.late_arrival_cuts_required ?? 2)
+  const [lateHours, setLateHours] = useState<number>(
+    initial.late_arrival_sanction_hours ?? 3,
+  )
+  // True si la hora actual NO está en los presets (1, 2, 3) — el dueño
+  // configuró un valor personalizado. Activa el input numérico.
+  const [customMode, setCustomMode] = useState<boolean>(
+    !PRESET_SANCTION_HOURS.includes(initial.late_arrival_sanction_hours as 1 | 2 | 3),
+  )
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
@@ -88,7 +107,7 @@ export default function ShopSettings({
     graceMinutes !== shop.break_position_grace_minutes ||
     timezone !== shop.timezone ||
     lateThresholdForDb !== shop.late_arrival_threshold_time ||
-    lateCuts !== shop.late_arrival_cuts_required
+    lateHours !== shop.late_arrival_sanction_hours
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -122,10 +141,10 @@ export default function ShopSettings({
         from: shop.late_arrival_threshold_time,
         to: lateThresholdForDb,
       }
-    if (lateCuts !== shop.late_arrival_cuts_required)
-      changes.late_arrival_cuts_required = {
-        from: shop.late_arrival_cuts_required,
-        to: lateCuts,
+    if (lateHours !== shop.late_arrival_sanction_hours)
+      changes.late_arrival_sanction_hours = {
+        from: shop.late_arrival_sanction_hours,
+        to: lateHours,
       }
 
     const { data, error: updateErr } = await supabase
@@ -139,11 +158,11 @@ export default function ShopSettings({
         break_position_grace_minutes: graceMinutes,
         timezone,
         late_arrival_threshold_time: lateThresholdForDb,
-        late_arrival_cuts_required: lateCuts,
+        late_arrival_sanction_hours: lateHours,
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, is_open, logo_url',
       )
       .single()
 
@@ -281,17 +300,19 @@ export default function ShopSettings({
               completamente.
             * Hora a partir de la cual aplica (en zona horaria del
               shop).
-            * Cortes que cada barbero existente debe completar para
-              superar al tarde (1 o 2). */}
+            * Duración de la sanción cuando se detecta llegada tarde
+              (1h, 2h, 3h o personalizado). Migración 047 reemplazó
+              el viejo sistema de cortes por tiempo de sanción. */}
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
             Llegada tarde
           </p>
           <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
             Si un barbero llega después de la hora marcada y otros ya
-            están trabajando, entra al final de la cola con marca naranja.
-            Sale de la espera conforme cada barbero anterior completa el
-            número de cortes configurado.
+            están trabajando, recibe una sanción por el tiempo que elijas.
+            Durante la sanción no recibe walk-ins (pero sí clientes que
+            lo piden por nombre) y queda al fondo de la cola con marca
+            naranja. Se limpia sola al final del día.
           </p>
 
           <label className="flex items-center gap-3 mb-4 cursor-pointer">
@@ -307,10 +328,10 @@ export default function ShopSettings({
           </label>
 
           {lateEnabled && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <Field
                 label="Hora límite"
-                hint={`Hora local en ${timezone}. Después de esto, OFFLINE→DISPONIBLE paga peaje.`}
+                hint={`Hora local en ${timezone}. Después de esto, la primera vez que pase a DISPONIBLE se le aplica la sanción.`}
               >
                 <input
                   type="time"
@@ -320,34 +341,71 @@ export default function ShopSettings({
                 />
               </Field>
               <Field
-                label="Cortes por barbero"
-                hint="Cuántos cortes debe cada existente."
+                label="Duración de la sanción"
+                hint="Tiempo que el barbero queda sin recibir walk-ins."
               >
-                <fieldset className="flex gap-2">
-                  {[1, 2].map(n => (
-                    <label
-                      key={n}
-                      className={`flex-1 flex items-center justify-center gap-2 border rounded-lg px-3 py-3 cursor-pointer transition-colors ${
-                        lateCuts === n
-                          ? 'border-white bg-nxtup-line/50 text-white'
-                          : 'border-nxtup-line hover:border-nxtup-dim text-nxtup-muted'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="late-cuts"
-                        value={n}
-                        checked={lateCuts === n}
-                        onChange={() => setLateCuts(n as 1 | 2)}
-                        className="sr-only"
-                      />
-                      <span className="font-bold tabular-nums">{n}</span>
-                      <span className="text-xs">
-                        {n === 1 ? 'corte' : 'cortes'}
-                      </span>
-                    </label>
-                  ))}
+                <fieldset className="grid grid-cols-4 gap-2">
+                  {PRESET_SANCTION_HOURS.map(n => {
+                    const selected = !customMode && lateHours === n
+                    return (
+                      <label
+                        key={n}
+                        className={`flex items-center justify-center gap-1 border rounded-lg px-2 py-3 cursor-pointer transition-colors ${
+                          selected
+                            ? 'border-white bg-nxtup-line/50 text-white'
+                            : 'border-nxtup-line hover:border-nxtup-dim text-nxtup-muted'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="late-hours-preset"
+                          value={n}
+                          checked={selected}
+                          onChange={() => {
+                            setCustomMode(false)
+                            setLateHours(n)
+                          }}
+                          className="sr-only"
+                        />
+                        <span className="font-bold tabular-nums">{n}h</span>
+                      </label>
+                    )
+                  })}
+                  <label
+                    className={`flex items-center justify-center border rounded-lg px-2 py-3 cursor-pointer transition-colors ${
+                      customMode
+                        ? 'border-white bg-nxtup-line/50 text-white'
+                        : 'border-nxtup-line hover:border-nxtup-dim text-nxtup-muted'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="late-hours-preset"
+                      value="custom"
+                      checked={customMode}
+                      onChange={() => setCustomMode(true)}
+                      className="sr-only"
+                    />
+                    <span className="text-xs font-bold">Personalizado</span>
+                  </label>
                 </fieldset>
+                {customMode && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0.25}
+                      step={0.25}
+                      value={Number.isFinite(lateHours) ? lateHours : ''}
+                      onChange={e => {
+                        const parsed = parseFloat(e.target.value)
+                        setLateHours(Number.isFinite(parsed) ? parsed : 0)
+                      }}
+                      className="w-28 bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
+                    />
+                    <span className="text-nxtup-muted text-sm">horas</span>
+                  </div>
+                )}
               </Field>
             </div>
           )}
@@ -506,7 +564,7 @@ function LogoSection({
       .update({ logo_url: cacheBusted })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, is_open, logo_url',
       )
       .single()
 
@@ -537,7 +595,7 @@ function LogoSection({
       .update({ logo_url: null })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, is_open, logo_url',
       )
       .single()
 

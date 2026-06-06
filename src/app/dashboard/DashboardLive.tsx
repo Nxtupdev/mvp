@@ -35,10 +35,12 @@ type Barber = {
   // barber below this one completes a walk-in during their break.
   // buildHeldPositions() reads this to drop their "Vuelve a #N" badge.
   break_invalidated?: boolean | null
-  // Migration 019 — late-arrival toll. >0 means the barber is
-  // paying toll and the live view paints them with orange treatment
-  // so the owner sees at a glance who's still queued behind toll.
+  // Migración 019 (legacy) — counter del sistema viejo de peaje. La
+  // migración 047 lo deja en 0 — no leerlo más.
   late_toll_remaining?: number | null
+  // Migración 047 — sanción por llegada tarde. Si sanctioned_until está
+  // en el futuro, el barbero aparece con borde naranja en el live view.
+  sanctioned_until?: string | null
 }
 
 type Shop = {
@@ -90,6 +92,14 @@ export default function DashboardLive({
   const [toggleLoading, setToggleLoading] = useState(false)
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState<'checkin' | 'display' | null>(null)
+  // Tick de 30s para checks de sanción (migración 047). Necesario porque
+  // react-hooks/purity prohíbe leer Date.now() en render — el state hace
+  // la lectura inmutable a nivel de cada render frame.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     setOrigin(window.location.origin)
@@ -108,7 +118,7 @@ export default function DashboardLive({
           .order('position', { ascending: true }),
         supabase
           .from('barbers')
-          .select('id, name, status, avatar, available_since, break_held_since, break_started_at, break_minutes_at_start, break_invalidated, late_toll_remaining')
+          .select('id, name, status, avatar, available_since, break_held_since, break_started_at, break_minutes_at_start, break_invalidated, late_toll_remaining, sanctioned_until')
           .eq('shop_id', shop.id)
           .order('name'),
         supabase
@@ -320,11 +330,22 @@ export default function DashboardLive({
                   <ul className="flex flex-col gap-2">
                     {inQueueBarbers.map(b => {
                       const pos = barberOrder.get(b.id)!
-                      // Late-arrival toll: si el barbero está pagando peaje,
-                      // borde + número + dot en naranja para que el dueño
-                      // identifique a quien le falta turnarse desde lejos.
-                      const lateToll = b.late_toll_remaining ?? 0
-                      const isLate = lateToll > 0
+                      // Sanción por llegada tarde (migración 047): si el
+                      // barbero está sancionado, borde + número + dot en
+                      // naranja para que el dueño lo identifique desde lejos.
+                      const sanctionedUntil = b.sanctioned_until
+                        ? new Date(b.sanctioned_until)
+                        : null
+                      const isLate =
+                        sanctionedUntil !== null &&
+                        sanctionedUntil.getTime() > nowMs
+                      const sanctionEndTime =
+                        isLate && sanctionedUntil
+                          ? sanctionedUntil.toLocaleTimeString(undefined, {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })
+                          : null
                       return (
                         <li
                           key={b.id}
@@ -350,9 +371,9 @@ export default function DashboardLive({
                             <span className="text-white font-medium block truncate">
                               {b.name}
                             </span>
-                            {isLate && (
+                            {isLate && sanctionEndTime && (
                               <span className="block text-orange-400 text-[10px] font-semibold">
-                                Esperando · {lateToll} por pasar
+                                Sancionado · hasta {sanctionEndTime}
                               </span>
                             )}
                           </div>

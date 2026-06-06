@@ -37,9 +37,13 @@ type Barber = {
   break_minutes_at_start: number | null
   breaks_taken_today: number | null
   break_invalidated?: boolean | null
-  // Migration 019 — barber paying late-arrival toll. >0 means
-  // they're in the queue but not eligible for auto-assigned clients.
+  // Migración 019 — legacy: cuántos cortes le falta "pagar" al barbero
+  // tardío. Migración 047 lo reemplazó por sanctioned_until y este campo
+  // se queda en 0/null en la nueva data — no leerlo más.
   late_toll_remaining?: number | null
+  // Migración 047 — timestamp hasta cuándo dura la sanción por llegada
+  // tarde. Si es null o ≤ now(), el barbero no está sancionado.
+  sanctioned_until?: string | null
 }
 
 type Entry = {
@@ -146,7 +150,7 @@ export default function ControlPanel({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining, sanctioned_until',
         )
         .eq('shop_id', shop.id)
         .order('name')
@@ -239,12 +243,12 @@ export default function ControlPanel({
     }
   }
 
-  // ── Action: clear late-arrival toll (owner override) ─────────
-  // Botón "Quitar penalidad" del Centro de Mando. Útil cuando un
-  // peaje se aplicó por bug nuestro o por discreción del dueño.
-  // Reutiliza el mismo pendingBy para evitar tap doble mientras la
-  // request está en flight.
-  async function clearToll(barberId: string) {
+  // ── Action: levantar sanción (owner override, migración 047) ──
+  // Botón "Levantar sanción" del Centro de Mando. Útil cuando una
+  // sanción se aplicó por bug nuestro o por discreción del dueño.
+  // La ruta /toll/clear quedó con ese nombre por compatibilidad
+  // (cambia internamente a clear_sanction en la 047).
+  async function clearSanction(barberId: string) {
     if (pendingBy[barberId]) return
     setPendingBy(p => ({ ...p, [barberId]: true }))
     setError('')
@@ -255,9 +259,9 @@ export default function ControlPanel({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'No se pudo quitar la penalidad')
+        setError(data.error ?? 'No se pudo levantar la sanción')
       }
-      // Realtime refresca el counter localmente.
+      // Realtime refresca el estado localmente.
     } catch {
       setError('Error de red')
     } finally {
@@ -297,7 +301,10 @@ export default function ControlPanel({
         } else if (raw === 'barber has no FIFO position') {
           setError('El barbero no está en la fila')
         } else if (raw.startsWith('barber is paying toll')) {
-          setError('Tiene penalidad activa — quítala antes de moverlo')
+          // Migración 047: este error ya no debería dispararse porque
+          // late_toll_remaining queda siempre en 0. Lo mantenemos por
+          // robustez en caso de que haya data legacy en tránsito.
+          setError('Tiene una sanción activa — levántala antes de moverlo')
         } else {
           setError(data.error ?? 'No se pudo mover el barbero')
         }
@@ -349,7 +356,7 @@ export default function ControlPanel({
               entry={entries.find(e => e.barber_id === barber.id) ?? null}
               pending={pendingBy[barber.id] ?? false}
               onChange={s => changeState(barber.id, s)}
-              onClearToll={() => clearToll(barber.id)}
+              onClearSanction={() => clearSanction(barber.id)}
               onMoveFifo={dir => moveFifo(barber.id, dir)}
             />
           ))}
@@ -372,7 +379,7 @@ function BarberControlRow({
   entry,
   pending,
   onChange,
-  onClearToll,
+  onClearSanction,
   onMoveFifo,
 }: {
   barber: Barber
@@ -381,21 +388,39 @@ function BarberControlRow({
   entry: Entry | null
   pending: boolean
   onChange: (next: Status) => void
-  onClearToll: () => void
+  onClearSanction: () => void
   onMoveFifo: (direction: 'up' | 'down') => void
 }) {
-  // Late-arrival toll (migración 019): si > 0, este barbero está
-  // pagando peaje — ring naranja en la fila para que el dueño lo
-  // detecte de un vistazo desde el Centro de Mando.
-  const lateToll = barber.late_toll_remaining ?? 0
-  const isLate = lateToll > 0
+  // Sanción por llegada tarde (migración 047): si sanctioned_until
+  // está en el futuro, el barbero está sancionado — ring naranja en
+  // la fila para que el dueño lo detecte de un vistazo.
+  // Tick de 30s para que el banner desaparezca solo cuando la sanción
+  // expira (sin esperar a un realtime push). react-hooks/purity
+  // requiere que Date.now() viva en useState/useEffect, no en render.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+  const sanctionedUntil = barber.sanctioned_until
+    ? new Date(barber.sanctioned_until)
+    : null
+  const isLate =
+    sanctionedUntil !== null && sanctionedUntil.getTime() > nowMs
+  // Formato "5:30 PM" en zona del navegador (no tenemos shop.timezone
+  // aquí, y el dueño está localmente — coincide en la práctica).
+  const sanctionEndTime =
+    isLate && sanctionedUntil
+      ? sanctionedUntil.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : null
   // FIFO controls (↑/↓): solo disponibles si el barbero está en la
-  // cola activa Y limpio. Si tiene peaje, primero le quitas la
-  // penalidad y luego lo mueves — regla pedida por Frank.
+  // cola activa. Permitimos mover sancionados manualmente — la sanción
+  // bloquea walk-ins, no overrides del dueño.
   const canMoveInFifo =
-    barber.status === 'available' &&
-    barber.available_since !== null &&
-    !isLate
+    barber.status === 'available' && barber.available_since !== null
 
   return (
     <li
@@ -416,9 +441,9 @@ function BarberControlRow({
             fifoPosition={fifoPosition}
             entry={entry}
           />
-          {isLate && (
+          {isLate && sanctionEndTime && (
             <p className="text-orange-400 text-[11px] font-semibold mt-0.5">
-              ⏳ Esperando turno · {lateToll} por pasar
+              ⏳ Sancionado hasta {sanctionEndTime}
             </p>
           )}
         </div>
@@ -463,16 +488,16 @@ function BarberControlRow({
       </div>
 
       {/* Owner override row — solo aparece cuando hay algo accionable.
-          Quitar peaje (cuando tiene late_toll_remaining > 0) y/o
-          mover en FIFO (cuando está available y limpio). Vive abajo
-          de los 4 botones de status para no competir visualmente
-          con el flujo principal. */}
+          Levantar sanción (cuando sanctioned_until está en el futuro)
+          y/o mover en FIFO (cuando está available). Vive abajo de los
+          4 botones de status para no competir visualmente con el flujo
+          principal. */}
       {(isLate || canMoveInFifo) && (
         <div className="flex items-center gap-2 pt-1">
           {isLate && (
             <button
               type="button"
-              onClick={onClearToll}
+              onClick={onClearSanction}
               disabled={pending}
               className="
                 flex-1 rounded-lg border border-orange-500/40 bg-orange-500/10
@@ -482,7 +507,7 @@ function BarberControlRow({
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              Quitar penalidad
+              Levantar sanción
             </button>
           )}
           {canMoveInFifo && (

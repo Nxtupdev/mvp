@@ -30,11 +30,13 @@ type Barber = {
   break_held_since: string | null
   break_minutes_at_start: number | null
   breaks_taken_today: number | null
-  // Migration 019 — >0 means "paying late-arrival toll". On the TV
-  // these barbers still appear in the ACTIVE column with their FIFO
-  // position, but with an orange tint + counter so everyone watching
-  // sees they're waiting their turn before getting clients.
+  // Migración 019 (legacy) — counter del sistema viejo de peaje. La
+  // migración 047 lo deja en 0 — no leerlo más.
   late_toll_remaining?: number | null
+  // Migración 047 — timestamp de fin de sanción por llegada tarde. Si
+  // está en el futuro, el card del barbero se pinta naranja en la TV
+  // para que todos vean que está sancionado.
+  sanctioned_until?: string | null
 }
 
 type Shop = {
@@ -267,7 +269,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('barbers')
         .select(
-          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining',
+          'id, name, status, avatar, available_since, break_started_at, break_held_since, break_minutes_at_start, breaks_taken_today, break_invalidated, late_toll_remaining, sanctioned_until',
         )
         .eq('shop_id', shop.id)
         .neq('status', 'offline')
@@ -578,12 +580,27 @@ function ActiveCard({
   density: Density
 }) {
   const s = SIZE[density]
-  // Late-arrival toll (migration 019): paint the card in warm orange
-  // so everyone watching the TV knows this barber is waiting their
-  // turn before getting auto-assigned clients. Still listed at their
-  // FIFO position, just visually distinct.
-  const lateToll = barber.late_toll_remaining ?? 0
-  const isLate = lateToll > 0
+  // Sanción por llegada tarde (migración 047): pinta el card naranja
+  // para que todos viendo la TV vean que este barbero está sancionado
+  // y no recibirá walk-ins hasta que pase la hora. Sigue listado en
+  // su posición FIFO, solo visualmente distinto.
+  // useClock() existe ya en este file para el countdown del break —
+  // lo reusamos en vez de leer Date.now() en render (react-hooks/purity).
+  const clockNow = useClock()
+  const sanctionedUntil = barber.sanctioned_until
+    ? new Date(barber.sanctioned_until)
+    : null
+  const isLate =
+    sanctionedUntil !== null &&
+    clockNow !== null &&
+    sanctionedUntil.getTime() > clockNow.getTime()
+  const sanctionEndTime =
+    isLate && sanctionedUntil
+      ? sanctionedUntil.toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : null
   return (
     <li
       className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap} ${
@@ -605,9 +622,9 @@ function ActiveCard({
         >
           {barber.name}
         </span>
-        {isLate && (
+        {isLate && sanctionEndTime && (
           <span className={`block text-orange-400 font-semibold ${s.subtitle}`}>
-            Esperando turno · {lateToll} por pasar
+            Sancionado · hasta {sanctionEndTime}
           </span>
         )}
       </div>
