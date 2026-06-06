@@ -243,6 +243,85 @@ function getDisplayMeta(
   }
 }
 
+/**
+ * Devuelve la fecha YYYY-MM-DD de una Date interpretada EN la zona
+ * horaria del shop. Usado para comparar si dos Dates caen en el mismo
+ * día calendario del shop (no necesariamente del UTC).
+ */
+function formatYmdInTz(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '0'
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
+/**
+ * Formato amigable del rango de fechas del reporte — para mostrar en
+ * el encabezado del PDF. Casos:
+ *   * Mismo día → "06 de junio, 2026"
+ *   * Multi-día → "30 may – 06 jun 2026"
+ *
+ * `currentEnd` es exclusivo (start del día siguiente). Restamos 1ms
+ * para caer "dentro" del último día y que el formateo no salte de día.
+ * Si currentEnd es null (presets como 7d/30d que llegan "hasta ahora"),
+ * usamos el momento actual.
+ */
+function formatPrintDateRange(
+  currentStart: Date,
+  currentEnd: Date | null,
+  timeZone: string,
+): string {
+  const endInclusive = currentEnd
+    ? new Date(currentEnd.getTime() - 1)
+    : new Date()
+
+  const sameDay =
+    formatYmdInTz(currentStart, timeZone) ===
+    formatYmdInTz(endInclusive, timeZone)
+
+  if (sameDay) {
+    return new Intl.DateTimeFormat('es', {
+      timeZone,
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(currentStart)
+  }
+
+  const start = new Intl.DateTimeFormat('es', {
+    timeZone,
+    day: '2-digit',
+    month: 'short',
+  }).format(currentStart)
+  const end = new Intl.DateTimeFormat('es', {
+    timeZone,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(endInclusive)
+  return `${start} – ${end}`
+}
+
+/**
+ * Timestamp completo para el "Generado el …" del PDF — fecha larga
+ * + hora local del shop. Ejemplo: "06 de junio de 2026, 14:23".
+ */
+function formatPrintTimestamp(now: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('es', {
+    timeZone,
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now)
+}
+
 export default async function StatsPage({
   searchParams,
 }: {
@@ -258,7 +337,7 @@ export default async function StatsPage({
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name')
+    .select('id, name, logo_url')
     .eq('owner_id', user.id)
     .maybeSingle()
   if (!shop) redirect('/onboarding')
@@ -387,18 +466,45 @@ export default async function StatsPage({
         )
       : null
 
+  const printDateRange = formatPrintDateRange(currentStart, currentEnd, timeZone)
+  const printTimestamp = formatPrintTimestamp(now, timeZone)
+
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
-      {/* Encabezado + acciones — el botón de PDF queda a la derecha en
-          desktop, abajo en mobile. Ambos se ocultan en impresión. */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+      {/* Header SOLO para impresión — branding del shop al imprimir el
+          PDF. Trae el logo (si existe), el nombre del shop, el rango
+          de fechas del reporte y la marca de tiempo de generación.
+          Se oculta en pantalla porque el dueño ya ve esa info en la
+          UI normal de arriba. */}
+      <header className="hidden print:flex items-center gap-6 mb-8 pb-6 border-b border-zinc-300">
+        {shop.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={shop.logo_url}
+            alt={`${shop.name} logo`}
+            className="h-16 w-auto max-w-[120px] object-contain"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-4xl font-black tracking-tight text-zinc-900">
+            {shop.name}
+          </h1>
+          <p className="text-base mt-1 text-zinc-700">
+            Reporte · <span className="font-semibold">{printDateRange}</span>
+          </p>
+          <p className="text-xs mt-1 text-zinc-500">
+            Generado el {printTimestamp}
+          </p>
+        </div>
+      </header>
+
+      {/* Encabezado SOLO en pantalla — el botón de PDF queda a la derecha
+          en desktop, abajo en mobile. El bloque entero se oculta al
+          imprimir porque el header de arriba ya cubre esa info. */}
+      <div className="print:hidden flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-3xl font-black tracking-tight mb-2">Stats</h1>
           <p className="text-nxtup-muted text-sm">{meta.heading}</p>
-          {/* En impresión solo aparece el nombre del shop como contexto */}
-          <p className="hidden print:block text-nxtup-muted text-xs mt-1">
-            {shop.name} · Generado {now.toLocaleDateString('es', { timeZone, day: '2-digit', month: 'long', year: 'numeric' })}
-          </p>
         </div>
         <PrintButton />
       </div>

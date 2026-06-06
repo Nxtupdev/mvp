@@ -176,17 +176,24 @@ html, body {
    "Descargar PDF" y el navegador llama window.print() (ver PrintButton.tsx).
    El diálogo de impresión nativo le permite "Guardar como PDF".
 
-   Los elementos UI que no deben aparecer en el PDF (header, nav, botones,
-   tabs, footer "Recarga para datos frescos") usan la utilidad `print:hidden`
-   de Tailwind v4 inline en sus JSX. Aquí solo definimos:
+   Los elementos UI que no deben aparecer en el PDF (header app, nav,
+   botones, tabs, footer "Recarga para datos frescos") usan la utilidad
+   `print:hidden` de Tailwind v4 inline en sus JSX. El header propio del
+   PDF (logo del shop + nombre + rango + timestamp) vive en stats/page.tsx
+   con `hidden print:flex`. Aquí solo definimos:
 
-   * Background blanco + texto negro (ahorro de tinta y mejor contraste
-     en papel/PDF — la app es dark mode, no tiene sentido imprimirla negra).
+   * Background blanco + texto base zinc-900 (casi negro, no puro). Sin
+     `color: black !important` para que el header del PDF pueda usar
+     matices de gris (text-zinc-500 para el "Generado el ...").
+   * Las clases dark-mode `text-white` se reescriben a zinc-900 (las
+     cards usan text-white para los BigNumber — sin override, quedan
+     invisibles sobre fondo blanco en print).
    * Colores muted/dim aclarados para que sean legibles en blanco.
    * Bordes de cards en gris claro (los nxtup-line son casi negros → invisibles).
    * Backgrounds de fills (track de mini-bars) en gris claro.
    * `break-inside: avoid` en sections para que las cards no se partan
-     entre páginas si el reporte es largo.
+     entre páginas si el reporte es largo. También en `<header>` para
+     que el branding del PDF quede íntegro en la página 1.
    * Margen de página de 1.2cm (deja respiro sin malgastar papel).
 
    No tocamos los colores de status (verde/rojo/ámbar) — son semánticos
@@ -198,7 +205,13 @@ html, body {
 
   html, body {
     background: white !important;
-    color: black !important;
+    color: #18181b; /* zinc-900 — base oscura pero no pura. */
+  }
+
+  /* text-white en la app es para fondos oscuros. En print sobre blanco
+     se vuelve invisible — forzar a zinc-900 (mismo "negro" que el body). */
+  .text-white {
+    color: #18181b !important;
   }
 
   /* Bordes de cards visibles sobre blanco. Sin esto los borders nxtup-line
@@ -225,6 +238,12 @@ html, body {
 
   /* Cards no se parten entre páginas. */
   section {
+    break-inside: avoid;
+  }
+
+  /* Header del PDF: el branding del shop debe quedar íntegro — sin
+     parto entre páginas si el reporte se desborda a 2 hojas. */
+  header {
     break-inside: avoid;
   }
 }
