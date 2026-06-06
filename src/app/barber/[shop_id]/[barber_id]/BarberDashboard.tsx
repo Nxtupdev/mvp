@@ -687,7 +687,7 @@ function StatusLine({
       </p>
     )
   }
-  return <p className="text-nxtup-muted text-sm">Available</p>
+  return <p className="text-nxtup-muted text-sm">Disponible</p>
 }
 
 function BreakStatus({
@@ -706,7 +706,7 @@ function BreakStatus({
   }, [])
 
   if (!barber.break_started_at) {
-    return <p className="text-nxtup-break text-sm font-medium">Break</p>
+    return <p className="text-nxtup-break text-sm font-medium">Descanso</p>
   }
   const startedMs = new Date(barber.break_started_at).getTime()
   const elapsedSec = Math.max(0, Math.floor((now - startedMs) / 1000))
@@ -1062,7 +1062,7 @@ function PeerRosterRow({
   } else {
     detail = (
       <span className="text-nxtup-dim text-xs uppercase tracking-wider">
-        Offline
+        Fuera
       </span>
     )
   }

@@ -28,11 +28,15 @@ const STATUS_DOT: Record<Barber['status'], string> = {
   offline: 'bg-nxtup-dim',
 }
 
+// Labels usados solo como texto descriptivo en el manager (no son los
+// botones de acción del estado — esos quedan en inglés por decisión del
+// dueño). Aquí va el texto que dice "Carlos · Disponible" debajo del
+// nombre del barbero.
 const STATUS_LABEL: Record<Barber['status'], string> = {
-  available: 'Available',
-  busy: 'Busy',
-  break: 'Break',
-  offline: 'Offline',
+  available: 'Disponible',
+  busy: 'Ocupado',
+  break: 'Descanso',
+  offline: 'Fuera',
 }
 
 function normalize(rows: unknown[]): Barber[] {
@@ -145,7 +149,7 @@ export default function BarberManager({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Barbers</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">Barberos</h1>
       <p className="text-nxtup-muted text-sm mb-8">
         Cada barbero tiene su ícono — el equivalente digital del magnet con el que se
         identifica en la pizarra. Status se actualiza desde el NXT TAP o la app de respaldo.
@@ -159,7 +163,7 @@ export default function BarberManager({
           <button
             type="button"
             onClick={() => setPickerOpen(o => !o)}
-            aria-label="Choose icon"
+            aria-label="Elegir ícono"
             className="hover:opacity-80 transition-opacity"
           >
             <Avatar avatar={newAvatar} name={name} size={40} />
@@ -176,7 +180,7 @@ export default function BarberManager({
             disabled={adding || !name.trim()}
             className="px-5 py-3 bg-white text-black font-semibold rounded-lg disabled:opacity-40 transition-all active:scale-[0.98] whitespace-nowrap"
           >
-            {adding ? '...' : 'Add'}
+            {adding ? '...' : 'Agregar'}
           </button>
         </div>
 
@@ -185,7 +189,7 @@ export default function BarberManager({
           onClick={() => setPickerOpen(o => !o)}
           className="text-nxtup-muted hover:text-white text-xs uppercase tracking-widest text-left transition-colors"
         >
-          {pickerOpen ? '▾ Hide icons' : '▸ Choose icon (optional)'}
+          {pickerOpen ? '▾ Ocultar íconos' : '▸ Elegir ícono (opcional)'}
         </button>
 
         {pickerOpen && (
@@ -294,7 +298,7 @@ function BarberRow({
         <button
           type="button"
           onClick={() => setPickerOpen(o => !o)}
-          aria-label="Change avatar"
+          aria-label="Cambiar ícono"
           className="hover:opacity-80 transition-opacity"
         >
           <Avatar avatar={barber.avatar} name={barber.name} size={36} />
@@ -343,7 +347,7 @@ function BarberRow({
           className="text-nxtup-dim hover:text-nxtup-busy text-xs px-2 py-1 transition-colors disabled:opacity-40"
           aria-label={`Eliminar ${barber.name}`}
         >
-          Delete
+          Eliminar
         </button>
       </div>
 

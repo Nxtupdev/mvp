@@ -503,7 +503,7 @@ export default async function StatsPage({
           imprimir porque el header de arriba ya cubre esa info. */}
       <div className="print:hidden flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight mb-2">Stats</h1>
+          <h1 className="text-3xl font-black tracking-tight mb-2">Estadísticas</h1>
           <p className="text-nxtup-muted text-sm">{meta.heading}</p>
         </div>
         <PrintButton />

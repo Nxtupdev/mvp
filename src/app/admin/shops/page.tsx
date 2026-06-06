@@ -85,23 +85,23 @@ export default async function AdminShopsPage() {
       <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
         Sistema · Visión global
       </p>
-      <h1 className="text-3xl font-black tracking-tight mb-2">Shops</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">Barberías</h1>
       <p className="text-nxtup-muted text-sm mb-8 max-w-prose">
-        Todos los shops del sistema con su dueño, status actual y métricas operativas.
-        Click en un shop para abrir el Centro de Mando o generar un link temporal.
+        Todas las barberías del sistema con su dueño, estado actual y métricas operativas.
+        Toca una para abrir el Centro de Mando o generar un link temporal.
       </p>
 
       {shops.length === 0 ? (
         <div className="border border-dashed border-nxtup-dim rounded-2xl py-16 text-center">
-          <p className="text-nxtup-muted text-sm">No hay shops en el sistema todavía.</p>
+          <p className="text-nxtup-muted text-sm">No hay barberías en el sistema todavía.</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-nxtup-line bg-nxtup-line/30 overflow-hidden">
           {/* Header de tabla — visible solo en desktop */}
           <div className="hidden md:grid grid-cols-[2.5fr_2fr_1fr_1fr_1fr_auto] gap-4 px-5 py-3 border-b border-nxtup-line text-nxtup-muted text-[10px] uppercase tracking-widest font-bold">
-            <div>Shop</div>
+            <div>Barbería</div>
             <div>Dueño</div>
-            <div>Status</div>
+            <div>Estado</div>
             <div className="tabular-nums">Barberos</div>
             <div className="tabular-nums">En cola</div>
             <div className="text-right">Acciones</div>

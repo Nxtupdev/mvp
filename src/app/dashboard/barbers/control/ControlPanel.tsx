@@ -63,11 +63,15 @@ type Shop = {
   break_mode: 'guaranteed' | 'not_guaranteed'
 }
 
+// Labels descriptivos — distintos del LABEL del botón de acción del
+// Centro de Mando (que se mantiene en inglés AVAILABLE / BUSY / BREAK
+// / OFFLINE por decisión del dueño). Aquí va el texto que dice el
+// status actual al lado del nombre del barbero.
 const STATUS_LABEL: Record<Status, string> = {
-  available: 'Available',
-  busy: 'Busy',
-  break: 'Break',
-  offline: 'Offline',
+  available: 'Disponible',
+  busy: 'Ocupado',
+  break: 'Descanso',
+  offline: 'Fuera',
 }
 
 // Orden visual de los cards en el Centro de Mando.
@@ -328,7 +332,7 @@ export default function ControlPanel({
               : 'Ya está en el último lugar de la fila',
           )
         } else if (raw === 'barber not in available state') {
-          setError('Solo se puede mover si el barbero está Available')
+          setError('Solo se puede mover si el barbero está disponible')
         } else if (raw === 'barber has no FIFO position') {
           setError('El barbero no está en la fila')
         } else if (raw.startsWith('barber is paying toll')) {
@@ -354,7 +358,7 @@ export default function ControlPanel({
           href="/dashboard/barbers"
           className="text-nxtup-muted hover:text-white text-xs uppercase tracking-[0.2em] inline-flex items-center gap-1 mb-4 transition-colors"
         >
-          ← Barbers
+          ← Barberos
         </Link>
       )}
       <h1 className="text-3xl font-black tracking-tight mb-2">Centro de mando</h1>

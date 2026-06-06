@@ -176,7 +176,7 @@ export default function AdminPanelTokensManager({
 
           <label className="block mb-4">
             <span className="text-nxtup-muted text-xs uppercase tracking-widest font-bold">
-              Shop
+              Barbería
             </span>
             <select
               value={selectedShop}
@@ -184,7 +184,7 @@ export default function AdminPanelTokensManager({
               className="mt-2 w-full bg-nxtup-bg border border-nxtup-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-white"
             >
               {shops.length === 0 ? (
-                <option value="">No hay shops</option>
+                <option value="">No hay barberías</option>
               ) : (
                 shops.map(s => (
                   <option key={s.id} value={s.id}>

@@ -19,11 +19,11 @@ import { usePathname } from 'next/navigation'
 // ============================================================
 
 const TABS = [
-  { href: '/dashboard', label: 'Live', Icon: LiveIcon },
+  { href: '/dashboard', label: 'En vivo', Icon: LiveIcon },
   { href: '/dashboard/stats', label: 'Stats', Icon: StatsIcon },
-  { href: '/dashboard/barbers', label: 'Barbers', Icon: BarbersIcon },
-  { href: '/dashboard/activity', label: 'Activity', Icon: ActivityIcon },
-  { href: '/dashboard/settings', label: 'Settings', Icon: SettingsIcon },
+  { href: '/dashboard/barbers', label: 'Barberos', Icon: BarbersIcon },
+  { href: '/dashboard/activity', label: 'Actividad', Icon: ActivityIcon },
+  { href: '/dashboard/settings', label: 'Ajustes', Icon: SettingsIcon },
 ] as const
 
 export default function MobileTabBar() {

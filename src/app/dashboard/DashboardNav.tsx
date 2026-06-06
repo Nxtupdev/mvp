@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
-  { href: '/dashboard', label: 'Live' },
-  { href: '/dashboard/stats', label: 'Stats' },
-  { href: '/dashboard/barbers', label: 'Barbers' },
-  { href: '/dashboard/activity', label: 'Activity' },
-  { href: '/dashboard/settings', label: 'Settings' },
+  { href: '/dashboard', label: 'En vivo' },
+  { href: '/dashboard/stats', label: 'Estadísticas' },
+  { href: '/dashboard/barbers', label: 'Barberos' },
+  { href: '/dashboard/activity', label: 'Actividad' },
+  { href: '/dashboard/settings', label: 'Configuración' },
 ]
 
 export default function DashboardNav() {
@@ -42,7 +42,7 @@ export default function DashboardNav() {
           type="submit"
           className="px-3 py-1.5 rounded-md text-nxtup-muted hover:text-white transition-colors text-xs sm:text-sm"
         >
-          Sign out
+          Cerrar sesión
         </button>
       </form>
     </nav>

@@ -52,9 +52,9 @@ type Shop = {
 }
 
 const STATUS_LABEL: Record<Entry['status'], string> = {
-  waiting: 'Waiting',
-  called: 'Called',
-  in_progress: 'In chair',
+  waiting: 'Esperando',
+  called: 'Llamado',
+  in_progress: 'En silla',
 }
 
 const STATUS_COLOR: Record<Entry['status'], string> = {
@@ -70,11 +70,15 @@ const BARBER_DOT: Record<Barber['status'], string> = {
   offline: 'bg-nxtup-dim',
 }
 
+// Labels descriptivos al lado del nombre del barbero — distinto del
+// label del BOTÓN de estado (que se mantiene en inglés AVAILABLE / BUSY
+// / BREAK / OFFLINE por decisión del dueño). Aquí va el texto pequeño
+// que dice "Carlos · Disponible".
 const BARBER_LABEL: Record<Barber['status'], string> = {
-  available: 'Available',
-  busy: 'Busy',
-  break: 'Break',
-  offline: 'Off',
+  available: 'Disponible',
+  busy: 'Ocupado',
+  break: 'Descanso',
+  offline: 'Fuera',
 }
 
 export default function DashboardLive({
@@ -222,7 +226,7 @@ export default function DashboardLive({
                 shop.is_open ? 'text-nxtup-active' : 'text-nxtup-busy'
               }`}
             >
-              {shop.is_open ? 'OPEN' : 'CLOSED'}
+              {shop.is_open ? 'ABIERTO' : 'CERRADO'}
             </h2>
             <p className="text-nxtup-muted text-sm mt-1">
               {entries.length} en cola ·{' '}
@@ -238,8 +242,8 @@ export default function DashboardLive({
           {toggleLoading
             ? '...'
             : shop.is_open
-              ? 'Close shop'
-              : 'Open shop'}
+              ? 'Cerrar shop'
+              : 'Abrir shop'}
         </button>
       </section>
 
@@ -248,7 +252,7 @@ export default function DashboardLive({
         <section className="lg:col-span-2">
           <div className="flex items-baseline justify-between mb-4">
             <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-              Live queue
+              Cola en vivo
             </h3>
             <span className="text-nxtup-dim text-xs tabular-nums">
               {entries.length} / {shop.max_queue_size}
@@ -296,9 +300,9 @@ export default function DashboardLive({
           )}
 
           <div className="grid grid-cols-3 gap-2 mt-4">
-            <Stat label="Waiting" value={waiting.length} />
-            <Stat label="Called" value={entries.filter(e => e.status === 'called').length} />
-            <Stat label="In chair" value={inProgress.length} />
+            <Stat label="Esperando" value={waiting.length} />
+            <Stat label="Llamados" value={entries.filter(e => e.status === 'called').length} />
+            <Stat label="En silla" value={inProgress.length} />
           </div>
         </section>
 
@@ -308,13 +312,13 @@ export default function DashboardLive({
           <div>
             <div className="flex items-baseline justify-between mb-4">
               <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-                Barbers
+                Barberos
               </h3>
               <Link
                 href="/dashboard/barbers"
                 className="text-nxtup-muted hover:text-white text-xs transition-colors"
               >
-                Manage →
+                Administrar →
               </Link>
             </div>
             {barbers.length === 0 ? (
@@ -440,18 +444,18 @@ export default function DashboardLive({
           {/* Share */}
           <div>
             <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-4 font-bold">
-              Share
+              Compartir
             </h3>
             <div className="flex flex-col gap-3">
               <ShareRow
-                label="Client check-in"
+                label="Check-in del cliente"
                 hint="Imprimí este link como QR en la entrada"
                 url={checkinUrl}
                 copied={copied === 'checkin'}
                 onCopy={() => copy('checkin', checkinUrl)}
               />
               <ShareRow
-                label="TV display"
+                label="Pantalla TV"
                 hint="Abrir en Fire TV / browser de la TV"
                 url={displayUrl}
                 copied={copied === 'display'}
@@ -500,7 +504,7 @@ function ShareRow({
           disabled={!url}
           className="px-3 py-2 bg-nxtup-line border border-nxtup-dim hover:border-white rounded-md text-xs font-medium transition-colors disabled:opacity-40"
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? 'Copiado' : 'Copiar'}
         </button>
       </div>
     </div>

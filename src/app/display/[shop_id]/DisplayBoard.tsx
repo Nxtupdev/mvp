@@ -324,7 +324,7 @@ export default function DisplayBoard({
           <Logo className="h-16 w-auto mb-12 opacity-60" tone="dark" />
         )}
         <p className="text-nxtup-muted text-3xl uppercase tracking-[0.4em] mb-6">
-          Closed
+          Cerrado
         </p>
         <h1 className="text-7xl font-black tracking-tight">{shop.name}</h1>
       </main>
@@ -414,7 +414,7 @@ export default function DisplayBoard({
           encogerlas y dejar que la columna individual scrollee. */}
       <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line min-h-0">
         <Column
-          title="Available"
+          title="Disponibles"
           tone="active"
           count={activeFifo.length + activeCalledBarbers.length}
           density={density}
@@ -445,7 +445,7 @@ export default function DisplayBoard({
         </Column>
 
         <Column
-          title="Busy"
+          title="Ocupados"
           tone="busy"
           count={busyBarbers.length}
           density={density}
@@ -468,7 +468,7 @@ export default function DisplayBoard({
         </Column>
 
         <Column
-          title="Break"
+          title="Descanso"
           tone="break"
           count={breakBarbers.length}
           density={density}

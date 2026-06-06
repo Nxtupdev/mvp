@@ -15,7 +15,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   {
     href: '/admin',
-    label: 'Home',
+    label: 'Inicio',
     icon: (
       <path
         d="M3 11l9-7 9 7M5 10v10h14V10"
@@ -29,7 +29,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/shops',
-    label: 'Shops',
+    label: 'Barberías',
     icon: (
       <g
         fill="none"
@@ -110,7 +110,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/panel-tokens',
-    label: 'Panel Tokens',
+    label: 'Tokens de panel',
     adminOnly: true,
     icon: (
       <g

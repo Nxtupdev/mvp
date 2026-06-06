@@ -186,7 +186,7 @@ export default function ShopSettings({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-2xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Settings</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">Configuración</h1>
       <p className="text-nxtup-muted text-sm mb-8">
         Configuración del shop. Los cambios afectan al display, check-in y barber app.
       </p>

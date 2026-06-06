@@ -84,8 +84,8 @@ const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
 const STATUS_LABEL: Record<string, string> = {
   available: 'Disponible',
   busy: 'Ocupado',
-  break: 'Break',
-  offline: 'Off',
+  break: 'Descanso',
+  offline: 'Fuera',
 }
 
 export default function ActivityFeed({
@@ -178,7 +178,7 @@ export default function ActivityFeed({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-4xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Activity</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">Actividad</h1>
       <p className="text-nxtup-muted text-sm mb-8">
         Registro de cada acción tomada por los barberos. Para resolver disputas y
         mantener constancia. Mostrando últimos 90 días.
