@@ -347,6 +347,33 @@ export async function POST(request: NextRequest) {
   const positionsAhead = assignedBarber ? 0 : queueCount ?? 0
   const etaMinutes = estimateEta(positionsAhead)
 
+  // ── Lista pública de clientes en cola ───────────────────────
+  // Devolvemos los nombres (solo primer nombre — eso es lo que se
+  // guarda en queue_entries.client_name desde el kiosk) en el orden
+  // en que serán llamados. La SuccessScreen del kiosk muestra esta
+  // lista como columna lateral para que el cliente recién registrado
+  // vea su lugar entre los demás.
+  //
+  // Incluimos status='waiting' Y status='called' (los que ya fueron
+  // llamados pero aún no se sientan en la silla). Excluimos
+  // 'in_progress' porque esos ya están siendo atendidos — no son
+  // "esperando". `position` lo recalculamos como 1-based del orden
+  // visible (no usamos la columna position de la DB porque esa va
+  // creciendo monótona durante el día y no representa "lugar en cola").
+  const { data: queueListRows } = await supabase
+    .from('queue_entries')
+    .select('id, client_name, status')
+    .eq('shop_id', shop_id)
+    .in('status', ['waiting', 'called'])
+    .order('position', { ascending: true })
+
+  const queueList = (queueListRows ?? []).map((row, idx) => ({
+    id: row.id,
+    name: row.client_name,
+    status: row.status,
+    position: idx + 1,
+  }))
+
   return Response.json({
     entry: finalEntry,
     client_id: clientId,
@@ -355,5 +382,6 @@ export async function POST(request: NextRequest) {
     queue_position: queuePosition,
     eta_minutes: etaMinutes,
     assigned_barber: assignedBarber,
+    queue_list: queueList,
   })
 }
