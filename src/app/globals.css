@@ -170,3 +170,61 @@ html, body {
     animation: none !important;
   }
 }
+
+/* ── Reglas de impresión ─────────────────────────────────────────────────────
+   Usadas principalmente por /dashboard/stats — el dueño hace click en
+   "Descargar PDF" y el navegador llama window.print() (ver PrintButton.tsx).
+   El diálogo de impresión nativo le permite "Guardar como PDF".
+
+   Los elementos UI que no deben aparecer en el PDF (header, nav, botones,
+   tabs, footer "Recarga para datos frescos") usan la utilidad `print:hidden`
+   de Tailwind v4 inline en sus JSX. Aquí solo definimos:
+
+   * Background blanco + texto negro (ahorro de tinta y mejor contraste
+     en papel/PDF — la app es dark mode, no tiene sentido imprimirla negra).
+   * Colores muted/dim aclarados para que sean legibles en blanco.
+   * Bordes de cards en gris claro (los nxtup-line son casi negros → invisibles).
+   * Backgrounds de fills (track de mini-bars) en gris claro.
+   * `break-inside: avoid` en sections para que las cards no se partan
+     entre páginas si el reporte es largo.
+   * Margen de página de 1.2cm (deja respiro sin malgastar papel).
+
+   No tocamos los colores de status (verde/rojo/ámbar) — son semánticos
+   y siguen siendo útiles en el PDF (cards de "+12% vs ayer" en verde, etc.). */
+@media print {
+  @page {
+    margin: 1.2cm;
+  }
+
+  html, body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Bordes de cards visibles sobre blanco. Sin esto los borders nxtup-line
+     (negros) quedan invisibles en el PDF y los cards parecen flotar. */
+  .border-nxtup-line,
+  .border-nxtup-dim {
+    border-color: #d4d4d8 !important;
+  }
+
+  /* Texto muted/dim queda casi blanco contra blanco — subir contraste. */
+  .text-nxtup-muted {
+    color: #52525b !important;
+  }
+  .text-nxtup-dim {
+    color: #71717a !important;
+  }
+
+  /* Fills semitransparentes pierden sentido sobre blanco — neutralizar. */
+  .bg-nxtup-line,
+  .bg-nxtup-line\/40,
+  .bg-nxtup-line\/50 {
+    background: #f4f4f5 !important;
+  }
+
+  /* Cards no se parten entre páginas. */
+  section {
+    break-inside: avoid;
+  }
+}

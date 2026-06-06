@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
-import { shopDayStart } from '@/lib/shop-time'
+import { shopDateStart, shopDayStart } from '@/lib/shop-time'
+import PrintButton from './PrintButton'
 
 type Entry = {
   id: string
@@ -43,16 +44,23 @@ const REFERRAL_LABELS: Record<ReferralSource, string> = {
 }
 
 // ── Rangos de fecha ──────────────────────────────────────────────
-// Hoy: día actual local desde 00:00. Comparado con el día previo
-//   completo (ayer 00:00 a hoy 00:00).
-// 7d / 30d: ventana móvil. Comparado con la ventana inmediatamente
-//   anterior del mismo tamaño.
+// Hay tres atajos rápidos (today / 7d / 30d) + un picker custom donde
+// el dueño elige las fechas exactas que quiere ver. El URL state es:
+//
+//   * Sin params               → preset 'today'
+//   * ?range=7d                → preset 7 días
+//   * ?range=30d               → preset 30 días
+//   * ?from=YYYY-MM-DD&to=YYYY-MM-DD → custom (siempre gana sobre range)
+//
+// La comparación es siempre contra el período inmediatamente anterior
+// del mismo tamaño. Para preset 'today' eso es ayer; para 7d son los
+// 7 días previos a esos 7; para custom de N días son los N días previos.
 
-type RangeKey = 'today' | '7d' | '30d'
-const VALID_RANGES: RangeKey[] = ['today', '7d', '30d']
+type PresetKey = 'today' | '7d' | '30d'
+const PRESET_KEYS: PresetKey[] = ['today', '7d', '30d']
 
-const RANGE_META: Record<
-  RangeKey,
+const PRESET_META: Record<
+  PresetKey,
   { label: string; heading: string; comparisonLabel: string }
 > = {
   today: {
@@ -72,47 +80,175 @@ const RANGE_META: Record<
   },
 }
 
-function parseRange(input: string | undefined): RangeKey {
-  if (input && (VALID_RANGES as string[]).includes(input)) {
-    return input as RangeKey
+type ResolvedRange =
+  | { mode: 'preset'; key: PresetKey }
+  | { mode: 'custom'; fromYmd: string; toYmd: string }
+
+/**
+ * Resuelve el rango a usar a partir de los searchParams. La regla:
+ * si `from` y `to` están ambos presentes Y son fechas válidas Y
+ * from ≤ to → modo custom. Si no, cae al preset (default 'today').
+ *
+ * `shopDateStart` devuelve null para fechas inválidas, lo que hace
+ * trivial validar el formato.
+ */
+function resolveRange(
+  searchParams: { range?: string; from?: string; to?: string },
+  timeZone: string,
+): ResolvedRange {
+  const { from, to } = searchParams
+  if (from && to) {
+    const fromDate = shopDateStart(timeZone, from)
+    const toDate = shopDateStart(timeZone, to)
+    if (fromDate && toDate && fromDate.getTime() <= toDate.getTime()) {
+      return { mode: 'custom', fromYmd: from, toYmd: to }
+    }
   }
-  return 'today'
+  if (
+    searchParams.range === '7d' ||
+    searchParams.range === '30d' ||
+    searchParams.range === 'today'
+  ) {
+    return { mode: 'preset', key: searchParams.range }
+  }
+  return { mode: 'preset', key: 'today' }
 }
 
-function getRangeBoundaries(rangeKey: RangeKey, timeZone: string) {
-  if (rangeKey === 'today') {
-    return {
-      currentStart: shopDayStart(timeZone, 0),
-      currentEnd: null, // hasta ahora
-      previousStart: shopDayStart(timeZone, 1),
-      previousEnd: shopDayStart(timeZone, 0),
+type Boundaries = {
+  currentStart: Date
+  // null = "until now" (preset behavior: incluye eventos hasta el
+  // instante de la query). Para custom siempre tiene valor (start del
+  // día SIGUIENTE a `to`, así `to` queda incluido completo).
+  currentEnd: Date | null
+  previousStart: Date
+  previousEnd: Date
+}
+
+function getBoundaries(resolved: ResolvedRange, timeZone: string): Boundaries {
+  if (resolved.mode === 'preset') {
+    if (resolved.key === 'today') {
+      return {
+        currentStart: shopDayStart(timeZone, 0),
+        currentEnd: null,
+        previousStart: shopDayStart(timeZone, 1),
+        previousEnd: shopDayStart(timeZone, 0),
+      }
     }
-  }
-  if (rangeKey === '7d') {
+    if (resolved.key === '7d') {
+      return {
+        currentStart: shopDayStart(timeZone, 7),
+        currentEnd: null,
+        previousStart: shopDayStart(timeZone, 14),
+        previousEnd: shopDayStart(timeZone, 7),
+      }
+    }
+    // 30d
     return {
-      currentStart: shopDayStart(timeZone, 7),
+      currentStart: shopDayStart(timeZone, 30),
       currentEnd: null,
-      previousStart: shopDayStart(timeZone, 14),
-      previousEnd: shopDayStart(timeZone, 7),
+      previousStart: shopDayStart(timeZone, 60),
+      previousEnd: shopDayStart(timeZone, 30),
     }
   }
-  // 30d
+
+  // ── Custom mode ─────────────────────────────────────────────────
+  // fromStart = 00:00 LOCAL del día `from`
+  // currentEnd = 00:00 LOCAL del día SIGUIENTE a `to`
+  //   (así el query `< currentEnd` incluye TODO el día `to`)
+  // previousStart = fromStart - (currentEnd - fromStart)
+  // previousEnd   = fromStart
+  //
+  // shopDateStart está garantizado a devolver Date (no null) porque
+  // resolveRange ya validó que from/to son parseables.
+  const fromStart = shopDateStart(timeZone, resolved.fromYmd)!
+  const nextDay = addOneDayYmd(resolved.toYmd)
+  const currentEnd =
+    shopDateStart(timeZone, nextDay) ??
+    // Fallback defensivo si la fecha cae justo en una transición DST
+    // rara que rompe el +1 día: sumamos 24h sobre toStart.
+    new Date(shopDateStart(timeZone, resolved.toYmd)!.getTime() + 24 * 60 * 60 * 1000)
+
+  const sizeMs = currentEnd.getTime() - fromStart.getTime()
+
   return {
-    currentStart: shopDayStart(timeZone, 30),
-    currentEnd: null,
-    previousStart: shopDayStart(timeZone, 60),
-    previousEnd: shopDayStart(timeZone, 30),
+    currentStart: fromStart,
+    currentEnd,
+    previousStart: new Date(fromStart.getTime() - sizeMs),
+    previousEnd: fromStart,
+  }
+}
+
+/**
+ * Suma un día calendario a un string YYYY-MM-DD. Usamos Date.UTC
+ * (que maneja overflow — ej. día 32 de enero → 1 de febrero) y
+ * re-formateamos.
+ */
+function addOneDayYmd(ymd: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd)
+  if (!match) return ymd
+  const y = Number(match[1])
+  const m = Number(match[2])
+  const d = Number(match[3])
+  const next = new Date(Date.UTC(y, m - 1, d + 1))
+  const ny = next.getUTCFullYear()
+  const nm = String(next.getUTCMonth() + 1).padStart(2, '0')
+  const nd = String(next.getUTCDate()).padStart(2, '0')
+  return `${ny}-${nm}-${nd}`
+}
+
+/**
+ * Devuelve el YYYY-MM-DD de "hoy" según la zona horaria del shop.
+ * Usado como `max` en los inputs de fecha — no tiene sentido permitir
+ * elegir fechas futuras para un reporte histórico.
+ */
+function shopTodayYmd(timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '0'
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
+/**
+ * Formato corto en español para mostrar fechas en headings/labels.
+ * Ej: "01 jun" — leído en la zona del shop para que no haya off-by-one
+ * por el offset UTC.
+ */
+function formatYmdShort(ymd: string, timeZone: string): string {
+  const date = shopDateStart(timeZone, ymd)
+  if (!date) return ymd
+  return new Intl.DateTimeFormat('es', {
+    timeZone,
+    day: '2-digit',
+    month: 'short',
+  }).format(date)
+}
+
+function getDisplayMeta(
+  resolved: ResolvedRange,
+  timeZone: string,
+): { label: string; heading: string; comparisonLabel: string } {
+  if (resolved.mode === 'preset') {
+    return PRESET_META[resolved.key]
+  }
+  const fromLabel = formatYmdShort(resolved.fromYmd, timeZone)
+  const toLabel = formatYmdShort(resolved.toYmd, timeZone)
+  return {
+    label: `${fromLabel} – ${toLabel}`,
+    heading: `Personalizado: ${fromLabel} – ${toLabel}. Comparado contra el período previo del mismo tamaño.`,
+    comparisonLabel: 'período previo',
   }
 }
 
 export default async function StatsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>
 }) {
   const sp = await searchParams
-  const range = parseRange(sp.range)
-  const meta = RANGE_META[range]
 
   const supabase = await createClient()
   const {
@@ -139,20 +275,30 @@ export default async function StatsPage({
   } catch {
     // Column doesn't exist yet — default is fine.
   }
+
+  const resolved = resolveRange(sp, timeZone)
+  const meta = getDisplayMeta(resolved, timeZone)
+  const todayYmd = shopTodayYmd(timeZone)
   const now = new Date()
-  const { currentStart, previousStart, previousEnd } = getRangeBoundaries(
-    range,
+  const { currentStart, currentEnd, previousStart, previousEnd } = getBoundaries(
+    resolved,
     timeZone,
   )
 
   // ── Queries ───────────────────────────────────────────────────
   // queue_entries del período actual + previo + barbers del shop + clients
   // con first_visit_at en cualquiera de los dos rangos (para marketing).
-  const currentQuery = supabase
+  //
+  // currentEnd es null para presets ("hasta ahora") y Date para custom
+  // (start del día siguiente a `to`). Cuando es Date agregamos `.lt()`.
+  let currentQuery = supabase
     .from('queue_entries')
     .select('id, barber_id, status, created_at, called_at, completed_at')
     .eq('shop_id', shop.id)
     .gte('created_at', currentStart.toISOString())
+  if (currentEnd) {
+    currentQuery = currentQuery.lt('created_at', currentEnd.toISOString())
+  }
 
   const previousQuery = supabase
     .from('queue_entries')
@@ -160,6 +306,18 @@ export default async function StatsPage({
     .eq('shop_id', shop.id)
     .gte('created_at', previousStart.toISOString())
     .lt('created_at', previousEnd.toISOString())
+
+  let clientsCurrentQuery = supabase
+    .from('clients')
+    .select('id, first_visit_at, referral_source')
+    .eq('shop_id', shop.id)
+    .gte('first_visit_at', currentStart.toISOString())
+  if (currentEnd) {
+    clientsCurrentQuery = clientsCurrentQuery.lt(
+      'first_visit_at',
+      currentEnd.toISOString(),
+    )
+  }
 
   const [
     { data: currentEntries },
@@ -175,11 +333,7 @@ export default async function StatsPage({
       .select('id, name, avatar')
       .eq('shop_id', shop.id)
       .order('name'),
-    supabase
-      .from('clients')
-      .select('id, first_visit_at, referral_source')
-      .eq('shop_id', shop.id)
-      .gte('first_visit_at', currentStart.toISOString()),
+    clientsCurrentQuery,
     supabase
       .from('clients')
       .select('id, first_visit_at, referral_source')
@@ -234,11 +388,22 @@ export default async function StatsPage({
       : null
 
   return (
-    <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Stats</h1>
-      <p className="text-nxtup-muted text-sm mb-6">{meta.heading}</p>
+    <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
+      {/* Encabezado + acciones — el botón de PDF queda a la derecha en
+          desktop, abajo en mobile. Ambos se ocultan en impresión. */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight mb-2">Stats</h1>
+          <p className="text-nxtup-muted text-sm">{meta.heading}</p>
+          {/* En impresión solo aparece el nombre del shop como contexto */}
+          <p className="hidden print:block text-nxtup-muted text-xs mt-1">
+            {shop.name} · Generado {now.toLocaleDateString('es', { timeZone, day: '2-digit', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <PrintButton />
+      </div>
 
-      <RangeTabs current={range} />
+      <RangeTabs resolved={resolved} todayYmd={todayYmd} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title={`Walk-ins ${meta.label.toLowerCase()}`}>
@@ -388,7 +553,7 @@ export default async function StatsPage({
         </Card>
       </div>
 
-      <p className="text-nxtup-dim text-xs mt-6 text-center">
+      <p className="text-nxtup-dim text-xs mt-6 text-center print:hidden">
         Última actualización:{' '}
         {now.toLocaleTimeString('en-GB', {
           hour: '2-digit',
@@ -526,34 +691,100 @@ function formatHour(h: number): string {
 // Small render bits
 // ──────────────────────────────────────────────────────────────
 
-function RangeTabs({ current }: { current: RangeKey }) {
+function RangeTabs({
+  resolved,
+  todayYmd,
+}: {
+  resolved: ResolvedRange
+  todayYmd: string
+}) {
+  // Para custom mode los inputs vienen pre-llenados con los valores
+  // del URL. Para preset mode quedan vacíos — si el dueño rellena
+  // ambos y aplica, pasamos a custom; el form GET resuelve todo
+  // server-side sin necesidad de state cliente.
+  const fromDefault = resolved.mode === 'custom' ? resolved.fromYmd : ''
+  const toDefault = resolved.mode === 'custom' ? resolved.toYmd : ''
+
   return (
-    <nav
-      className="inline-flex gap-1 mb-6 p-1 bg-nxtup-line/40 rounded-lg"
-      aria-label="Rango de tiempo"
-    >
-      {VALID_RANGES.map(r => {
-        const isCurrent = r === current
-        return (
-          <Link
-            key={r}
-            href={r === 'today' ? '/dashboard/stats' : `/dashboard/stats?range=${r}`}
-            className={`
-              px-4 py-1.5 rounded-md text-xs font-bold uppercase
-              tracking-widest transition-colors
-              ${
-                isCurrent
-                  ? 'bg-white text-black'
-                  : 'text-nxtup-muted hover:text-white'
+    <div className="print:hidden flex flex-col gap-4 mb-6">
+      <nav
+        className="inline-flex gap-1 p-1 bg-nxtup-line/40 rounded-lg self-start"
+        aria-label="Atajos de rango"
+      >
+        {PRESET_KEYS.map(k => {
+          const isCurrent = resolved.mode === 'preset' && resolved.key === k
+          return (
+            <Link
+              key={k}
+              href={
+                k === 'today' ? '/dashboard/stats' : `/dashboard/stats?range=${k}`
               }
-            `}
-            aria-current={isCurrent ? 'page' : undefined}
+              className={`
+                px-4 py-1.5 rounded-md text-xs font-bold uppercase
+                tracking-widest transition-colors
+                ${
+                  isCurrent
+                    ? 'bg-white text-black'
+                    : 'text-nxtup-muted hover:text-white'
+                }
+              `}
+              aria-current={isCurrent ? 'page' : undefined}
+            >
+              {PRESET_META[k].label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* Form GET — el navegador serializa los inputs como query params
+          y navega. SSR re-evalúa todo desde cero. No requiere JS. */}
+      <form
+        action="/dashboard/stats"
+        method="GET"
+        className="flex flex-wrap items-end gap-3"
+      >
+        <label className="flex flex-col gap-1">
+          <span className="text-nxtup-muted text-[10px] uppercase tracking-wider font-bold">
+            Desde
+          </span>
+          <input
+            type="date"
+            name="from"
+            defaultValue={fromDefault}
+            max={todayYmd}
+            required
+            className="bg-nxtup-line text-white rounded-lg px-3 py-2 border border-nxtup-dim focus:border-white focus:outline-none text-sm tabular-nums"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-nxtup-muted text-[10px] uppercase tracking-wider font-bold">
+            Hasta
+          </span>
+          <input
+            type="date"
+            name="to"
+            defaultValue={toDefault}
+            max={todayYmd}
+            required
+            className="bg-nxtup-line text-white rounded-lg px-3 py-2 border border-nxtup-dim focus:border-white focus:outline-none text-sm tabular-nums"
+          />
+        </label>
+        <button
+          type="submit"
+          className="bg-white text-black rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-nxtup-active transition-colors"
+        >
+          Aplicar
+        </button>
+        {resolved.mode === 'custom' && (
+          <Link
+            href="/dashboard/stats"
+            className="text-nxtup-muted hover:text-white text-xs underline underline-offset-4 ml-1"
           >
-            {RANGE_META[r].label}
+            Limpiar
           </Link>
-        )
-      })}
-    </nav>
+        )}
+      </form>
+    </div>
   )
 }
 
