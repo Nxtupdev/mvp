@@ -3,10 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useLocale } from '@/lib/i18n'
+import LanguageToggle from '@/components/LanguageToggle'
 
 type NavItem = {
   href: string
-  label: string
+  labelKey: string
   icon: React.ReactNode
   /** Si true, el item es solo para admin (no se renderiza a socios). */
   adminOnly?: boolean
@@ -15,7 +17,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   {
     href: '/admin',
-    label: 'Inicio',
+    labelKey: 'admin.nav.home',
     icon: (
       <path
         d="M3 11l9-7 9 7M5 10v10h14V10"
@@ -29,7 +31,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/shops',
-    label: 'Barberías',
+    labelKey: 'admin.nav.shops',
     icon: (
       <g
         fill="none"
@@ -46,7 +48,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/stats',
-    label: 'Estadísticas',
+    labelKey: 'admin.nav.stats',
     icon: (
       <g
         fill="none"
@@ -61,7 +63,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/revenue',
-    label: 'Ingresos',
+    labelKey: 'admin.nav.revenue',
     icon: (
       <g
         fill="none"
@@ -77,7 +79,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/team',
-    label: 'Equipo',
+    labelKey: 'admin.nav.team',
     icon: (
       <g
         fill="none"
@@ -95,7 +97,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/activity',
-    label: 'Actividad',
+    labelKey: 'admin.nav.activity',
     icon: (
       <g
         fill="none"
@@ -110,7 +112,7 @@ const NAV: NavItem[] = [
   },
   {
     href: '/admin/panel-tokens',
-    label: 'Tokens de panel',
+    labelKey: 'admin.nav.panelTokens',
     adminOnly: true,
     icon: (
       <g
@@ -143,6 +145,7 @@ export default function AdminSidebar({
   titleLabel: string
 }) {
   const pathname = usePathname()
+  const { t } = useLocale()
   const visibleNav = NAV.filter(item => isAdmin || !item.adminOnly)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -165,6 +168,8 @@ export default function AdminSidebar({
     }
   }, [drawerOpen])
 
+  const topTitle = isAdmin ? t('admin.title.admin') : t('admin.title.panel')
+
   return (
     <>
       {/* ───────── Top bar móvil ─────────
@@ -175,7 +180,7 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          aria-label="Abrir menú"
+          aria-label={t('admin.openMenu')}
           aria-expanded={drawerOpen}
           className="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg text-white hover:bg-nxtup-line/60 transition-colors"
         >
@@ -190,12 +195,10 @@ export default function AdminSidebar({
             />
           </svg>
         </button>
-        <p className="text-white text-sm font-black tracking-tight">
-          {isAdmin ? 'Admin' : 'Panel'}
-        </p>
-        {/* Spacer para balancear visualmente el botón hamburguesa
-            de la izquierda y mantener el título centrado. */}
-        <div className="w-10" aria-hidden />
+        <p className="text-white text-sm font-black tracking-tight">{topTitle}</p>
+        {/* LanguageToggle a la derecha de la topbar móvil — sustituye
+            el spacer vacío que había antes. */}
+        <LanguageToggle variant="header" />
       </header>
 
       {/* ───────── Drawer móvil (overlay + panel) ─────────
@@ -212,7 +215,7 @@ export default function AdminSidebar({
           <aside
             className="lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-nxtup-bg border-r border-nxtup-line z-50 flex flex-col animate-slide-in"
             role="dialog"
-            aria-label="Menú de navegación"
+            aria-label={t('admin.menuNav')}
           >
             <SidebarContent
               visibleNav={visibleNav}
@@ -221,6 +224,7 @@ export default function AdminSidebar({
               displayName={displayName}
               roleLabel={roleLabel}
               titleLabel={titleLabel}
+              t={t}
               onNavClick={() => setDrawerOpen(false)}
               showCloseButton
               onClose={() => setDrawerOpen(false)}
@@ -240,6 +244,7 @@ export default function AdminSidebar({
           displayName={displayName}
           roleLabel={roleLabel}
           titleLabel={titleLabel}
+          t={t}
         />
       </aside>
     </>
@@ -260,6 +265,7 @@ function SidebarContent({
   displayName,
   roleLabel,
   titleLabel,
+  t,
   onNavClick,
   showCloseButton = false,
   onClose,
@@ -270,6 +276,7 @@ function SidebarContent({
   displayName: string
   roleLabel: string
   titleLabel: string
+  t: (key: string) => string
   /** Callback al tocar un item del nav. Lo usa el drawer móvil para
    *  cerrarse después de navegar. En desktop se deja undefined. */
   onNavClick?: () => void
@@ -278,6 +285,7 @@ function SidebarContent({
   showCloseButton?: boolean
   onClose?: () => void
 }) {
+  const topTitle = isAdmin ? t('admin.title.admin') : t('admin.title.panel')
   return (
     <>
       <div className="px-5 py-6 border-b border-nxtup-line flex items-start justify-between">
@@ -286,28 +294,33 @@ function SidebarContent({
             NXTUP
           </p>
           <p className="text-white text-base font-black tracking-tight">
-            {isAdmin ? 'Admin' : 'Panel'}
+            {topTitle}
           </p>
         </div>
-        {showCloseButton && onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar menú"
-            className="-mr-1 -mt-1 flex items-center justify-center w-9 h-9 rounded-lg text-nxtup-muted hover:text-white hover:bg-nxtup-line/60 transition-colors"
-          >
-            <svg viewBox="0 0 24 24" width={20} height={20}>
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {/* LanguageToggle convive con el botón de cerrar en el
+              drawer móvil, y queda solo en el sidebar desktop. */}
+          <LanguageToggle variant="sidebar" onChange={onNavClick} />
+          {showCloseButton && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('admin.closeMenu')}
+              className="-mr-1 -mt-1 flex items-center justify-center w-9 h-9 rounded-lg text-nxtup-muted hover:text-white hover:bg-nxtup-line/60 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" width={20} height={20}>
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
@@ -330,7 +343,7 @@ function SidebarContent({
               <svg viewBox="0 0 24 24" width={18} height={18}>
                 {item.icon}
               </svg>
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           )
         })}
@@ -338,7 +351,7 @@ function SidebarContent({
 
       <div className="px-5 py-4 border-t border-nxtup-line">
         <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-1">
-          Bienvenido
+          {t('admin.welcome')}
         </p>
         {displayName && (
           <p
@@ -363,7 +376,7 @@ function SidebarContent({
             type="submit"
             className="text-nxtup-muted hover:text-white text-[11px] uppercase tracking-widest cursor-pointer transition-colors"
           >
-            ← Salir
+            ← {t('admin.exit')}
           </button>
         </form>
       </div>

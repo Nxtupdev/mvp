@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useLocale } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import {
   Avatar,
@@ -32,12 +33,8 @@ const STATUS_DOT: Record<Barber['status'], string> = {
 // botones de acción del estado — esos quedan en inglés por decisión del
 // dueño). Aquí va el texto que dice "Carlos · Disponible" debajo del
 // nombre del barbero.
-const STATUS_LABEL: Record<Barber['status'], string> = {
-  available: 'Disponible',
-  busy: 'Ocupado',
-  break: 'Descanso',
-  offline: 'Fuera',
-}
+// El catálogo i18n provee los labels via t() — éstos se calculan dentro
+// del componente con useLocale(). Los keys: 'status.available' etc.
 
 function normalize(rows: unknown[]): Barber[] {
   return rows.map(r => {
@@ -63,6 +60,7 @@ export default function BarberManager({
   // generic stroke pool. Empty array = picker only shows generics.
   shopAvatars?: ShopAvatar[]
 }) {
+  const { t } = useLocale()
   const [barbers, setBarbers] = useState<Barber[]>(() => normalize(initialBarbers))
   const [name, setName] = useState('')
   const [newAvatar, setNewAvatar] = useState<string | null>(null)
@@ -149,7 +147,7 @@ export default function BarberManager({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Barberos</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.barbers')}</h1>
       <p className="text-nxtup-muted text-sm mb-8">
         Cada barbero tiene su ícono — el equivalente digital del magnet con el que se
         identifica en la pizarra. Status se actualiza desde el NXT TAP o la app de respaldo.
@@ -282,6 +280,7 @@ function BarberRow({
   onShare: () => void
   shopAvatars: ShopAvatar[]
 }) {
+  const { t } = useLocale()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(barber.name)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -330,7 +329,7 @@ function BarberRow({
           </button>
         )}
         <span className="text-nxtup-muted text-xs uppercase tracking-widest hidden sm:inline">
-          {STATUS_LABEL[barber.status]}
+          {t(`status.${barber.status}`)}
         </span>
         <button
           onClick={onShare}

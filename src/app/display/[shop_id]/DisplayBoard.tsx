@@ -6,6 +6,7 @@ import Logo from '@/components/Logo'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { buildHeldPositions } from '@/lib/queue-order'
+import { useLocale } from '@/lib/i18n'
 
 type Entry = {
   id: string
@@ -229,6 +230,7 @@ export default function DisplayBoard({
   initialEntries: Entry[]
   initialBarbers: Barber[]
 }) {
+  const { t } = useLocale()
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
   const [connected, setConnected] = useState(true)
@@ -324,7 +326,7 @@ export default function DisplayBoard({
           <Logo className="h-16 w-auto mb-12 opacity-60" tone="dark" />
         )}
         <p className="text-nxtup-muted text-3xl uppercase tracking-[0.4em] mb-6">
-          Cerrado
+          {t('display.shopClosed')}
         </p>
         <h1 className="text-7xl font-black tracking-tight">{shop.name}</h1>
       </main>
@@ -414,7 +416,7 @@ export default function DisplayBoard({
           encogerlas y dejar que la columna individual scrollee. */}
       <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line min-h-0">
         <Column
-          title="Disponibles"
+          title={t('display.col.available')}
           tone="active"
           count={activeFifo.length + activeCalledBarbers.length}
           density={density}
@@ -445,7 +447,7 @@ export default function DisplayBoard({
         </Column>
 
         <Column
-          title="Ocupados"
+          title={t('display.col.busy')}
           tone="busy"
           count={busyBarbers.length}
           density={density}
@@ -468,7 +470,7 @@ export default function DisplayBoard({
         </Column>
 
         <Column
-          title="Descanso"
+          title={t('display.col.break')}
           tone="break"
           count={breakBarbers.length}
           density={density}

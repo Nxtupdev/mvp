@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/lib/i18n'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import {
@@ -90,6 +91,7 @@ export default function DashboardLive({
   initialEntries: Entry[]
   initialBarbers: Barber[]
 }) {
+  const { t } = useLocale()
   const [shop, setShop] = useState(initialShop)
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
@@ -226,7 +228,7 @@ export default function DashboardLive({
                 shop.is_open ? 'text-nxtup-active' : 'text-nxtup-busy'
               }`}
             >
-              {shop.is_open ? 'ABIERTO' : 'CERRADO'}
+              {shop.is_open ? t('dash.shop.open') : t('dash.shop.closed')}
             </h2>
             <p className="text-nxtup-muted text-sm mt-1">
               {entries.length} en cola ·{' '}
@@ -242,8 +244,8 @@ export default function DashboardLive({
           {toggleLoading
             ? '...'
             : shop.is_open
-              ? 'Cerrar shop'
-              : 'Abrir shop'}
+              ? t('dash.shop.closeShop')
+              : t('dash.shop.openShop')}
         </button>
       </section>
 
@@ -252,7 +254,7 @@ export default function DashboardLive({
         <section className="lg:col-span-2">
           <div className="flex items-baseline justify-between mb-4">
             <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-              Cola en vivo
+              {t('dash.shop.liveQueue')}
             </h3>
             <span className="text-nxtup-dim text-xs tabular-nums">
               {entries.length} / {shop.max_queue_size}
@@ -491,6 +493,7 @@ function ShareRow({
   copied: boolean
   onCopy: () => void
 }) {
+  const { t } = useLocale()
   return (
     <div className="border border-nxtup-line rounded-xl p-4">
       <p className="text-nxtup-muted text-xs uppercase tracking-widest mb-1">{label}</p>
@@ -504,7 +507,7 @@ function ShareRow({
           disabled={!url}
           className="px-3 py-2 bg-nxtup-line border border-nxtup-dim hover:border-white rounded-md text-xs font-medium transition-colors disabled:opacity-40"
         >
-          {copied ? 'Copiado' : 'Copiar'}
+          {copied ? t('common.copied') : t('common.copy')}
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useLocale } from '@/lib/i18n'
 
 // ============================================================
 // MobileTabBar — fixed bottom navigation, iOS/Android-style.
@@ -18,16 +19,20 @@ import { usePathname } from 'next/navigation'
 // area so the last bit of UI isn't trapped behind this bar.
 // ============================================================
 
-const TABS = [
-  { href: '/dashboard', label: 'En vivo', Icon: LiveIcon },
-  { href: '/dashboard/stats', label: 'Stats', Icon: StatsIcon },
-  { href: '/dashboard/barbers', label: 'Barberos', Icon: BarbersIcon },
-  { href: '/dashboard/activity', label: 'Actividad', Icon: ActivityIcon },
-  { href: '/dashboard/settings', label: 'Ajustes', Icon: SettingsIcon },
+// Las labels viven en el catálogo i18n bajo claves cortas
+// (dash.nav.short.*) — esos labels son más compactos que los del nav
+// desktop para que quepan abajo del ícono en pantallas chicas.
+const TAB_DEFS = [
+  { href: '/dashboard', labelKey: 'dash.nav.short.live', Icon: LiveIcon },
+  { href: '/dashboard/stats', labelKey: 'dash.nav.short.stats', Icon: StatsIcon },
+  { href: '/dashboard/barbers', labelKey: 'dash.nav.short.barbers', Icon: BarbersIcon },
+  { href: '/dashboard/activity', labelKey: 'dash.nav.short.activity', Icon: ActivityIcon },
+  { href: '/dashboard/settings', labelKey: 'dash.nav.short.settings', Icon: SettingsIcon },
 ] as const
 
 export default function MobileTabBar() {
   const pathname = usePathname()
+  const { t } = useLocale()
 
   return (
     <nav
@@ -38,7 +43,7 @@ export default function MobileTabBar() {
       className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-nxtup-bg/95 backdrop-blur-md border-t border-nxtup-line pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="grid grid-cols-5">
-        {TABS.map(({ href, label, Icon }) => {
+        {TAB_DEFS.map(({ href, labelKey, Icon }) => {
           const active =
             href === '/dashboard' ? pathname === href : pathname.startsWith(href)
           return (
@@ -53,7 +58,7 @@ export default function MobileTabBar() {
                 }`}
               >
                 <Icon active={active} />
-                <span className="truncate w-full text-center">{label}</span>
+                <span className="truncate w-full text-center">{t(labelKey)}</span>
               </Link>
             </li>
           )

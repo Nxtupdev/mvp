@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/lib/i18n'
 import {
   Avatar,
   isRenderableAvatar,
@@ -137,6 +138,7 @@ export default function ControlPanel({
     ...(extra ?? {}),
     ...(panelToken ? { 'x-panel-token': panelToken } : {}),
   })
+  const { t } = useLocale()
   const [barbers, setBarbers] = useState<Barber[]>(() =>
     normalizeBarbers(initialBarbers),
   )
@@ -361,7 +363,7 @@ export default function ControlPanel({
           ← Barberos
         </Link>
       )}
-      <h1 className="text-3xl font-black tracking-tight mb-2">Centro de mando</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.control')}</h1>
       <p className="text-nxtup-muted text-sm mb-8 max-w-prose">
         {panelToken
           ? `${shop.name} · Cambia el estado de cualquier barbero. Si se fue sin tocar BREAK o necesitas reorganizar la fila, lo haces desde aquí.`

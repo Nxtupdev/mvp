@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { shopDateStart, shopDayStart } from '@/lib/shop-time'
+import { getServerI18n } from '@/lib/i18n-server'
 import PrintButton from './PrintButton'
 
 type Entry = {
@@ -328,6 +329,7 @@ export default async function StatsPage({
   searchParams: Promise<{ range?: string; from?: string; to?: string }>
 }) {
   const sp = await searchParams
+  const { t } = await getServerI18n()
 
   const supabase = await createClient()
   const {
@@ -503,7 +505,7 @@ export default async function StatsPage({
           imprimir porque el header de arriba ya cubre esa info. */}
       <div className="print:hidden flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight mb-2">Estadísticas</h1>
+          <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.stats')}</h1>
           <p className="text-nxtup-muted text-sm">{meta.heading}</p>
         </div>
         <PrintButton />

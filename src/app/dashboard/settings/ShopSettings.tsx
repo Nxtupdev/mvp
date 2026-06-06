@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/lib/i18n'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
 
@@ -58,6 +59,7 @@ export default function ShopSettings({
   currentIp: string | null
 }) {
   const router = useRouter()
+  const { t } = useLocale()
   const [shop, setShop] = useState(initial)
   const [name, setName] = useState(initial.name)
   const [maxQueue, setMaxQueue] = useState(initial.max_queue_size)
@@ -186,7 +188,7 @@ export default function ShopSettings({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-2xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Configuración</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.settings')}</h1>
       <p className="text-nxtup-muted text-sm mb-8">
         Configuración del shop. Los cambios afectan al display, check-in y barber app.
       </p>

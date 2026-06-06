@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/lib/i18n'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 
 type Action =
@@ -97,6 +98,7 @@ export default function ActivityFeed({
   barbers: Barber[]
   initialEvents: Event[]
 }) {
+  const { t } = useLocale()
   const [events, setEvents] = useState<Event[]>(initialEvents)
   // Default to '24h' (rolling) instead of 'today' (since 0:00 local).
   // Barbershops often work past midnight; "today" can end up empty even
@@ -178,7 +180,7 @@ export default function ActivityFeed({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-4xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Actividad</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.activity')}</h1>
       <p className="text-nxtup-muted text-sm mb-8">
         Registro de cada acción tomada por los barberos. Para resolver disputas y
         mantener constancia. Mostrando últimos 90 días.
