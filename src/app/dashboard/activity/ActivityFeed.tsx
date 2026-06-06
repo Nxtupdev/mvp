@@ -32,6 +32,10 @@ type Action =
   // Migración 047 — el dueño levantó la sanción manualmente,
   // o el nightly_state_reset la limpió al final del día.
   | 'sanction_cleared'
+  // Migración 049 — el dueño devolvió un break al barbero
+  // (decremento manual de breaks_taken_today). Usado cuando el
+  // barbero tocó BREAK sin querer en su PWA.
+  | 'break_restored_by_owner'
 
 type Event = {
   id: string
@@ -74,6 +78,7 @@ const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
   { value: 'fifo_moved_by_owner', label: 'Movido en fila por dueño' },
   { value: 'sanction_applied', label: 'Sanción aplicada' },
   { value: 'sanction_cleared', label: 'Sanción levantada' },
+  { value: 'break_restored_by_owner', label: 'Break devuelto' },
 ]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -306,6 +311,10 @@ const ACTION_ACCENT: Record<Action, string> = {
   fifo_moved_by_owner: 'text-nxtup-active',
   sanction_applied: 'text-orange-400',
   sanction_cleared: 'text-nxtup-active',
+  // Break devuelto: ámbar (mismo color que el badge de break/descanso
+  // en el resto de la UI) — coincide visualmente con el contexto del
+  // recurso que se está restaurando.
+  break_restored_by_owner: 'text-nxtup-break',
 }
 
 function describe(event: Event): string {
@@ -412,6 +421,19 @@ function describe(event: Event): string {
         return 'sanción levantada por el dueño'
       }
       return 'sanción limpiada en el reset nocturno'
+    }
+    case 'break_restored_by_owner': {
+      // Migración 049 — el dueño devolvió un break al barbero. Metadata
+      // del endpoint /break/restore: { previous_count, new_count, restored_by }.
+      // Mostramos el antes y el después para que se entienda claramente.
+      const meta = event.metadata as {
+        previous_count?: number
+        new_count?: number
+      }
+      if (meta.previous_count != null && meta.new_count != null) {
+        return `el dueño le devolvió un break (${meta.previous_count} → ${meta.new_count})`
+      }
+      return 'el dueño le devolvió un break'
     }
   }
 }

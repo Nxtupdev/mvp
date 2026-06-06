@@ -269,6 +269,37 @@ export default function ControlPanel({
     }
   }
 
+  // ── Action: devolver break (owner override) ──────────────────
+  // Caso: el barbero tocó BREAK en su PWA sin querer y perdió su
+  // primer break de 60 min (breaks_taken_today quedó en 1). El
+  // dueño pulsa este botón → contador decrementa en 1 → si vuelve
+  // a 0, el próximo break del día cuenta como el "primero" de nuevo.
+  async function restoreBreak(barberId: string) {
+    if (pendingBy[barberId]) return
+    setPendingBy(p => ({ ...p, [barberId]: true }))
+    setError('')
+    try {
+      const res = await fetch(`/api/barbers/${barberId}/break/restore`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const raw = String(data.error ?? '')
+        if (data.code === 'already_zero') {
+          setError('Ya no tiene breaks por devolver')
+        } else {
+          setError(raw || 'No se pudo devolver el break')
+        }
+      }
+      // Realtime refresca breaks_taken_today localmente.
+    } catch {
+      setError('Error de red')
+    } finally {
+      setPendingBy(p => ({ ...p, [barberId]: false }))
+    }
+  }
+
   // ── Action: move barber up/down in the FIFO ──────────────────
   // Swap del `available_since` con el vecino. Solo aplicable a
   // barberos en 'available' sin peaje (la RPC valida y devuelve
@@ -357,6 +388,7 @@ export default function ControlPanel({
               pending={pendingBy[barber.id] ?? false}
               onChange={s => changeState(barber.id, s)}
               onClearSanction={() => clearSanction(barber.id)}
+              onRestoreBreak={() => restoreBreak(barber.id)}
               onMoveFifo={dir => moveFifo(barber.id, dir)}
             />
           ))}
@@ -380,6 +412,7 @@ function BarberControlRow({
   pending,
   onChange,
   onClearSanction,
+  onRestoreBreak,
   onMoveFifo,
 }: {
   barber: Barber
@@ -389,6 +422,7 @@ function BarberControlRow({
   pending: boolean
   onChange: (next: Status) => void
   onClearSanction: () => void
+  onRestoreBreak: () => void
   onMoveFifo: (direction: 'up' | 'down') => void
 }) {
   // Sanción por llegada tarde (migración 047): si sanctioned_until
@@ -421,6 +455,14 @@ function BarberControlRow({
   // bloquea walk-ins, no overrides del dueño.
   const canMoveInFifo =
     barber.status === 'available' && barber.available_since !== null
+
+  // Devolver break: solo si el barbero NO está actualmente en break
+  // (no tiene sentido devolverlo mientras se lo está tomando) Y ya
+  // gastó al menos uno (breaks_taken_today > 0). Si está en break y
+  // el dueño cree que fue mistap, debe sacarlo primero a Available
+  // y luego devolverle el break.
+  const canRestoreBreak =
+    barber.status !== 'break' && (barber.breaks_taken_today ?? 0) > 0
 
   return (
     <li
@@ -488,12 +530,12 @@ function BarberControlRow({
       </div>
 
       {/* Owner override row — solo aparece cuando hay algo accionable.
-          Levantar sanción (cuando sanctioned_until está en el futuro)
-          y/o mover en FIFO (cuando está available). Vive abajo de los
-          4 botones de status para no competir visualmente con el flujo
-          principal. */}
-      {(isLate || canMoveInFifo) && (
-        <div className="flex items-center gap-2 pt-1">
+          Levantar sanción, devolver break (mistap), y/o mover en FIFO.
+          Vive abajo de los 4 botones de status para no competir
+          visualmente con el flujo principal. flex-wrap para que en
+          mobile las opciones se acomoden sin desbordar. */}
+      {(isLate || canRestoreBreak || canMoveInFifo) && (
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           {isLate && (
             <button
               type="button"
@@ -508,6 +550,23 @@ function BarberControlRow({
               "
             >
               Levantar sanción
+            </button>
+          )}
+          {canRestoreBreak && (
+            <button
+              type="button"
+              onClick={onRestoreBreak}
+              disabled={pending}
+              title={`Tomó ${barber.breaks_taken_today} break${(barber.breaks_taken_today ?? 0) > 1 ? 's' : ''} hoy. Devuelve uno.`}
+              className="
+                flex-1 rounded-lg border border-nxtup-break/40 bg-nxtup-break/10
+                px-3 py-2 text-nxtup-break text-xs font-bold tracking-wide
+                hover:bg-nxtup-break/20 hover:border-nxtup-break/60
+                transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+            >
+              Devolver break
             </button>
           )}
           {canMoveInFifo && (
