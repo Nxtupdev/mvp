@@ -211,7 +211,7 @@ export default async function StatsPage({
   const waitDelta = Math.round(waitCurrent - waitPrevious)
 
   const cutsByBarber = computeCutsByBarber(current, allBarbers)
-  const peak = computePeakHour(current)
+  const peak = computePeakHour(current, timeZone)
   const marketingRows = computeMarketingBreakdown(newClientsCurrent)
   const marketingDeltaPct =
     newClientsPrevious.length > 0
@@ -428,10 +428,26 @@ function computeCutsByBarber(entries: Entry[], barbers: Barber[]) {
   return rows
 }
 
-function computePeakHour(entries: Entry[]) {
+function computePeakHour(entries: Entry[], timeZone: string) {
+  // Bug fix: la versión anterior usaba new Date().getHours() que
+  // devuelve la hora del SERVIDOR (Vercel en UTC), no del shop. Eso
+  // hacía que un walk-in a las 5 PM en RD apareciera como 9 PM
+  // (UTC-4 → diferencia de 4 horas). El dueño percibía la hora pico
+  // 4 horas más tarde de lo real.
+  //
+  // Fix: extraer la hora en la zona horaria del shop usando Intl.
+  // Misma estrategia que shopDayStart() en /lib/shop-time.ts.
+  const hourFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hour: '2-digit',
+    hour12: false,
+  })
   const buckets = new Array(24).fill(0) as number[]
   for (const e of entries) {
-    const h = new Date(e.created_at).getHours()
+    const parts = hourFormatter.formatToParts(new Date(e.created_at))
+    const hourStr = parts.find(p => p.type === 'hour')?.value ?? '0'
+    // Intl a veces emite hour=24 para medianoche en algunos locales.
+    const h = Number(hourStr) === 24 ? 0 : Number(hourStr)
     if (h >= 0 && h < 24) buckets[h]++
   }
   let peakHour = 0
