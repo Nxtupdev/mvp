@@ -456,13 +456,15 @@ function BarberControlRow({
   const canMoveInFifo =
     barber.status === 'available' && barber.available_since !== null
 
-  // Devolver break: solo si el barbero NO está actualmente en break
-  // (no tiene sentido devolverlo mientras se lo está tomando) Y ya
-  // gastó al menos uno (breaks_taken_today > 0). Si está en break y
-  // el dueño cree que fue mistap, debe sacarlo primero a Available
-  // y luego devolverle el break.
-  const canRestoreBreak =
-    barber.status !== 'break' && (barber.breaks_taken_today ?? 0) > 0
+  // Devolver break: aparece siempre que el barbero ya gastó al menos
+  // un break hoy (breaks_taken_today > 0). Incluye el caso de que esté
+  // actualmente EN break — si el dueño identifica el mistap mientras
+  // todavía está descansando, devolverle el break ahora "des-cuenta"
+  // este break del día. El próximo break que pida volverá a contar
+  // como "primero" si el contador llega a 0. El barbero puede salir
+  // del break manualmente o esperar a que termine — el contador ya
+  // está corregido.
+  const canRestoreBreak = (barber.breaks_taken_today ?? 0) > 0
 
   return (
     <li
