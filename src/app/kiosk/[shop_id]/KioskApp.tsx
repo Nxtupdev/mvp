@@ -68,6 +68,20 @@ type CheckInResult = {
   etaMinutes: { min: number; max: number }
   isReturning: boolean
   displayName: string
+  /** Barbero al que se le asignó el cliente AL MOMENTO del check-in.
+   *  null si no había barbero libre y el cliente quedó esperando. */
+  assignedBarber: { id: string; name: string } | null
+  /** ID del entry que se acaba de crear — la SuccessScreen lo usa
+   *  para resaltar la fila de ESTE cliente en la lista de cola. */
+  myEntryId: string | null
+  /** Lista de clientes actualmente en cola (waiting + called) en el
+   *  orden en que serán llamados. Primer nombre solamente. */
+  queueList: Array<{
+    id: string
+    name: string
+    status: 'waiting' | 'called'
+    position: number
+  }>
 }
 
 type KioskAppProps = {
@@ -225,6 +239,14 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
         display_name: string
         queue_position: number
         eta_minutes: { min: number; max: number }
+        assigned_barber: { id: string; name: string } | null
+        entry: { id: string } | null
+        queue_list?: Array<{
+          id: string
+          name: string
+          status: 'waiting' | 'called'
+          position: number
+        }>
       }
 
       setCheckInResult({
@@ -232,6 +254,9 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
         etaMinutes: body.eta_minutes,
         isReturning: body.is_returning,
         displayName: body.display_name,
+        assignedBarber: body.assigned_barber ?? null,
+        myEntryId: body.entry?.id ?? null,
+        queueList: body.queue_list ?? [],
       })
       setStep('success')
     } catch (err) {
@@ -347,6 +372,9 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
                 isReturning={checkInResult.isReturning}
                 queuePosition={checkInResult.queuePosition}
                 etaMinutes={checkInResult.etaMinutes}
+                assignedBarber={checkInResult.assignedBarber}
+                queueList={checkInResult.queueList}
+                myEntryId={checkInResult.myEntryId}
                 onDone={handleDone}
               />
             </ScreenContainer>

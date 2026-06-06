@@ -171,6 +171,18 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.success.relax':
       'Relájate, te llamamos cuando esté tu barbero.',
     'kiosk.success.done': 'Listo',
+    // Mensaje grande cuando el cliente fue asignado a un barbero
+    // inmediatamente (no espera). El template usa {name} para el
+    // nombre del barbero (ej: "Ve con Carlos").
+    'kiosk.success.goWith': 'Ve con {name}',
+    'kiosk.success.goWithSub': 'Te está esperando ahora',
+    // Cabecera de la columna lateral con la lista de clientes en cola.
+    'kiosk.success.inQueueHeader': 'En cola',
+    // Etiqueta para resaltar la fila del cliente recién registrado.
+    'kiosk.success.you': 'Tú',
+    // Etiqueta de status cuando un cliente fue "llamado" (ya tiene
+    // barbero esperándolo). Se muestra a la derecha de su nombre.
+    'kiosk.success.statusCalled': 'Llamado',
   },
   en: {
     // ── Nav ────────────────────────────────────────────────────
@@ -318,6 +330,11 @@ const MESSAGES: Record<Locale, Messages> = {
     'kiosk.success.relax':
       'Relax nearby. We\'ll call you when your barber is ready.',
     'kiosk.success.done': 'Done',
+    'kiosk.success.goWith': 'Go to {name}',
+    'kiosk.success.goWithSub': 'They\'re waiting for you now',
+    'kiosk.success.inQueueHeader': 'In queue',
+    'kiosk.success.you': 'You',
+    'kiosk.success.statusCalled': 'Called',
   },
 }
 
