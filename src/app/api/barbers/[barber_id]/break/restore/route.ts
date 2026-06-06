@@ -58,11 +58,18 @@ export async function POST(
   // cookie para flujo dueño tradicional (RLS aplica como dueño).
   const supabase = isPanelTokenRequest ? createAdminClient() : await createClient()
 
-  // ── Owner / shop verification + leer breaks_taken_today ────
-  // Una sola query para minimizar round trips.
+  // ── Owner / shop verification + leer estado actual del barbero ──
+  // Una sola query para minimizar round trips. Necesitamos status y
+  // break_started_at además del contador, porque si el barbero está
+  // EN break ahora mismo, "devolver el break" también significa
+  // sacarlo del break y restaurarlo a la posición en la que estaba
+  // justo antes (available_since = break_started_at preserva la
+  // posición FIFO original del barbero).
   const { data: barber } = await supabase
     .from('barbers')
-    .select('id, shop_id, breaks_taken_today, shops:shop_id(owner_id)')
+    .select(
+      'id, shop_id, status, breaks_taken_today, break_started_at, shops:shop_id(owner_id)',
+    )
     .eq('id', barber_id)
     .single()
 
@@ -117,14 +124,53 @@ export async function POST(
 
   const newCount = currentCount - 1
 
-  // UPDATE el contador. No tocamos break_started_at, break_held_since,
-  // break_minutes_at_start porque esos están vacíos cuando el barbero
-  // NO está en break (que es cuando esto se invoca — si estuviera en
-  // break, el botón en el ControlPanel no tendría sentido y el dueño
-  // tendría que sacarlo primero del break).
+  // ── Construir el patch de UPDATE ─────────────────────────────
+  // Caso A: barbero NO está en break — solo decrementamos el contador.
+  //   Esto cubre "el dueño se enteró del mistap más tarde, cuando el
+  //   barbero ya estaba de vuelta en Available/Busy/Offline."
+  //
+  // Caso B: barbero ESTÁ en break — además del decrement, deshacemos
+  //   el break completo:
+  //     * status: 'available' (el barbero vuelve a estar en cola)
+  //     * available_since: break_started_at — clave para no penalizar
+  //       en FIFO. Le ponemos la marca de tiempo de cuando tapeó break,
+  //       que efectivamente lo regresa al lugar exacto donde estaba
+  //       justo antes del mistap.
+  //     * Limpiar todos los campos del break (started_at, held_since,
+  //       minutes_at_start, invalidating_barber_ids, invalidated).
+  //   El cron `nxtup-break-expired-offline` deja de aplicar para este
+  //   barbero porque break_started_at queda en null.
+  type BarberFields = {
+    status?: 'available'
+    available_since?: string | null
+    break_started_at?: null
+    break_held_since?: null
+    break_minutes_at_start?: null
+    break_invalidating_barber_ids?: string[]
+    break_invalidated?: false
+    breaks_taken_today: number
+  }
+  const wasOnBreak =
+    (barber as { status?: string }).status === 'break'
+  const breakStartedAt = (barber as { break_started_at?: string | null })
+    .break_started_at ?? null
+
+  const updatePatch: BarberFields = { breaks_taken_today: newCount }
+  if (wasOnBreak) {
+    updatePatch.status = 'available'
+    // Fallback a "ahora" si por alguna razón break_started_at está null
+    // (no debería pasar si status='break', pero defensivo).
+    updatePatch.available_since = breakStartedAt ?? new Date().toISOString()
+    updatePatch.break_started_at = null
+    updatePatch.break_held_since = null
+    updatePatch.break_minutes_at_start = null
+    updatePatch.break_invalidating_barber_ids = []
+    updatePatch.break_invalidated = false
+  }
+
   const { error: updateErr } = await supabase
     .from('barbers')
-    .update({ breaks_taken_today: newCount })
+    .update(updatePatch)
     .eq('id', barber_id)
 
   if (updateErr) {
@@ -143,12 +189,15 @@ export async function POST(
     shop_id: (barber as { shop_id: string }).shop_id,
     barber_id,
     action: 'break_restored_by_owner',
-    from_status: null,
-    to_status: null,
+    // from_status='break' si lo sacamos del break (caso B); null si solo
+    // decremento (caso A). to_status='available' simétricamente.
+    from_status: wasOnBreak ? 'break' : null,
+    to_status: wasOnBreak ? 'available' : null,
     metadata: {
       previous_count: currentCount,
       new_count: newCount,
       restored_by: restoredBy,
+      was_on_break: wasOnBreak,
     },
   })
 
@@ -159,9 +208,14 @@ export async function POST(
     return Response.json({
       restored: true,
       breaks_taken_today: newCount,
+      ended_break: wasOnBreak,
       log_warning: logErr.message,
     })
   }
 
-  return Response.json({ restored: true, breaks_taken_today: newCount })
+  return Response.json({
+    restored: true,
+    breaks_taken_today: newCount,
+    ended_break: wasOnBreak,
+  })
 }

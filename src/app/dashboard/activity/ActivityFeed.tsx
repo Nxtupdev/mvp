@@ -424,16 +424,23 @@ function describe(event: Event): string {
     }
     case 'break_restored_by_owner': {
       // Migración 049 — el dueño devolvió un break al barbero. Metadata
-      // del endpoint /break/restore: { previous_count, new_count, restored_by }.
-      // Mostramos el antes y el después para que se entienda claramente.
+      // del endpoint /break/restore: { previous_count, new_count,
+      // restored_by, was_on_break }. Si was_on_break=true, además del
+      // decrement deshicimos el break completo (lo regresamos a Available
+      // con su posición FIFO original). Si false, solo bajamos el contador.
       const meta = event.metadata as {
         previous_count?: number
         new_count?: number
+        was_on_break?: boolean
       }
-      if (meta.previous_count != null && meta.new_count != null) {
-        return `el dueño le devolvió un break (${meta.previous_count} → ${meta.new_count})`
+      const counter =
+        meta.previous_count != null && meta.new_count != null
+          ? ` (${meta.previous_count} → ${meta.new_count})`
+          : ''
+      if (meta.was_on_break) {
+        return `el dueño le deshizo el break en curso${counter}`
       }
-      return 'el dueño le devolvió un break'
+      return `el dueño le devolvió un break${counter}`
     }
   }
 }
