@@ -13,6 +13,10 @@ type Entry = {
   created_at: string
   called_at: string | null
   completed_at: string | null
+  // FK al cliente del kiosk. Necesario para split nuevo/recurrente en
+  // el card de Walk-ins: comparamos entry.created_at vs el first_visit_at
+  // del cliente para saber si esta entry FUE el primer visit del cliente.
+  client_id: string | null
 }
 
 type Barber = {
@@ -374,7 +378,7 @@ export default async function StatsPage({
   // (start del día siguiente a `to`). Cuando es Date agregamos `.lt()`.
   let currentQuery = supabase
     .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at')
+    .select('id, barber_id, status, created_at, called_at, completed_at, client_id')
     .eq('shop_id', shop.id)
     .gte('created_at', currentStart.toISOString())
   if (currentEnd) {
@@ -383,7 +387,7 @@ export default async function StatsPage({
 
   const previousQuery = supabase
     .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at')
+    .select('id, barber_id, status, created_at, called_at, completed_at, client_id')
     .eq('shop_id', shop.id)
     .gte('created_at', previousStart.toISOString())
     .lt('created_at', previousEnd.toISOString())
@@ -458,6 +462,82 @@ export default async function StatsPage({
     waiting: current.filter(e => e.status === 'waiting' || e.status === 'called').length,
     cancelled: current.filter(e => e.status === 'cancelled').length,
   }
+
+  // ── Split nuevo/recurrente ──────────────────────────────────────
+  // Cargamos los clients referenciados por las entries del período
+  // (actual + previo) en UNA query para no hacer N+1. Después
+  // clasificamos cada entry comparando su created_at con el
+  // first_visit_at del cliente: si están dentro de un margen de 60s,
+  // esta entry FUE el primer visit del cliente (= "nuevo"). Si no,
+  // el cliente ya existía antes y este es un visit recurrente.
+  //
+  // El margen de 60s captura la latencia entre el INSERT al clients
+  // y el INSERT al queue_entries que hace /api/kiosk/checkin: son
+  // dos round trips secuenciales, normalmente <100ms aparte.
+  const allClientIds = new Set<string>()
+  for (const e of current) {
+    if (e.client_id) allClientIds.add(e.client_id)
+  }
+  for (const e of previous) {
+    if (e.client_id) allClientIds.add(e.client_id)
+  }
+
+  const clientFirstVisitMap = new Map<string, string>()
+  if (allClientIds.size > 0) {
+    const { data: clientsLookup } = await supabase
+      .from('clients')
+      .select('id, first_visit_at')
+      .in('id', Array.from(allClientIds))
+    for (const c of (clientsLookup ?? []) as Array<{
+      id: string
+      first_visit_at: string | null
+    }>) {
+      if (c.first_visit_at) clientFirstVisitMap.set(c.id, c.first_visit_at)
+    }
+  }
+
+  const FIRST_VISIT_THRESHOLD_MS = 60_000
+
+  function classifyEntries(entries: Entry[]): { newOnes: number; returning: number } {
+    let newOnes = 0
+    let returning = 0
+    for (const e of entries) {
+      const firstVisit = e.client_id
+        ? clientFirstVisitMap.get(e.client_id)
+        : null
+      if (!firstVisit) {
+        // Sin cliente linkeado o cliente huérfano → contamos como
+        // recurrente (más conservador — preferimos sub-reportar nuevos
+        // que inflarlos por entries sin data).
+        returning++
+        continue
+      }
+      const diff = Math.abs(
+        new Date(e.created_at).getTime() - new Date(firstVisit).getTime(),
+      )
+      if (diff < FIRST_VISIT_THRESHOLD_MS) {
+        newOnes++
+      } else {
+        returning++
+      }
+    }
+    return { newOnes, returning }
+  }
+
+  const walkInsCurrentSplit = classifyEntries(current)
+  const walkInsPreviousSplit = classifyEntries(previous)
+
+  // Delta % de recurrentes (la métrica que el dueño usa para medir
+  // retención — clientes que vuelven). El delta de nuevos se queda
+  // en el card de "¿Cómo nos conocieron?" que ya cubre esa narrativa.
+  const returningDeltaPct =
+    walkInsPreviousSplit.returning > 0
+      ? Math.round(
+          ((walkInsCurrentSplit.returning - walkInsPreviousSplit.returning) /
+            walkInsPreviousSplit.returning) *
+            100,
+        )
+      : null
   const marketingRows = computeMarketingBreakdown(newClientsCurrent)
   const marketingDeltaPct =
     newClientsPrevious.length > 0
@@ -532,6 +612,37 @@ export default async function StatsPage({
                 .join(' · ')}
             </p>
           )}
+          {/* Split nuevo/recurrente — segundo nivel de breakdown que
+              le dice al dueño cuántos de esos walk-ins son retención
+              vs. clientes brand new. Solo se renderiza si hay datos
+              para mostrar (al menos un recurrente o un nuevo). */}
+          {walkInsCurrent > 0 &&
+            (walkInsCurrentSplit.returning > 0 || walkInsCurrentSplit.newOnes > 0) && (
+              <p className="text-nxtup-muted text-xs mb-2 tabular-nums">
+                {[
+                  walkInsCurrentSplit.returning > 0 &&
+                    `${walkInsCurrentSplit.returning} ${walkInsCurrentSplit.returning === 1 ? 'recurrente' : 'recurrentes'}`,
+                  walkInsCurrentSplit.newOnes > 0 &&
+                    `${walkInsCurrentSplit.newOnes} ${walkInsCurrentSplit.newOnes === 1 ? 'nuevo' : 'nuevos'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {returningDeltaPct !== null && walkInsCurrentSplit.returning > 0 && (
+                  <span
+                    className={`ml-2 ${
+                      returningDeltaPct > 0
+                        ? 'text-nxtup-active'
+                        : returningDeltaPct < 0
+                          ? 'text-nxtup-busy'
+                          : 'text-nxtup-muted'
+                    }`}
+                  >
+                    ({returningDeltaPct > 0 ? '+' : ''}
+                    {returningDeltaPct}% recurrentes vs {meta.comparisonLabel})
+                  </span>
+                )}
+              </p>
+            )}
           <Delta
             kind={
               walkInsDeltaPct === null
