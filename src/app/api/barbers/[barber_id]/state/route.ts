@@ -401,6 +401,38 @@ export async function PATCH(
     const isSanctioned =
       sanctionedUntil !== null && new Date(sanctionedUntil) > new Date(now)
 
+    // ── Sancionados: forzar al fondo de la cola ─────────────────
+    // Mientras la sanción esté activa, el available_since del barbero
+    // debe ser SIEMPRE sanctioned_until — eso lo manda al fondo de la
+    // fila durante todo el periodo de sanción.
+    //
+    // Sin este override, había bugs:
+    //   * Sancionado que volvía de break con break_held_since antiguo
+    //     quedaba en su posición original (muy arriba en la fila).
+    //   * Sancionado que se iba offline y volvía mid-sanción quedaba
+    //     con available_since = now → al fondo de la cola actual,
+    //     pero arriba de cualquiera que volviera después de él.
+    //   * Sancionado que terminaba un cliente (busy → available)
+    //     quedaba con available_since = now, mismo problema.
+    //
+    // Con el override, los sancionados se ordenan ENTRE SÍ por su
+    // sanctioned_until ASC — el que termina antes queda más arriba
+    // en la sección sancionada. Cuando expira la sanción, su
+    // available_since es justo ese instante y entra "limpio" a la
+    // cola activa según el orden cronológico vs. los demás.
+    //
+    // Nota: si abajo encontramos un cliente "requested" para asignarle,
+    // available_since se limpia a null de todas formas (línea 444), lo
+    // cual hace este UPDATE redundante en ese caso. Pero hacerlo aquí
+    // primero garantiza el invariante del FIFO incluso si la asignación
+    // de cliente abajo falla por cualquier razón.
+    if (isSanctioned && sanctionedUntil) {
+      await supabase
+        .from('barbers')
+        .update({ available_since: sanctionedUntil })
+        .eq('id', barber_id)
+    }
+
     // Cliente específicamente pedido — siempre se busca, incluso si sancionado.
     const { data: requested } = await supabase
       .from('queue_entries')
