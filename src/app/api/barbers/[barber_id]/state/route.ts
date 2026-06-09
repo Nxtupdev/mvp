@@ -547,23 +547,39 @@ export async function PATCH(
     const breakMinutes =
       nextCount <= 1 ? shop.first_break_minutes : shop.next_break_minutes
 
+    // ── Anti-fraude: protección limitada a primeros 2 breaks ────────
+    // Reportado por shop nuevo de prueba: barberos tapeaban BREAK
+    // justo antes de un walk-in difícil para "saltárselo" y conservar
+    // la posición. La solución: aunque el shop esté en modo
+    // 'guaranteed', SOLO los primeros 2 breaks reciben esa protección.
+    // El 3er break en adelante se ejecuta como si el shop fuera
+    // 'not_guaranteed' — si un barbero abajo de él atiende un walk-in
+    // durante su break, pierde la posición.
+    //
+    // Shops en 'not_guaranteed' siguen iguales: sin protección desde
+    // el break #1 (su política ya era más estricta).
+    const effectiveBreakMode: 'guaranteed' | 'not_guaranteed' =
+      shop.break_mode === 'guaranteed' && nextCount <= 2
+        ? 'guaranteed'
+        : 'not_guaranteed'
+
     // Park their available_since aside in break_held_since whenever
-    // they had a position. Both 'guaranteed' and 'not_guaranteed'
-    // modes give reservations on entry; the difference is only in
-    // whether the reservation can be invalidated by below-barbers.
+    // they had a position. Ambos modos guardan la reserva al entrar;
+    // la diferencia es solo si el snapshot de "abajo" se llena (y por
+    // lo tanto si la reserva puede invalidarse durante el descanso).
     const heldSince =
       fromStatus === 'available' && barber.available_since
         ? barber.available_since
         : null
 
-    // For 'not_guaranteed' mode: snapshot which barbers were below
-    // this one in the live FIFO at this exact moment. We need to do
-    // this BEFORE the status update because once we flip to 'break'
-    // the barber stops appearing in the FIFO and the snapshot would
-    // be ambiguous. Below = any active barber whose FIFO position is
-    // greater than ours.
+    // For 'not_guaranteed' mode (real o efectivo): snapshot which
+    // barbers were below this one in the live FIFO at this exact moment.
+    // We need to do this BEFORE the status update because once we flip
+    // to 'break' the barber stops appearing in the FIFO and the snapshot
+    // would be ambiguous. Below = any active barber whose FIFO position
+    // is greater than ours.
     let invalidatingIds: string[] = []
-    if (shop.break_mode === 'not_guaranteed' && heldSince) {
+    if (effectiveBreakMode === 'not_guaranteed' && heldSince) {
       const { data: peers } = await supabase
         .from('barbers')
         .select('id, status, available_since')
@@ -606,7 +622,12 @@ export async function PATCH(
         break_number: nextCount,
         break_minutes: breakMinutes,
         held_position_since: heldSince,
+        // break_mode = setting del shop (no cambia entre breaks).
+        // effective_break_mode = lo que REALMENTE aplicó a este break.
+        // Sirve para que el audit trail muestre cuándo el cap de 2
+        // breaks protegidos pateó a 'not_guaranteed'.
         break_mode: shop.break_mode,
+        effective_break_mode: effectiveBreakMode,
         invalidating_barbers_count: invalidatingIds.length,
       },
     })

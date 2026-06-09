@@ -538,6 +538,30 @@ export default function BarberDashboard({
           por accidente mid-shift y perdían su turno al volver. Ahora
           tienen que scrollear intencionalmente al fondo para llegar
           a él — no hay excusa de tap accidental. */}
+
+      {/* ── Aviso pre-break: próximo break #3+ pierde protección ───────
+          Solo se renderiza cuando el barbero está en AVAILABLE (estado
+          desde donde tendría sentido tapear break a continuación) Y el
+          shop está en modo 'guaranteed' Y ya gastó sus 2 breaks
+          protegidos. Anti-fraude para el patrón del shop nuevo: barberos
+          que tapeaban break para "saltarse" un walk-in difícil.
+          breaks_taken_today aún no se incrementó (no estamos en break),
+          así que >= 2 significa "el próximo será #3 = sin protección". */}
+      {barber.status === 'available' &&
+        shop.break_mode === 'guaranteed' &&
+        (barber.breaks_taken_today ?? 0) >= 2 && (
+          <div className="rounded-xl border border-nxtup-break/40 bg-nxtup-break/10 px-4 py-3 mb-3">
+            <p className="text-nxtup-break text-xs font-bold uppercase tracking-wider mb-1">
+              ⚠ Tu próximo break ya no estará protegido
+            </p>
+            <p className="text-nxtup-muted text-xs leading-relaxed">
+              Tomaste {barber.breaks_taken_today} breaks hoy. El siguiente
+              break (#{(barber.breaks_taken_today ?? 0) + 1}) pierde tu
+              posición si alguien debajo de ti atiende un walk-in.
+            </p>
+          </div>
+        )}
+
       <section className="grid grid-cols-3 gap-2 mb-2">
         <ActionButton
           label="AVAILABLE"
@@ -721,35 +745,46 @@ function BreakStatus({
   const sign = remaining < 0 ? '+' : ''
   const formatted = `${sign}${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 
+  // ── Modo efectivo de este break (anti-fraude) ──────────────────
+  // Replica la lógica del state route: shop='guaranteed' protege
+  // solo los primeros 2 breaks; el 3er break en adelante se comporta
+  // como 'not_guaranteed' (puede perder posición). Shops en
+  // 'not_guaranteed' real siempre operan sin protección.
+  // breaks_taken_today YA fue incrementado al entrar al break, así
+  // que <= 2 = este es break #1 o #2 → protegido.
+  const breakCount = barber.breaks_taken_today ?? 0
+  const effectiveBreakMode: 'guaranteed' | 'not_guaranteed' =
+    shop.break_mode === 'guaranteed' && breakCount <= 2
+      ? 'guaranteed'
+      : 'not_guaranteed'
+
   // ── Reservation status, surfaced to the barber in real time ────
   //
-  // Three possible states while on break:
-  //   1. Reservation forfeited (mode='not_guaranteed' AND someone
-  //      below already completed a walk-in) — red, unambiguous.
-  //   2. Within break+grace AND not forfeited — green "Vuelve a #X"
-  //      (with an extra warning hint for 'not_guaranteed' mode so
-  //      the barber knows it could still flip to forfeited).
-  //   3. Past grace OR no held position — quiet, no return badge.
+  // Tres estados posibles durante el break:
+  //   1. Reserva perdida (effectiveMode='not_guaranteed' AND alguien
+  //      abajo ya completó un walk-in) — rojo, sin ambigüedad.
+  //   2. Dentro de tiempo + no perdida — verde "Vuelve a #X"
+  //      (con hint de advertencia para modo 'not_guaranteed' efectivo).
+  //   3. Pasado grace OR sin posición retenida — silencioso.
   const withinTime =
     heldPosition !== undefined &&
     remaining > -shop.break_position_grace_minutes * 60
 
   const forfeited =
-    shop.break_mode === 'not_guaranteed' && barber.break_invalidated === true
+    effectiveBreakMode === 'not_guaranteed' && barber.break_invalidated === true
 
   return (
     <p className="text-nxtup-break text-sm font-medium tabular-nums">
       Break · {formatted}
       {forfeited ? (
-        // Past-tense, in red. "You already lost it" — no ambiguity.
+        // Pasado, en rojo. "Ya lo perdiste" — sin ambigüedad.
         <span className="text-nxtup-busy ml-2 font-bold">Perdiste el turno</span>
       ) : withinTime ? (
         <span className="text-nxtup-active ml-2">
           Vuelve a #{heldPosition}
-          {shop.break_mode === 'not_guaranteed' && (
-            // Subtle reminder of the "use it or lose it" rule. Only
-            // shown when the rule is active so guaranteed-mode shops
-            // stay clean.
+          {effectiveBreakMode === 'not_guaranteed' && (
+            // Hint salient cuando NO está protegido — incluye el caso
+            // de break #3+ aunque el shop sea 'guaranteed'.
             <span className="text-nxtup-muted text-xs ml-1 font-normal">
               (si nadie te brinca)
             </span>
