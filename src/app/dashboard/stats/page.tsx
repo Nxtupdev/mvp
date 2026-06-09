@@ -440,10 +440,6 @@ export default async function StatsPage({
   // ── Cards ─────────────────────────────────────────────────────
   const walkInsCurrent = current.length
   const walkInsPrevious = previous.length
-  const walkInsDeltaPct =
-    walkInsPrevious > 0
-      ? Math.round(((walkInsCurrent - walkInsPrevious) / walkInsPrevious) * 100)
-      : null
 
   const waitCurrent = avgWaitMinutes(current)
   const waitPrevious = avgWaitMinutes(previous)
@@ -527,26 +523,7 @@ export default async function StatsPage({
   const walkInsCurrentSplit = classifyEntries(current)
   const walkInsPreviousSplit = classifyEntries(previous)
 
-  // Delta % de recurrentes (la métrica que el dueño usa para medir
-  // retención — clientes que vuelven). El delta de nuevos se queda
-  // en el card de "¿Cómo nos conocieron?" que ya cubre esa narrativa.
-  const returningDeltaPct =
-    walkInsPreviousSplit.returning > 0
-      ? Math.round(
-          ((walkInsCurrentSplit.returning - walkInsPreviousSplit.returning) /
-            walkInsPreviousSplit.returning) *
-            100,
-        )
-      : null
   const marketingRows = computeMarketingBreakdown(newClientsCurrent)
-  const marketingDeltaPct =
-    newClientsPrevious.length > 0
-      ? Math.round(
-          ((newClientsCurrent.length - newClientsPrevious.length) /
-            newClientsPrevious.length) *
-            100,
-        )
-      : null
 
   const printDateRange = formatPrintDateRange(currentStart, currentEnd, timeZone)
   const printTimestamp = formatPrintTimestamp(now, timeZone)
@@ -627,38 +604,36 @@ export default async function StatsPage({
                 ]
                   .filter(Boolean)
                   .join(' · ')}
-                {returningDeltaPct !== null && walkInsCurrentSplit.returning > 0 && (
-                  <span
-                    className={`ml-2 ${
-                      returningDeltaPct > 0
-                        ? 'text-nxtup-active'
-                        : returningDeltaPct < 0
-                          ? 'text-nxtup-busy'
-                          : 'text-nxtup-muted'
-                    }`}
-                  >
-                    ({returningDeltaPct > 0 ? '+' : ''}
-                    {returningDeltaPct}% recurrentes vs {meta.comparisonLabel})
-                  </span>
-                )}
+                {walkInsCurrentSplit.returning > 0 &&
+                  walkInsPreviousSplit.returning > 0 &&
+                  (() => {
+                    const d = formatCountDelta(
+                      walkInsCurrentSplit.returning,
+                      walkInsPreviousSplit.returning,
+                      meta.comparisonLabel,
+                      { unitName: 'recurrentes' },
+                    )
+                    // Saltarse el caso "Igual que ..." en inline — el
+                    // dueño no necesita ver "Igual" pegado a un breakdown
+                    // que ya es informativo. Solo mostramos cuando hay
+                    // movimiento real (up o down).
+                    if (d.kind === 'neutral') return null
+                    const colorClass =
+                      d.kind === 'up' ? 'text-nxtup-active' : 'text-nxtup-busy'
+                    return (
+                      <span className={`ml-2 ${colorClass}`}>({d.label})</span>
+                    )
+                  })()}
               </p>
             )}
-          <Delta
-            kind={
-              walkInsDeltaPct === null
-                ? 'neutral'
-                : walkInsDeltaPct >= 0
-                  ? 'up'
-                  : 'down'
-            }
-            label={
-              walkInsDeltaPct === null
-                ? `Sin datos de ${meta.comparisonLabel}`
-                : walkInsDeltaPct === 0
-                  ? `Igual que ${meta.comparisonLabel}`
-                  : `${walkInsDeltaPct > 0 ? '+' : ''}${walkInsDeltaPct}% vs ${meta.comparisonLabel} (${walkInsPrevious})`
-            }
-          />
+          {(() => {
+            const d = formatCountDelta(
+              walkInsCurrent,
+              walkInsPrevious,
+              meta.comparisonLabel,
+            )
+            return <Delta kind={d.kind} label={d.label} />
+          })()}
         </Card>
 
         <Card title="Tiempo promedio de espera">
@@ -753,22 +728,16 @@ export default async function StatsPage({
               ))}
             </ul>
           )}
-          {marketingDeltaPct !== null && (
-            <Delta
-              kind={
-                marketingDeltaPct === 0
-                  ? 'neutral'
-                  : marketingDeltaPct > 0
-                    ? 'up'
-                    : 'down'
-              }
-              label={
-                marketingDeltaPct === 0
-                  ? `Igual que ${meta.comparisonLabel}`
-                  : `${marketingDeltaPct > 0 ? '+' : ''}${marketingDeltaPct}% vs ${meta.comparisonLabel} (${newClientsPrevious.length} nuevos)`
-              }
-            />
-          )}
+          {newClientsPrevious.length > 0 &&
+            (() => {
+              const d = formatCountDelta(
+                newClientsCurrent.length,
+                newClientsPrevious.length,
+                meta.comparisonLabel,
+                { unitName: 'nuevos' },
+              )
+              return <Delta kind={d.kind} label={d.label} />
+            })()}
         </Card>
       </div>
 
@@ -788,6 +757,64 @@ export default async function StatsPage({
 // ──────────────────────────────────────────────────────────────
 // Computations
 // ──────────────────────────────────────────────────────────────
+
+// Si el período previo tuvo menos que este umbral de eventos, mostrar
+// el delta como ABSOLUTO (+N) en vez de PORCENTAJE (+X%). Razón: un
+// cambio de 1 a 6 sale como "+500%" que suena dramático pero en
+// realidad son números chiquitos. Frank pidió que cambie a algo más
+// leíble cuando la base es pequeña.
+const SMALL_BASE_THRESHOLD = 3
+
+type DeltaResult = { kind: 'up' | 'down' | 'neutral'; label: string }
+
+/**
+ * Calcula la etiqueta de delta para un par (actual, previo) de números
+ * enteros. Decide entre mostrar % o absoluto según el tamaño de la base
+ * para evitar porcentajes engañosos cuando el período previo es chiquito.
+ *
+ * Casos:
+ *   * previous = 0 → "Sin datos de {comparisonLabel}" (no hay base)
+ *   * delta = 0    → "Igual que {comparisonLabel}"
+ *   * previous < SMALL_BASE_THRESHOLD → ABSOLUTO ("+5 vs ..., era 1")
+ *   * Else → PORCENTAJE ("+45% vs ..., 11")
+ *
+ * `unitName` se pone entre el delta y el "vs" para textos más naturales:
+ *   formatCountDelta(6, 1, '7 días previos', { unitName: 'recurrentes' })
+ *   → "+5 recurrentes vs 7 días previos (era 1)"
+ *   formatCountDelta(6, 11, '7 días previos', { unitName: 'recurrentes' })
+ *   → "-45% recurrentes vs 7 días previos (11)"
+ */
+function formatCountDelta(
+  current: number,
+  previous: number,
+  comparisonLabel: string,
+  opts: { unitName?: string } = {},
+): DeltaResult {
+  if (previous === 0) {
+    return { kind: 'neutral', label: `Sin datos de ${comparisonLabel}` }
+  }
+  const delta = current - previous
+  if (delta === 0) {
+    return { kind: 'neutral', label: `Igual que ${comparisonLabel}` }
+  }
+
+  const unit = opts.unitName ? ` ${opts.unitName}` : ''
+  const sign = delta > 0 ? '+' : ''
+  const kind: 'up' | 'down' = delta > 0 ? 'up' : 'down'
+
+  if (previous < SMALL_BASE_THRESHOLD) {
+    return {
+      kind,
+      label: `${sign}${delta}${unit} vs ${comparisonLabel} (era ${previous})`,
+    }
+  }
+
+  const pct = Math.round((delta / previous) * 100)
+  return {
+    kind,
+    label: `${sign}${pct}%${unit} vs ${comparisonLabel} (${previous})`,
+  }
+}
 
 function avgWaitMinutes(entries: Entry[]): number {
   const waits = entries
