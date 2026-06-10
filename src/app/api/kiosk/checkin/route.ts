@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * Kiosk check-in v2 — combined upsert-client + create-queue-entry.
@@ -112,7 +112,15 @@ export async function POST(request: NextRequest) {
       ? preferred_language
       : 'es'
 
-  const supabase = await createClient()
+  // Migración 050 (seguridad): admin client en vez del anónimo. La
+  // tabla `clients` y los UPDATE/INSERT de `queue_entries` dejaron de
+  // ser públicos en RLS — el kiosko anónimo ya no tiene policy abierta.
+  // Todas las validaciones (shop existe, is_open, cupo, rate limit
+  // 3/día, campos requeridos) viven en ESTE código más abajo, así que
+  // mover a admin no afecta ningún guarda: la seguridad sigue intacta
+  // en la capa de aplicación, solo dejó de depender de policies
+  // públicas que cualquiera podía explotar por el REST API directo.
+  const supabase = createAdminClient()
 
   // ── Shop existence + open/cap gates ─────────────────────────
   const { data: shop } = await supabase

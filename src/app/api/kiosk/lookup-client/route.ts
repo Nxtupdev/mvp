@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * Kiosk client lookup — phase 1 of the new check-in flow.
@@ -66,7 +66,15 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = await createClient()
+  // Migración 050 (seguridad): usamos el admin client (service role)
+  // en vez del cliente anónimo. Razón: la tabla `clients` dejó de
+  // tener lectura pública vía RLS (antes cualquiera con la anon key
+  // podía bajar todos los teléfonos por el REST API de Supabase).
+  // Ahora el ÚNICO acceso a `clients` es por este endpoint server-side,
+  // que valida shop_id y formato de teléfono antes de leer. El admin
+  // client bypassa RLS de forma controlada — la seguridad vive en
+  // este código, no en una policy pública.
+  const supabase = createAdminClient()
 
   // Cheap existence check so a malicious caller can't enumerate
   // phone numbers against arbitrary shop_ids — gets a clear 404
