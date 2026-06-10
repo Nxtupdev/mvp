@@ -295,14 +295,21 @@ export async function POST(request: NextRequest) {
   await supabase.rpc('track_client_visit', { p_client_id: clientId })
 
   // ── Immediate match: assign to next free on-time barber ─────
-  // Same logic as the legacy /api/checkin. Salta barberos sancionados
-  // (sanctioned_until > now) — siguen visibles en FIFO pero no reciben
-  // walk-ins hasta que termine la sanción (migración 047).
+  // Same logic as the legacy /api/checkin. Por defecto salta barberos
+  // sancionados (sanctioned_until > now) — siguen visibles en FIFO pero
+  // no reciben walk-ins durante la sanción (migración 047).
+  //
+  // EXCEPCIÓN (refinamiento operativo): si el único disponible es un
+  // sancionado, igual le asignamos el walk-in. La sanción es disciplina
+  // contra el barbero, no contra el cliente — no tiene sentido hacer
+  // esperar al cliente cuando hay alguien literalmente sentado libre.
+  // La sanción NO se levanta, solo deja de penalizar al cliente en
+  // este caso específico.
   let assignedBarber: { id: string; name: string } | null = null
   let finalEntry = entry
 
   const matchNowIso = new Date().toISOString()
-  const { data: nextBarber } = await supabase
+  let { data: nextBarber } = await supabase
     .from('barbers')
     .select('id, name, available_since')
     .eq('shop_id', shop_id)
@@ -312,6 +319,23 @@ export async function POST(request: NextRequest) {
     .order('available_since', { ascending: true })
     .limit(1)
     .maybeSingle()
+
+  // Fallback a sancionado si nadie no-sancionado está disponible.
+  // Solo afecta el caso "todos los no-sancionados están busy/break/offline
+  // y solo queda el sancionado en available" — el resto del tiempo el
+  // sancionado sigue saltado por la regla principal.
+  if (!nextBarber) {
+    const fallback = await supabase
+      .from('barbers')
+      .select('id, name, available_since')
+      .eq('shop_id', shop_id)
+      .eq('status', 'available')
+      .not('available_since', 'is', null)
+      .order('available_since', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    nextBarber = fallback.data
+  }
 
   if (nextBarber) {
     const now = new Date().toISOString()

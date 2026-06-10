@@ -446,18 +446,45 @@ export async function PATCH(
 
     let next = requested
 
-    // Walk-in unassigned — SOLO si NO está sancionado.
-    if (!next && !isSanctioned) {
-      const { data: unassigned } = await supabase
-        .from('queue_entries')
-        .select('id, client_name, position')
-        .eq('shop_id', barber.shop_id)
-        .is('barber_id', null)
-        .eq('status', 'waiting')
-        .order('position', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-      next = unassigned
+    // Walk-in unassigned — la regla por defecto es: solo si NO está
+    // sancionado. Pero hay una excepción operativa (paralela a la
+    // misma regla en /api/kiosk/checkin): si este barbero está
+    // sancionado PERO no hay ningún otro barbero no-sancionado en
+    // status='available' EN ESTE MOMENTO, le damos el walk-in al
+    // sancionado para no penalizar al cliente. El sancionado sigue
+    // sancionado al terminar el corte — esta excepción solo aplica
+    // a esta asignación específica.
+    if (!next) {
+      let canTakeUnassigned = !isSanctioned
+
+      if (isSanctioned) {
+        // Buscar otro barbero no-sancionado en available distinto de
+        // este. Si encontramos al menos uno, el walk-in debe esperar
+        // por ellos (el sancionado sigue saltado). Si no hay
+        // ninguno, este sancionado lo agarra.
+        const { count: otherActiveCount } = await supabase
+          .from('barbers')
+          .select('id', { count: 'exact', head: true })
+          .eq('shop_id', barber.shop_id)
+          .eq('status', 'available')
+          .not('available_since', 'is', null)
+          .neq('id', barber_id)
+          .or(`sanctioned_until.is.null,sanctioned_until.lte.${now}`)
+        canTakeUnassigned = !otherActiveCount || otherActiveCount === 0
+      }
+
+      if (canTakeUnassigned) {
+        const { data: unassigned } = await supabase
+          .from('queue_entries')
+          .select('id, client_name, position')
+          .eq('shop_id', barber.shop_id)
+          .is('barber_id', null)
+          .eq('status', 'waiting')
+          .order('position', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        next = unassigned
+      }
     }
 
     if (next) {
