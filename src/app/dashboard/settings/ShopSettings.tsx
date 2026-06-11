@@ -30,6 +30,9 @@ type Shop = {
   // sin mensaje (el cintillo no se muestra). El dueño escribe promos
   // o avisos que rotan en la parte de abajo de la pantalla del shop.
   display_message: string | null
+  // Migración 052 — idioma del TV. 'es' | 'en'. El dueño lo elige; el
+  // TV es público y no debe depender de la cookie del dispositivo.
+  display_language: 'es' | 'en'
   is_open: boolean
   logo_url: string | null
 }
@@ -107,6 +110,10 @@ export default function ShopSettings({
   const [displayMessage, setDisplayMessage] = useState<string>(
     initial.display_message ?? '',
   )
+  // Migración 052 — idioma del TV (no de la cookie del dispositivo).
+  const [displayLanguage, setDisplayLanguage] = useState<'es' | 'en'>(
+    initial.display_language ?? 'es',
+  )
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
@@ -126,7 +133,8 @@ export default function ShopSettings({
     timezone !== shop.timezone ||
     lateThresholdForDb !== shop.late_arrival_threshold_time ||
     lateHours !== shop.late_arrival_sanction_hours ||
-    displayMessageForDb !== shop.display_message
+    displayMessageForDb !== shop.display_message ||
+    displayLanguage !== shop.display_language
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -170,6 +178,11 @@ export default function ShopSettings({
         from: shop.display_message,
         to: displayMessageForDb,
       }
+    if (displayLanguage !== shop.display_language)
+      changes.display_language = {
+        from: shop.display_language,
+        to: displayLanguage,
+      }
 
     const { data, error: updateErr } = await supabase
       .from('shops')
@@ -184,10 +197,11 @@ export default function ShopSettings({
         late_arrival_threshold_time: lateThresholdForDb,
         late_arrival_sanction_hours: lateHours,
         display_message: displayMessageForDb,
+        display_language: displayLanguage,
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, display_language, is_open, logo_url',
       )
       .single()
 
@@ -243,6 +257,39 @@ export default function ShopSettings({
           <p className="text-nxtup-dim text-xs mt-1 text-right tabular-nums">
             {displayMessage.length}/{DISPLAY_MESSAGE_MAX}
           </p>
+        </Field>
+
+        {/* Migración 052 — idioma del TV. El TV es público (nadie toca un
+            toggle ahí), así que el dueño elige el idioma desde aquí. */}
+        <Field
+          label="Idioma de la pantalla (TV)"
+          hint="En qué idioma se ven los títulos de la TV del shop (Disponibles/Available, etc.)."
+        >
+          <fieldset className="flex gap-2">
+            {([
+              { value: 'es', label: 'Español' },
+              { value: 'en', label: 'English' },
+            ] as const).map(opt => (
+              <label
+                key={opt.value}
+                className={`flex-1 flex items-center justify-center gap-2 border rounded-lg px-3 py-3 cursor-pointer transition-colors ${
+                  displayLanguage === opt.value
+                    ? 'border-white bg-nxtup-line/50 text-white'
+                    : 'border-nxtup-line hover:border-nxtup-dim text-nxtup-muted'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="display-language"
+                  value={opt.value}
+                  checked={displayLanguage === opt.value}
+                  onChange={() => setDisplayLanguage(opt.value)}
+                  className="sr-only"
+                />
+                <span className="font-bold">{opt.label}</span>
+              </label>
+            ))}
+          </fieldset>
         </Field>
 
         <Field label="Max queue size" hint="Cupos disponibles a la vez">
@@ -608,7 +655,7 @@ function LogoSection({
       .update({ logo_url: cacheBusted })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, display_language, is_open, logo_url',
       )
       .single()
 
@@ -639,7 +686,7 @@ function LogoSection({
       .update({ logo_url: null })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, display_language, is_open, logo_url',
       )
       .single()
 

@@ -43,6 +43,8 @@ export default async function SettingsPage() {
     late_arrival_sanction_hours?: number | null
     // Migración 051 — mensaje del cintillo del TV.
     display_message?: string | null
+    // Migración 052 — idioma del TV.
+    display_language?: 'es' | 'en' | null
     is_open: boolean
     logo_url: string | null
   }
@@ -70,6 +72,7 @@ export default async function SettingsPage() {
     // acepta valores como 1.5, 2.5, etc. cuando el dueño usa "personalizado".
     late_arrival_sanction_hours: row.late_arrival_sanction_hours ?? 3,
     display_message: row.display_message ?? null,
+    display_language: (row.display_language ?? 'es') as 'es' | 'en',
     is_open: row.is_open,
     logo_url: row.logo_url,
   }

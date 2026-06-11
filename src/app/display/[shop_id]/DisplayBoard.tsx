@@ -6,7 +6,7 @@ import Logo from '@/components/Logo'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { buildHeldPositions } from '@/lib/queue-order'
-import { useLocale } from '@/lib/i18n'
+import { MESSAGES } from '@/lib/i18n-messages'
 
 type Entry = {
   id: string
@@ -52,6 +52,9 @@ type Shop = {
   // Migración 051 — mensaje del cintillo de abajo del TV. NULL/'' =
   // sin cintillo (las columnas usan todo el alto).
   display_message: string | null
+  // Migración 052 — idioma del TV elegido por el dueño. El TV es
+  // público (nadie toca un toggle), así que NO depende de la cookie.
+  display_language: 'es' | 'en'
 }
 
 // ── Density tiers ─────────────────────────────────────────────────
@@ -233,15 +236,22 @@ export default function DisplayBoard({
   initialEntries: Entry[]
   initialBarbers: Barber[]
 }) {
-  const { t } = useLocale()
   // shop es estado (no prop directo) para que el cintillo del mensaje
-  // (display_message), el is_open y el logo se actualicen en vivo en
-  // la TV cuando el dueño los cambia desde Configuración (rediseño 051).
+  // (display_message), el idioma (display_language), is_open y el logo
+  // se actualicen en vivo en la TV cuando el dueño los cambia desde
+  // Configuración (rediseño 051/052).
   const [shop, setShop] = useState<Shop>(initialShop)
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
   const [connected, setConnected] = useState(true)
   const now = useClock()
+
+  // Migración 052 — el TV traduce con el idioma del shop, NO con la
+  // cookie del dispositivo (useLocale). El TV es público; el dueño
+  // elige el idioma desde Configuración. tt() resuelve los títulos de
+  // columna con ese locale. Cambia en vivo (shop es estado + realtime).
+  const tvLocale: 'es' | 'en' = shop.display_language === 'en' ? 'en' : 'es'
+  const tt = (key: string) => MESSAGES[tvLocale][key] ?? key
 
   // Prevent the TV / monitor running this page from sleeping. Backstop
   // for shops where the Fire TV screensaver setting can't be set to
@@ -299,7 +309,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('shops')
         .select(
-          'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, display_message',
+          'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, display_message, display_language',
         )
         .eq('id', shop.id)
         .single()
@@ -351,7 +361,7 @@ export default function DisplayBoard({
           <Logo className="h-16 w-auto mb-12 opacity-60" tone="dark" />
         )}
         <p className="text-nxtup-muted text-3xl uppercase tracking-[0.4em] mb-6">
-          {t('display.shopClosed')}
+          {tt('display.shopClosed')}
         </p>
         <h1 className="text-7xl font-black tracking-tight">{shop.name}</h1>
       </main>
@@ -447,7 +457,7 @@ export default function DisplayBoard({
       <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line min-h-0">
         {/* ── Columna 1: Disponibles ── (sin cambios) */}
         <Column
-          title={t('display.col.available')}
+          title={tt('display.col.available')}
           tone="active"
           count={activeFifo.length + activeCalledBarbers.length}
           density={density}
@@ -484,7 +494,7 @@ export default function DisplayBoard({
             ahora" — la dualidad Disponibles/Ocupados que el cliente
             entiende de un vistazo. */}
         <Column
-          title={t('display.col.occupied')}
+          title={tt('display.col.occupied')}
           tone="busy"
           count={occupiedCount}
           density={density}
@@ -522,7 +532,7 @@ export default function DisplayBoard({
             viven aquí en una columna fija y legible: #posición + nombre,
             en orden FIFO. */}
         <Column
-          title={t('display.col.queue')}
+          title={tt('display.col.queue')}
           tone="queue"
           count={waitingEntries.length}
           density={density}
