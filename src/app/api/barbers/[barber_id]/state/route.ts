@@ -48,10 +48,18 @@ export async function PATCH(
     return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
   }
 
-  const supabase =
-    isDeviceRequest || isPanelTokenRequest
-      ? createAdminClient()
-      : await createClient()
+  // Migración 050 (fix): TODAS las operaciones usan el admin client.
+  // Antes, el path del barbero en su PWA (sin device token, sin
+  // panel-token, sin cookie de dueño) usaba el cliente anónimo y
+  // dependía de la policy pública `barber status update` (UPDATE
+  // using true) para cambiar su estado. La migración 050 cerró esa
+  // policy por seguridad → el barbero ya no podía tapear sus botones.
+  //
+  // El fix: admin client para todos. La autorización REAL del barbero
+  // siempre fue el WiFi-gating de más abajo (capa de aplicación), no
+  // las policies RLS — esas eran el agujero. El owner-detection se
+  // hace ahora con un cookie client separado (ver isOwnerRequest).
+  const supabase = createAdminClient()
 
   // Read the barber + their shop's config in parallel so we have everything
   // needed for the keep-position-on-break logic in one round trip.
@@ -108,10 +116,16 @@ export async function PATCH(
   // Device requests already bypass — this layers an additional bypass
   // on top for cookie-authenticated owners.
   let isOwnerRequest = false
-  if (!isDeviceRequest) {
+  if (!isDeviceRequest && !isPanelTokenRequest) {
+    // Cookie client SEPARADO solo para leer la sesión del dueño. El
+    // `supabase` de arriba es admin (service role) y no ve la cookie
+    // de autenticación. Sin device token ni panel-token, este es el
+    // único modo de saber si quien llama es el dueño autenticado (para
+    // el bypass de WiFi del Centro de Mando).
+    const cookieClient = await createClient()
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await cookieClient.auth.getUser()
     if (user && (shop as { owner_id?: string }).owner_id === user.id) {
       isOwnerRequest = true
     }
