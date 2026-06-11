@@ -13,7 +13,7 @@ export default async function DisplayPage({
   const { data: shop } = await supabase
     .from('shops')
     .select(
-      'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes',
+      'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, display_message',
     )
     .eq('id', shop_id)
     .single()

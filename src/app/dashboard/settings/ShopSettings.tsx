@@ -26,9 +26,18 @@ type Shop = {
   // sanction_hours es el control activo: numeric(4,2), default 3h.
   late_arrival_cuts_required: 1 | 2
   late_arrival_sanction_hours: number
+  // Migración 051 — mensaje del cintillo del TV (DisplayBoard). NULL =
+  // sin mensaje (el cintillo no se muestra). El dueño escribe promos
+  // o avisos que rotan en la parte de abajo de la pantalla del shop.
+  display_message: string | null
   is_open: boolean
   logo_url: string | null
 }
+
+// Migración 051 — límite del mensaje del cintillo. Lo suficientemente
+// largo para una promo ("2x1 mañana por el 4 de julio · ¡aprovecha!")
+// pero corto para que rote legible en la TV sin saturar.
+const DISPLAY_MESSAGE_MAX = 120
 
 const TIMEZONE_OPTIONS = [
   { value: 'America/New_York', label: 'Eastern (NY, Miami) — DST' },
@@ -93,12 +102,19 @@ export default function ShopSettings({
   const [customMode, setCustomMode] = useState<boolean>(
     !PRESET_SANCTION_HOURS.includes(initial.late_arrival_sanction_hours as 1 | 2 | 3),
   )
+  // Migración 051 — mensaje del cintillo del TV. Vacío en la UI = null
+  // en la DB (sin cintillo).
+  const [displayMessage, setDisplayMessage] = useState<string>(
+    initial.display_message ?? '',
+  )
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
 
   // Normalize "HH:MM" → "HH:MM:00" for the DB.
   const lateThresholdForDb = lateEnabled ? `${lateThreshold}:00` : null
+  // Vacío/espacios → null en DB (sin cintillo).
+  const displayMessageForDb = displayMessage.trim() || null
 
   const dirty =
     name.trim() !== shop.name ||
@@ -109,7 +125,8 @@ export default function ShopSettings({
     graceMinutes !== shop.break_position_grace_minutes ||
     timezone !== shop.timezone ||
     lateThresholdForDb !== shop.late_arrival_threshold_time ||
-    lateHours !== shop.late_arrival_sanction_hours
+    lateHours !== shop.late_arrival_sanction_hours ||
+    displayMessageForDb !== shop.display_message
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -148,6 +165,11 @@ export default function ShopSettings({
         from: shop.late_arrival_sanction_hours,
         to: lateHours,
       }
+    if (displayMessageForDb !== shop.display_message)
+      changes.display_message = {
+        from: shop.display_message,
+        to: displayMessageForDb,
+      }
 
     const { data, error: updateErr } = await supabase
       .from('shops')
@@ -161,10 +183,11 @@ export default function ShopSettings({
         timezone,
         late_arrival_threshold_time: lateThresholdForDb,
         late_arrival_sanction_hours: lateHours,
+        display_message: displayMessageForDb,
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, is_open, logo_url',
       )
       .single()
 
@@ -201,6 +224,25 @@ export default function ShopSettings({
             onChange={e => setName(e.target.value)}
             className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
           />
+        </Field>
+
+        {/* Migración 051 — mensaje del cintillo del TV. Si está vacío,
+            el cintillo no aparece en la pantalla del shop. */}
+        <Field
+          label="Mensaje en la pantalla (TV)"
+          hint="Aparece rotando en el cintillo de abajo de la TV del shop. Promos, avisos, horarios. Déjalo vacío para ocultar el cintillo."
+        >
+          <textarea
+            value={displayMessage}
+            onChange={e => setDisplayMessage(e.target.value.slice(0, DISPLAY_MESSAGE_MAX))}
+            maxLength={DISPLAY_MESSAGE_MAX}
+            rows={2}
+            placeholder="Ej: ¡2x1 mañana por el 4 de julio! · Cerramos a las 6 hoy"
+            className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim resize-none leading-relaxed"
+          />
+          <p className="text-nxtup-dim text-xs mt-1 text-right tabular-nums">
+            {displayMessage.length}/{DISPLAY_MESSAGE_MAX}
+          </p>
         </Field>
 
         <Field label="Max queue size" hint="Cupos disponibles a la vez">
@@ -566,7 +608,7 @@ function LogoSection({
       .update({ logo_url: cacheBusted })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, is_open, logo_url',
       )
       .single()
 
@@ -597,7 +639,7 @@ function LogoSection({
       .update({ logo_url: null })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, is_open, logo_url',
       )
       .single()
 

@@ -49,6 +49,9 @@ type Shop = {
   next_break_minutes: number
   keep_position_on_break: boolean
   break_position_grace_minutes: number
+  // Migración 051 — mensaje del cintillo de abajo del TV. NULL/'' =
+  // sin cintillo (las columnas usan todo el alto).
+  display_message: string | null
 }
 
 // ── Density tiers ─────────────────────────────────────────────────
@@ -222,7 +225,7 @@ function formatClock(d: Date) {
 }
 
 export default function DisplayBoard({
-  shop,
+  shop: initialShop,
   initialEntries,
   initialBarbers,
 }: {
@@ -231,6 +234,10 @@ export default function DisplayBoard({
   initialBarbers: Barber[]
 }) {
   const { t } = useLocale()
+  // shop es estado (no prop directo) para que el cintillo del mensaje
+  // (display_message), el is_open y el logo se actualicen en vivo en
+  // la TV cuando el dueño los cambia desde Configuración (rediseño 051).
+  const [shop, setShop] = useState<Shop>(initialShop)
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
   const [connected, setConnected] = useState(true)
@@ -286,6 +293,19 @@ export default function DisplayBoard({
       }
     }
 
+    // Rediseño 051: refetch del shop cuando cambia (mensaje del cintillo,
+    // is_open, logo, nombre). Mantiene la TV sincronizada sin recargar.
+    const fetchShop = async () => {
+      const { data } = await supabase
+        .from('shops')
+        .select(
+          'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, display_message',
+        )
+        .eq('id', shop.id)
+        .single()
+      if (data) setShop(data as Shop)
+    }
+
     const channel = supabase
       .channel(`display-${shop.id}`)
       .on(
@@ -297,6 +317,11 @@ export default function DisplayBoard({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shop.id}` },
         fetchBarbers,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shops', filter: `id=eq.${shop.id}` },
+        fetchShop,
       )
       .subscribe(status => {
         // 'SUBSCRIBED' is the healthy state. Anything else means we lost
@@ -374,10 +399,14 @@ export default function DisplayBoard({
   // from across the room. With few barbers we render big premium cards;
   // when a column starts filling up, we drop to denser layouts so 10-12
   // barbers still fit without scroll.
+  // Rediseño (051): 3 columnas = Disponibles | Ocupados (busy+break) |
+  // En cola (clientes esperando). La densidad se calcula sobre la
+  // columna más larga de las tres.
+  const occupiedCount = busyBarbers.length + breakBarbers.length
   const maxColumnCount = Math.max(
     activeFifo.length + activeCalledBarbers.length,
-    busyBarbers.length,
-    breakBarbers.length,
+    occupiedCount,
+    waitingEntries.length,
   )
   const density: Density =
     maxColumnCount <= 4 ? 'lg' : maxColumnCount <= 8 ? 'md' : 'sm'
@@ -410,11 +439,13 @@ export default function DisplayBoard({
         </div>
       </header>
 
-      {/* 3 columns. `min-h-0` es crítico: por default los items
-          de flex/grid tienen min-height auto, lo que les permite
-          crecer más allá del contenedor. Con min-h-0 podemos
-          encogerlas y dejar que la columna individual scrollee. */}
+      {/* 3 columnas (rediseño 051): Disponibles | Ocupados | En cola.
+          `min-h-0` es crítico: por default los items de flex/grid tienen
+          min-height auto, lo que les permite crecer más allá del
+          contenedor. Con min-h-0 podemos encogerlas y dejar que la
+          columna individual scrollee. */}
       <section className="flex-1 grid grid-cols-3 gap-px bg-nxtup-line min-h-0">
+        {/* ── Columna 1: Disponibles ── (sin cambios) */}
         <Column
           title={t('display.col.available')}
           tone="active"
@@ -446,59 +477,79 @@ export default function DisplayBoard({
           })}
         </Column>
 
+        {/* ── Columna 2: Ocupados (busy + break mergeados) ──
+            Cada barbero conserva su color individual: BusyCard rojo
+            "con cliente", BreakCard ámbar con countdown. El header de
+            la columna es rojo (busy domina) y comunica "no disponible
+            ahora" — la dualidad Disponibles/Ocupados que el cliente
+            entiende de un vistazo. */}
         <Column
-          title={t('display.col.busy')}
+          title={t('display.col.occupied')}
           tone="busy"
-          count={busyBarbers.length}
+          count={occupiedCount}
           density={density}
         >
-          {busyBarbers.length === 0 ? (
+          {occupiedCount === 0 ? (
             <Empty />
           ) : (
-            busyBarbers.map(b => {
-              const c = inProgressEntries.find(e => e.barber_id === b.id)
-              return (
-                <BusyCard
+            <>
+              {busyBarbers.map(b => {
+                const c = inProgressEntries.find(e => e.barber_id === b.id)
+                return (
+                  <BusyCard
+                    key={b.id}
+                    barber={b}
+                    clientName={c?.client_name ?? null}
+                    density={density}
+                  />
+                )
+              })}
+              {breakBarbers.map(b => (
+                <BreakCard
                   key={b.id}
                   barber={b}
-                  clientName={c?.client_name ?? null}
+                  shop={shop}
+                  heldPosition={heldPositions.get(b.id)}
                   density={density}
                 />
-              )
-            })
+              ))}
+            </>
           )}
         </Column>
 
+        {/* ── Columna 3: En cola (clientes esperando) ──
+            Los clientes que antes rotaban en el cintillo de abajo ahora
+            viven aquí en una columna fija y legible: #posición + nombre,
+            en orden FIFO. */}
         <Column
-          title={t('display.col.break')}
-          tone="break"
-          count={breakBarbers.length}
+          title={t('display.col.queue')}
+          tone="queue"
+          count={waitingEntries.length}
           density={density}
         >
-          {breakBarbers.length === 0 ? (
+          {waitingEntries.length === 0 ? (
             <Empty />
           ) : (
-            breakBarbers.map(b => (
-              <BreakCard
-                key={b.id}
-                barber={b}
-                shop={shop}
-                heldPosition={heldPositions.get(b.id)}
-                density={density}
-              />
-            ))
+            waitingEntries
+              .slice()
+              .sort((a, b) => a.position - b.position)
+              .map((e, idx) => (
+                <QueueClientCard
+                  key={e.id}
+                  position={idx + 1}
+                  clientName={e.client_name}
+                  density={density}
+                />
+              ))
           )}
         </Column>
       </section>
 
-      {/* Bottom strip — ticker rotando todos los clientes en cola.
-          Reemplaza al viejo NextStrip que solo mostraba el próximo
-          cliente. El cintillo se queda fijo aunque la pantalla scrolee
-          con muchos barberos. */}
-      <QueueTicker
-        calledFirst={calledEntries[0] ?? null}
-        waitingEntries={waitingEntries}
-      />
+      {/* Cintillo de abajo (rediseño 051) — ahora rota el mensaje que
+          el dueño escribe desde Configuración (promos/avisos) en vez de
+          los clientes. Si no hay mensaje, no se renderiza y las columnas
+          usan todo el alto del TV. */}
+      <DisplayMessageTicker message={shop.display_message} />
     </main>
   )
 }
@@ -515,7 +566,9 @@ function Column({
   children,
 }: {
   title: string
-  tone: 'active' | 'busy' | 'break'
+  // 'queue' (rediseño 051) = columna de clientes en cola; color neutro
+  // blanco para diferenciarla de los estados de barbero (verde/rojo/ámbar).
+  tone: 'active' | 'busy' | 'break' | 'queue'
   count: number
   density: Density
   children: React.ReactNode
@@ -524,11 +577,13 @@ function Column({
     active: 'bg-nxtup-active',
     busy: 'bg-nxtup-busy',
     break: 'bg-nxtup-break',
+    queue: 'bg-white',
   }
   const text: Record<typeof tone, string> = {
     active: 'text-nxtup-active',
     busy: 'text-nxtup-busy',
     break: 'text-nxtup-break',
+    queue: 'text-white',
   }
   const s = SIZE[density]
   return (
@@ -564,6 +619,42 @@ function Empty() {
   return (
     <li className="flex items-center justify-center px-4 py-8 rounded-2xl border border-dashed border-nxtup-line">
       <p className="text-nxtup-dim text-xl">—</p>
+    </li>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// QueueClientCard (rediseño 051) — un cliente esperando en la cola.
+// #posición + nombre. La posición es 1-based del orden FIFO de los
+// que esperan (no el entry.position del DB, que es un counter
+// histórico). Deja un hueco a la derecha pensado para un futuro
+// badge de origen (kiosko vs. Mamacita) — por ahora todos vienen
+// del kiosko, así que no se renderiza nada ahí todavía.
+// ──────────────────────────────────────────────────────────────
+function QueueClientCard({
+  position,
+  clientName,
+  density,
+}: {
+  position: number
+  clientName: string
+  density: Density
+}) {
+  const s = SIZE[density]
+  return (
+    <li
+      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
+    >
+      <span
+        className={`text-white font-black tabular-nums text-center ${s.posText} ${s.posWidth}`}
+        aria-label={`Lugar ${position} en la cola`}
+      >
+        #{position}
+      </span>
+      <span className={`text-white font-bold block truncate flex-1 min-w-0 ${s.nameSingle}`}>
+        {clientName}
+      </span>
+      {/* Espacio reservado para badge de origen (Mamacita) — futuro. */}
     </li>
   )
 }
@@ -849,127 +940,56 @@ function BreakCard({
 // ──────────────────────────────────────────────────────────────
 
 /**
- * QueueTicker — bottom strip que rota TODOS los clientes en cola.
+ * DisplayMessageTicker (rediseño 051) — cintillo de abajo del TV que
+ * rota el mensaje del dueño (shop.display_message). Reemplaza al viejo
+ * QueueTicker que rotaba los clientes (esos ahora viven en la columna
+ * fija "En cola"). El dueño escribe este mensaje desde Configuración:
+ * promos, avisos, horarios especiales ("2x1 mañana por el 4 de julio").
  *
- * Por qué reemplaza al viejo NextStrip: la TV puede tener muchos
- * barberos y eso obliga a scroll vertical. El NextStrip (footer normal
- * en el DOM flow) terminaba debajo del scroll y los clientes no se
- * veían. Este componente queda fijo en el bottom (es el último child
- * del main flex-col, así que respeta el viewport) y muestra todos los
- * nombres pasando en horizontal para que se lean sin scrollear.
+ * Si no hay mensaje (null o vacío), el componente NO renderiza nada y
+ * las columnas de arriba usan todo el alto del TV (la decisión de
+ * Francisco: limpio, sin texto de relleno).
  *
- * Loop seamless: el contenido se renderiza dos veces lado a lado y la
- * animación CSS traslada de translateX(0) a translateX(-50%). Cuando
- * la animación se reinicia, la posición 0 muestra otra vez la primera
- * copia — sin salto visible.
- *
- * Velocidad proporcional al número de items para mantener cómoda la
- * lectura: ~5s por cliente, mínimo 20s. Con 4 clientes = 20s; con 12
- * clientes = 60s. Cada cliente ocupa ~igual tiempo en pantalla
- * independientemente del tamaño de la cola.
- *
- * El primer entry recibe tratamiento visual destacado si está
- * actualmente en `called` (el barbero ya lo llamó) — emerald + label
- * "Llamando" en vez del número de posición.
+ * Loop seamless: mismo mecanismo que el ticker viejo — el contenido se
+ * renderiza dos veces lado a lado y la animación CSS `queue-ticker`
+ * traslada de translateX(0) a translateX(-50%); al reiniciar, la
+ * segunda copia está donde estaba la primera = sin salto. El mensaje
+ * se repite varias veces dentro de cada copia para cubrir el ancho del
+ * viewport (un mensaje corto no llenaría la pantalla y dejaría un gap).
  *
  * Respeta `prefers-reduced-motion` vía la regla en globals.css —
- * animación off y la segunda copia oculta para no duplicar visualmente.
+ * animación off y la segunda copia oculta.
  */
-function QueueTicker({
-  calledFirst,
-  waitingEntries,
-}: {
-  calledFirst: Entry | null
-  waitingEntries: Entry[]
-}) {
-  const items: Array<{ entry: Entry; isCalled: boolean }> = []
-  if (calledFirst) items.push({ entry: calledFirst, isCalled: true })
-  for (const e of waitingEntries) items.push({ entry: e, isCalled: false })
+function DisplayMessageTicker({ message }: { message: string | null }) {
+  const text = (message ?? '').trim()
+  if (!text) return null
 
-  if (items.length === 0) {
-    return (
-      <footer className="border-t border-nxtup-line px-12 py-5 flex items-center justify-center">
-        <p className="text-nxtup-dim text-xl uppercase tracking-[0.3em]">
-          Sin clientes en cola
-        </p>
-      </footer>
-    )
-  }
+  // Velocidad cómoda proporcional al largo del mensaje, mínimo 20s para
+  // que un mensaje corto no pase volando.
+  const durationSec = Math.max(20, Math.round(text.length * 0.4))
 
-  // 5s por entry, mínimo 20s. Si hay 1 solo cliente la animación
-  // sigue corriendo pero a velocidad cómoda — el loop seamless evita
-  // sensación de "robotic".
-  const durationSec = Math.max(20, items.length * 5)
-
-  // Position en la cola actual (no el `entry.position` del DB, que es
-  // un counter histórico que nunca decrementa). El primer cliente
-  // esperando es #1 sin importar cuántos hayan pasado por la cola
-  // antes en el día.
-  const itemsWithQueuePosition = items.map((item, idx) => ({
-    ...item,
-    queuePosition: idx + 1,
-  }))
-
-  // ── Asegurar que el contenido cubra siempre el viewport ────────
-  // El loop seamless requiere que el "ancho del set original"
-  // (antes de duplicar) sea ≥ ancho de la pantalla. Si solo hay 1
-  // cliente, el ancho del item es ~300px y el viewport del TV es
-  // ~1920px → gap visible cuando la animación traslada, antes que
-  // aparezca la segunda copia.
-  //
-  // Solución: repetir el set original hasta tener al menos
-  // MIN_ITEMS_FOR_COVERAGE entradas, luego duplicar como siempre.
-  // Con 8 items × ~300px = ~2400px > ancho de cualquier TV típico.
-  const MIN_ITEMS_FOR_COVERAGE = 8
-  const repeated: typeof itemsWithQueuePosition = []
-  while (repeated.length < MIN_ITEMS_FOR_COVERAGE) {
-    for (const item of itemsWithQueuePosition) {
-      repeated.push(item)
-    }
-  }
-
-  // Render twice for seamless infinite loop (see comment in globals.css).
-  // El translateX(-50%) mueve exactamente la mitad del contenido —
-  // la segunda mitad arranca donde estaba la primera = sin salto.
-  const tickerCells = [...repeated, ...repeated]
+  // Repetir el mensaje para cubrir el ancho del TV. 6 copias × mensaje
+  // (hasta 120 chars) llena cualquier pantalla típica. Luego se
+  // duplica todo para el loop seamless.
+  const REPEAT = 6
+  const segments = Array.from({ length: REPEAT * 2 }, (_, i) => i)
 
   return (
     <footer className="border-t border-nxtup-line bg-nxtup-bg overflow-hidden">
       <div
         className="queue-ticker-track flex whitespace-nowrap py-5"
-        style={{
-          animation: `queue-ticker ${durationSec}s linear infinite`,
-        }}
+        style={{ animation: `queue-ticker ${durationSec}s linear infinite` }}
       >
-        {tickerCells.map(({ entry, isCalled, queuePosition }, idx) => (
-          <span
-            key={`${entry.id}-${idx}`}
-            className="inline-flex items-center gap-4 px-10"
-          >
-            {isCalled ? (
-              <span className="text-xs uppercase tracking-[0.4em] font-black text-nxtup-active">
-                Llamando
-              </span>
-            ) : (
-              <span className="text-nxtup-active text-3xl font-black tabular-nums">
-                #{queuePosition}
-              </span>
-            )}
-            <span
-              className={`text-3xl font-black tracking-tight ${
-                isCalled ? 'text-nxtup-active' : 'text-white'
-              }`}
-            >
-              {entry.client_name}
+        {segments.map(idx => (
+          <span key={idx} className="inline-flex items-center px-10">
+            <span className="text-3xl font-black tracking-tight text-white">
+              {text}
             </span>
-            {/* Bullet separator después de CADA item, incluido el
-                último de cada copia. Eso mantiene el espaciado
-                uniforme entre el final de un loop y el inicio del
-                siguiente — sin gap visible al reiniciar la
-                animación. El último separator del DOM queda
-                offscreen detrás del overflow-hidden. */}
-            <span className="text-nxtup-dim text-3xl pl-10" aria-hidden>
-              ·
+            {/* Separador ámbar después de cada copia — le da un acento
+                "promoción" sin saturar, y mantiene el espaciado uniforme
+                al reiniciar el loop. */}
+            <span className="text-nxtup-break text-3xl pl-10" aria-hidden>
+              ✦
             </span>
           </span>
         ))}

@@ -237,6 +237,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'display.col.available': 'Disponibles',
     'display.col.busy': 'Ocupados',
     'display.col.break': 'Descanso',
+    // Rediseño 051 — columna mergeada (busy+break) y columna de cola.
+    'display.col.occupied': 'Ocupados',
+    'display.col.queue': 'En cola',
     'display.shopClosed': 'Cerrado',
 
     // ControlPanel (Centro de Mando) buttons + banner
@@ -481,6 +484,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'display.col.available': 'Available',
     'display.col.busy': 'Busy',
     'display.col.break': 'Break',
+    'display.col.occupied': 'Busy',
+    'display.col.queue': 'In queue',
     'display.shopClosed': 'Closed',
 
     'control.clearSanction': 'Clear sanction',
