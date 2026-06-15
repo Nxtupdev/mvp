@@ -676,13 +676,16 @@ function QueueClientCard({
       </span>
       {/* Badge de origen Mamacita: reservó por teléfono, viene en camino.
           Ámbar (nxtup-break) para distinguirlo de los presentes — le dice
-          al barbero "llamó, viene en camino, no lo llames todavía". */}
+          al barbero "llamó, viene en camino, no lo llames todavía".
+          Tamaño legible a distancia (es el TV de la barbería). */}
       {enCamino && (
         <span
-          className={`flex items-center gap-1.5 flex-shrink-0 text-nxtup-break font-bold uppercase tracking-wider ${s.subtitle}`}
+          className={`flex items-center flex-shrink-0 text-nxtup-break font-black uppercase tracking-wider ${
+            density === 'lg' ? 'gap-2 text-xl' : density === 'md' ? 'gap-2 text-lg' : 'gap-1.5 text-base'
+          }`}
           aria-label="Llamó por teléfono, viene en camino"
         >
-          <Phone size={density === 'lg' ? 16 : density === 'md' ? 14 : 12} aria-hidden />
+          <Phone size={density === 'lg' ? 24 : density === 'md' ? 20 : 17} aria-hidden />
           En camino
         </span>
       )}
