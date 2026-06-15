@@ -69,7 +69,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { external_id, shop_id, customer_name, check_in_code } = body
-  const phone = String(body.customer_phone ?? '').replace(/\D/g, '')
+  let phone = String(body.customer_phone ?? '').replace(/\D/g, '')
+  // Normalizar a 10 dígitos (formato del kiosk de NXTUP): quitar el "1" del
+  // código de país si Mamacita lo manda en 11 dígitos (caller ID +1...). Así el
+  // check-in por teléfono en el kiosk encuentra esta entrada de voz (mismo
+  // formato) y la ACTIVA en vez de crear un duplicado walk-in.
+  if (phone.length === 11 && phone.startsWith('1')) phone = phone.slice(1)
 
   if (!external_id || !shop_id || !customer_name || phone.length < 10) {
     return Response.json(

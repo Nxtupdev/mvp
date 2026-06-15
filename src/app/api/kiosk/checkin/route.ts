@@ -95,7 +95,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'shop_id y phone son requeridos' }, { status: 400 })
   }
 
-  const phone = String(rawPhone).replace(/\D/g, '')
+  let phone = String(rawPhone).replace(/\D/g, '')
+  // Normalizar a 10 dígitos: quitar el "1" del país si tecleó 11. Mantiene un
+  // solo formato en la cola → coincide con las entradas de voz de Mamacita
+  // (que llegan con el caller ID +1...), para que el check-in las active.
+  if (phone.length === 11 && phone.startsWith('1')) phone = phone.slice(1)
   if (phone.length < 10) {
     return Response.json(
       { error: 'Teléfono inválido — mínimo 10 dígitos' },
