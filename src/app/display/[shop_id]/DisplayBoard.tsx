@@ -666,7 +666,7 @@ function QueueClientCard({
       className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
     >
       <span
-        className={`text-white font-black tabular-nums text-center ${s.posText} ${s.posWidth}`}
+        className={`text-white font-black tabular-nums text-center flex-shrink-0 ${s.posText} ${s.posWidth} mr-4`}
         aria-label={`Lugar ${position} en la cola`}
       >
         #{position}
