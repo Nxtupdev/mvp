@@ -448,12 +448,18 @@ export async function PATCH(
     }
 
     // Cliente específicamente pedido — siempre se busca, incluso si sancionado.
+    //
+    // Presencia (voice-presence-spec.md): las entradas de voz (Mamacita)
+    // que aún no llegaron tienen arrived_at NULL y NO son elegibles para
+    // match — el cliente todavía viene en camino. El OR las excluye sin
+    // afectar walk-ins (que tienen mamacita_entry_id NULL).
     const { data: requested } = await supabase
       .from('queue_entries')
       .select('id, client_name, position')
       .eq('shop_id', barber.shop_id)
       .eq('barber_id', barber_id)
       .eq('status', 'waiting')
+      .or('mamacita_entry_id.is.null,arrived_at.not.is.null')
       .order('position', { ascending: true })
       .limit(1)
       .maybeSingle()
@@ -494,6 +500,10 @@ export async function PATCH(
           .eq('shop_id', barber.shop_id)
           .is('barber_id', null)
           .eq('status', 'waiting')
+          // Presencia: excluye entradas de voz no llegadas (arrived_at NULL).
+          // Ver voice-presence-spec.md. Walk-ins (mamacita_entry_id NULL)
+          // siguen siendo elegibles.
+          .or('mamacita_entry_id.is.null,arrived_at.not.is.null')
           .order('position', { ascending: true })
           .limit(1)
           .maybeSingle()

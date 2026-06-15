@@ -128,6 +128,23 @@ En Mamacita:
 
 ---
 
+## Estado de implementación — lado NXTUP (2026-06-11)
+
+Construido en este repo para que Mamacita consuma la API de NXTUP:
+
+- **Migración `053_mamacita_queue_linkage.sql`** — agrega `mamacita_entry_id` + `check_in_code` a `queue_entries`. Pendiente de correr en Supabase SQL Editor.
+- **`lib/mamacita.ts`** — auth Bearer + HMAC + helper `notifyMamacita()` para webhooks de vuelta.
+- **`GET /api/mamacita/availability?shop_id=`** — barberos libres/ocupados + tamaño de cola + ETA. Auth Bearer.
+- **`POST /api/mamacita/queue-entries`** — inserta el cliente de voz en la cola (waiting, sin match inmediato). Auth Bearer + HMAC, idempotente por `mamacita_entry_id`.
+- **Presencia (Opción A, implementada):** `queue_entries.arrived_at` distingue "reservó por voz, viene en camino" (NULL) de "presente" (set). El match en `state/route.ts` ignora entradas de voz no llegadas; el kiosk check-in por teléfono ACTIVA la entrada de voz existente en vez de duplicar. Spec: `planning/integration/voice-presence-spec.md`.
+- Typecheck + lint limpios. **Pendiente:** correr migración `053`, setear env vars (`MAMACITA_SHARED_SECRET`, `MAMACITA_WEBHOOK_URL`), deploy a Vercel, **PRUEBA MANUAL del flujo de presencia** (criterios en el spec), y enganchar el webhook `turn_approaching` en el flujo de promoción.
+
+### ✅ Presencia del cliente de voz — RESUELTO (Opción A)
+
+Decisión de Francisco (2026-06-11): el cliente que reservó por voz hace check-in en el kiosk al llegar; eso activa su entrada existente. Implementado con `arrived_at` (ver bullet arriba + spec). **Implementado, PENDIENTE DE PRUEBA MANUAL** — toca el core de cola (`state/route.ts`, `kiosk/checkin/route.ts`), no shippear a producción sin verificar los criterios del spec.
+
+---
+
 ## Cómo usar este documento
 
 **Si eres Claude en Claude Code (sesión terminal):**

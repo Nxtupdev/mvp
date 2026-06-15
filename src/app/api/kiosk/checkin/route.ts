@@ -258,45 +258,87 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Create queue_entry ──────────────────────────────────────
-  // Calculate position as max+1 within the active pipeline
-  // (matching the legacy /api/checkin behavior).
-  const { data: maxEntry } = await supabase
+  // ── Voice reservation activation (voice-presence-spec.md) ───
+  // Si este cliente reservó por teléfono con Mamacita y ahora llegó
+  // físicamente, ya tiene una queue_entry pendiente (mamacita_entry_id
+  // no nulo, arrived_at nulo, status waiting). En vez de crear una
+  // SEGUNDA entrada, activamos esa: marcamos arrived_at = now y la
+  // vinculamos al client_id. Conserva su posición original (la reservó
+  // al llamar). Recién activada, entra al match inmediato de abajo igual
+  // que un walk-in presente.
+  const { data: pendingVoice } = await supabase
     .from('queue_entries')
-    .select('position')
+    .select('*')
     .eq('shop_id', shop_id)
-    .in('status', ['waiting', 'called', 'in_progress'])
-    .order('position', { ascending: false })
+    .eq('client_phone', phone)
+    .not('mamacita_entry_id', 'is', null)
+    .is('arrived_at', null)
+    .eq('status', 'waiting')
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  const position = (maxEntry?.position ?? 0) + 1
+  const nowIso = new Date().toISOString()
+  let entry: Record<string, unknown> & { id: string; position: number }
 
-  const { data: entry, error: entryErr } = await supabase
-    .from('queue_entries')
-    .insert({
-      shop_id,
-      client_id: clientId,
-      client_name: displayName, // legacy column — TV display still reads it
-      client_phone: phone, // legacy column — keeps daily rate limit working
-      service_id: null, // service capture removed from the flow
-      position,
-    })
-    .select()
-    .single()
-
-  if (entryErr) {
-    if (entryErr.code === '23505') {
+  if (pendingVoice) {
+    const { data: activated, error: activateErr } = await supabase
+      .from('queue_entries')
+      .update({ arrived_at: nowIso, client_id: clientId })
+      .eq('id', pendingVoice.id)
+      .select()
+      .single()
+    if (activateErr || !activated) {
+      console.error('[kiosk/checkin] voice activation failed', activateErr)
       return Response.json(
-        { error: 'Conflicto de posición, intenta de nuevo' },
-        { status: 409 },
+        { error: 'Error al activar tu reserva' },
+        { status: 500 },
       )
     }
-    console.error('[kiosk/checkin] queue_entry insert failed', entryErr)
-    return Response.json(
-      { error: 'Error al registrar en la cola' },
-      { status: 500 },
-    )
+    entry = activated
+  } else {
+    // ── Create queue_entry ──────────────────────────────────────
+    // Calculate position as max+1 within the active pipeline
+    // (matching the legacy /api/checkin behavior).
+    const { data: maxEntry } = await supabase
+      .from('queue_entries')
+      .select('position')
+      .eq('shop_id', shop_id)
+      .in('status', ['waiting', 'called', 'in_progress'])
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const position = (maxEntry?.position ?? 0) + 1
+
+    const { data: created, error: entryErr } = await supabase
+      .from('queue_entries')
+      .insert({
+        shop_id,
+        client_id: clientId,
+        client_name: displayName, // legacy column — TV display still reads it
+        client_phone: phone, // legacy column — keeps daily rate limit working
+        service_id: null, // service capture removed from the flow
+        position,
+        arrived_at: nowIso, // walk-ins are present at check-in time
+      })
+      .select()
+      .single()
+
+    if (entryErr || !created) {
+      if (entryErr?.code === '23505') {
+        return Response.json(
+          { error: 'Conflicto de posición, intenta de nuevo' },
+          { status: 409 },
+        )
+      }
+      console.error('[kiosk/checkin] queue_entry insert failed', entryErr)
+      return Response.json(
+        { error: 'Error al registrar en la cola' },
+        { status: 500 },
+      )
+    }
+    entry = created
   }
 
   // Bump visit counters (best-effort — doesn't fail the request).
