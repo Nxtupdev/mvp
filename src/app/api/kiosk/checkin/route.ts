@@ -178,20 +178,39 @@ export async function POST(request: NextRequest) {
   // ── Daily rate limit per phone per shop (3 max) ─────────────
   // Re-implemented against the new client_id linkage. Falls back
   // to phone match for any legacy entries pre-migration 032.
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-  const { count: todayCount } = await supabase
+  //
+  // EXCEPCIÓN (presencia de voz): si este teléfono tiene una reserva de VOZ
+  // pendiente (Mamacita: mamacita_entry_id no null, arrived_at null, waiting),
+  // este check-in la ACTIVA en vez de crear una entrada nueva, así que NO
+  // cuenta contra el límite diario. El cliente ya reservó por teléfono y solo
+  // confirma que llegó — bloquearlo aquí lo dejaría fuera de su propio lugar.
+  const { data: pendingVoiceForLimit } = await supabase
     .from('queue_entries')
-    .select('*', { count: 'exact', head: true })
+    .select('id')
     .eq('shop_id', shop_id)
     .eq('client_phone', phone)
-    .gte('created_at', todayStart.toISOString())
+    .not('mamacita_entry_id', 'is', null)
+    .is('arrived_at', null)
+    .eq('status', 'waiting')
+    .limit(1)
+    .maybeSingle()
 
-  if (todayCount !== null && todayCount >= 3) {
-    return Response.json(
-      { error: 'Máximo 3 check-ins por día en esta barbería' },
-      { status: 429 },
-    )
+  if (!pendingVoiceForLimit) {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const { count: todayCount } = await supabase
+      .from('queue_entries')
+      .select('*', { count: 'exact', head: true })
+      .eq('shop_id', shop_id)
+      .eq('client_phone', phone)
+      .gte('created_at', todayStart.toISOString())
+
+    if (todayCount !== null && todayCount >= 3) {
+      return Response.json(
+        { error: 'Máximo 3 check-ins por día en esta barbería' },
+        { status: 429 },
+      )
+    }
   }
 
   // ── Upsert client ────────────────────────────────────────────
