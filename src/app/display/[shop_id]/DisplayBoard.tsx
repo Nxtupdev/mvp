@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Logo from '@/components/Logo'
 import ShopLogo from '@/components/ShopLogo'
@@ -19,6 +20,11 @@ type Entry = {
   // por ActiveCalledCard para mostrar el timer de 2 min hacia abajo
   // (cascada del 018/035/041).
   called_at: string | null
+  // Mamacita (agente de voz): si mamacita_entry_id != null el cliente
+  // reservó por teléfono. Si además arrived_at == null, todavía no hace
+  // check-in físico → viene en camino (badge "En camino" en la cola).
+  mamacita_entry_id: string | null
+  arrived_at: string | null
 }
 
 type Barber = {
@@ -276,7 +282,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('queue_entries')
         .select(
-          'id, position, client_name, status, barber_id, created_at, called_at',
+          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at',
         )
         .eq('shop_id', shop.id)
         .in('status', ['waiting', 'called', 'in_progress'])
@@ -548,6 +554,7 @@ export default function DisplayBoard({
                   key={e.id}
                   position={idx + 1}
                   clientName={e.client_name}
+                  enCamino={e.mamacita_entry_id !== null && e.arrived_at === null}
                   density={density}
                 />
               ))
@@ -637,17 +644,20 @@ function Empty() {
 // QueueClientCard (rediseño 051) — un cliente esperando en la cola.
 // #posición + nombre. La posición es 1-based del orden FIFO de los
 // que esperan (no el entry.position del DB, que es un counter
-// histórico). Deja un hueco a la derecha pensado para un futuro
-// badge de origen (kiosko vs. Mamacita) — por ahora todos vienen
-// del kiosko, así que no se renderiza nada ahí todavía.
+// histórico). A la derecha, badge "En camino" para clientes que
+// reservaron por teléfono con Mamacita y aún no llegan (enCamino).
 // ──────────────────────────────────────────────────────────────
 function QueueClientCard({
   position,
   clientName,
+  enCamino,
   density,
 }: {
   position: number
   clientName: string
+  // Mamacita: el cliente llamó por teléfono y viene en camino (aún no
+  // hizo check-in físico). El barbero NO debe llamarlo hasta que llegue.
+  enCamino: boolean
   density: Density
 }) {
   const s = SIZE[density]
@@ -664,7 +674,18 @@ function QueueClientCard({
       <span className={`text-white font-bold block truncate flex-1 min-w-0 ${s.nameSingle}`}>
         {clientName}
       </span>
-      {/* Espacio reservado para badge de origen (Mamacita) — futuro. */}
+      {/* Badge de origen Mamacita: reservó por teléfono, viene en camino.
+          Ámbar (nxtup-break) para distinguirlo de los presentes — le dice
+          al barbero "llamó, viene en camino, no lo llames todavía". */}
+      {enCamino && (
+        <span
+          className={`flex items-center gap-1.5 flex-shrink-0 text-nxtup-break font-bold uppercase tracking-wider ${s.subtitle}`}
+          aria-label="Llamó por teléfono, viene en camino"
+        >
+          <Phone size={density === 'lg' ? 16 : density === 'md' ? 14 : 12} aria-hidden />
+          En camino
+        </span>
+      )}
     </li>
   )
 }
