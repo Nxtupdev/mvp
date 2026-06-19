@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getClientIp } from '@/lib/client-ip'
 import { buildBarberOrder } from '@/lib/queue-order'
 import { validatePanelToken } from '@/lib/panel-token'
+import { notifyMamacita } from '@/lib/mamacita'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
 type Status = (typeof VALID)[number]
@@ -216,6 +217,18 @@ export async function PATCH(
   const logs: LogEntry[] = []
 
   if (newStatus === 'available') {
+    // Capturar las entradas de VOZ (con mamacita_entry_id) que están por
+    // cerrarse, ANTES del update, para avisarle a Mamacita. Eso cierra su
+    // entrada local → mata el dedup fantasma del mismo día + alimenta sus
+    // métricas de embudo (served).
+    const closingStatuses = fromStatus === 'busy' ? ['in_progress', 'called'] : ['in_progress']
+    const { data: closingVoice } = await supabase
+      .from('queue_entries')
+      .select('mamacita_entry_id')
+      .eq('barber_id', barber_id)
+      .in('status', closingStatuses)
+      .not('mamacita_entry_id', 'is', null)
+
     // Mark in-progress / called clients as done for cleanup. We don't
     // gate the toll payment on this anymore — see comment below.
     await supabase
@@ -231,6 +244,20 @@ export async function PATCH(
         .eq('barber_id', barber_id)
         .eq('status', 'called')
     }
+
+    // Best-effort: avisar a Mamacita de cada entrada de voz que se cerró.
+    // notifyMamacita traga sus propios errores, así que nunca rompe el flujo.
+    await Promise.all(
+      (closingVoice ?? [])
+        .filter((v) => v.mamacita_entry_id)
+        .map((v) =>
+          notifyMamacita({
+            event: 'entry_completed',
+            external_id: v.mamacita_entry_id as string,
+            shop_id: barber.shop_id,
+          }),
+        ),
+    )
 
     // ── Invalidate on-break reservations under 'not_guaranteed' ────
     // If this barber just finished a walk-in (canonical busy → available
