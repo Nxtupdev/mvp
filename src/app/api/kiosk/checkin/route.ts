@@ -412,26 +412,44 @@ export async function POST(request: NextRequest) {
 
   if (nextBarber) {
     const now = new Date().toISOString()
-    const { data: updatedEntry } = await supabase
-      .from('queue_entries')
-      .update({
-        status: 'called',
-        barber_id: nextBarber.id,
-        called_at: now,
-      })
-      .eq('id', entry.id)
-      .select()
-      .single()
 
-    await supabase
+    // Reclamo ATÓMICO del BARBERO: sacarlo de la fila SOLO si sigue libre
+    // (available_since no null). Si dos check-ins concurrentes apuntan al
+    // mismo barbero, la base serializa los updates: el primero gana
+    // (available_since pasa a null), el segundo ya no lo encuentra libre y
+    // NO lo reclama → ese cliente queda 'waiting'. Evita asignar dos
+    // clientes al mismo barbero. Reclamamos el barbero ANTES de asignar el
+    // cliente para no marcar al cliente como 'called' de un barbero que no
+    // ganamos.
+    const { data: claimedBarber } = await supabase
       .from('barbers')
       .update({ available_since: null })
       .eq('id', nextBarber.id)
+      .not('available_since', 'is', null)
+      .select('id')
+      .maybeSingle()
 
-    if (updatedEntry) {
-      finalEntry = updatedEntry
-      assignedBarber = { id: nextBarber.id, name: nextBarber.name }
+    if (claimedBarber) {
+      // Ganamos al barbero: asignar este cliente.
+      const { data: updatedEntry } = await supabase
+        .from('queue_entries')
+        .update({
+          status: 'called',
+          barber_id: nextBarber.id,
+          called_at: now,
+        })
+        .eq('id', entry.id)
+        .select()
+        .single()
+
+      if (updatedEntry) {
+        finalEntry = updatedEntry
+        assignedBarber = { id: nextBarber.id, name: nextBarber.name }
+      }
     }
+    // Si NO ganamos al barbero (otro check-in lo tomó primero), el cliente
+    // queda 'waiting' (assignedBarber null) y la lógica de abajo lo reporta
+    // como "en cola" — el siguiente barbero que se libere lo tomará.
   }
 
   // ── Compute final position + ETA returned to the kiosk ──────

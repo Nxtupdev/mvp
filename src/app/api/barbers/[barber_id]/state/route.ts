@@ -539,29 +539,40 @@ export async function PATCH(
     }
 
     if (next) {
-      await supabase
+      // Reclamo ATÓMICO del cliente: solo gana quien lo encuentra todavía en
+      // 'waiting'. Si dos barberos se liberan en el mismo micro-instante y
+      // ambos apuntan al mismo cliente, la base serializa los updates: el
+      // primero lo pasa a 'called', el segundo ya no lo encuentra en 'waiting'
+      // (el `.eq('status','waiting')` falla) y NO lo reclama. El .select()
+      // nos dice si ganamos. Sin esto había doble-asignación posible.
+      const { data: claimed } = await supabase
         .from('queue_entries')
         .update({ status: 'called', barber_id, called_at: now })
         .eq('id', next.id)
+        .eq('status', 'waiting')
+        .select('id')
+        .maybeSingle()
 
-      // Clear the barber's FIFO position — they have a called client now,
-      // so they're out of the queue until that client sits down. Mirrors
-      // the same behavior in /api/checkin so both auto-match paths produce
-      // a consistent (status, available_since) state.
-      await supabase
-        .from('barbers')
-        .update({ available_since: null })
-        .eq('id', barber_id)
+      if (claimed) {
+        // Ganamos al cliente: el barbero sale de la fila FIFO (tiene called).
+        // Mirrors /api/checkin para un estado (status, available_since) consistente.
+        await supabase
+          .from('barbers')
+          .update({ available_since: null })
+          .eq('id', barber_id)
 
-      nextClient = next
-      logs.push({
-        action: 'client_assigned',
-        metadata: {
-          client_name: next.client_name,
-          queue_position: next.position,
-          entry_id: next.id,
-        },
-      })
+        nextClient = next
+        logs.push({
+          action: 'client_assigned',
+          metadata: {
+            client_name: next.client_name,
+            queue_position: next.position,
+            entry_id: next.id,
+          },
+        })
+      }
+      // Si NO ganamos (otro barbero lo tomó primero), el barbero queda
+      // 'available' con su available_since intacto, listo para el siguiente.
     }
   } else if (newStatus === 'busy') {
     // ── Close the offline→busy late-arrival hack ──────────────
