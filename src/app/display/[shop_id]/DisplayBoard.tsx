@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import Logo from '@/components/Logo'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
@@ -322,22 +323,28 @@ export default function DisplayBoard({
       if (data) setShop(data as Shop)
     }
 
+    // Debounce: un cambio puede tocar varias filas/tablas a la vez;
+    // colapsamos cada ráfaga en un refetch ~250ms tras el último evento.
+    const debouncedEntries = debounce(fetchEntries, 250)
+    const debouncedBarbers = debounce(fetchBarbers, 250)
+    const debouncedShop = debounce(fetchShop, 250)
+
     const channel = supabase
       .channel(`display-${shop.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'queue_entries', filter: `shop_id=eq.${shop.id}` },
-        fetchEntries,
+        debouncedEntries,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shop.id}` },
-        fetchBarbers,
+        debouncedBarbers,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shops', filter: `id=eq.${shop.id}` },
-        fetchShop,
+        debouncedShop,
       )
       .subscribe(status => {
         // 'SUBSCRIBED' is the healthy state. Anything else means we lost
@@ -347,6 +354,9 @@ export default function DisplayBoard({
       })
 
     return () => {
+      debouncedEntries.cancel()
+      debouncedBarbers.cancel()
+      debouncedShop.cancel()
       supabase.removeChannel(channel)
     }
   }, [shop.id])

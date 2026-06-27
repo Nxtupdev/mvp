@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import { useLocale } from '@/lib/i18n'
 import {
   Avatar,
@@ -172,6 +173,11 @@ export default function ControlPanel({
       if (data) setEntries(data as Entry[])
     }
 
+    // Debounce: colapsa ráfagas de cambios (varias filas a la vez) en
+    // un solo refetch ~250ms después del último evento.
+    const debouncedBarbers = debounce(fetchBarbers, 250)
+    const debouncedEntries = debounce(fetchEntries, 250)
+
     const channel = supabase
       .channel(`control-panel-${shop.id}`)
       .on(
@@ -182,7 +188,7 @@ export default function ControlPanel({
           table: 'barbers',
           filter: `shop_id=eq.${shop.id}`,
         },
-        () => fetchBarbers(),
+        debouncedBarbers,
       )
       .on(
         'postgres_changes',
@@ -192,11 +198,13 @@ export default function ControlPanel({
           table: 'queue_entries',
           filter: `shop_id=eq.${shop.id}`,
         },
-        () => fetchEntries(),
+        debouncedEntries,
       )
       .subscribe()
 
     return () => {
+      debouncedBarbers.cancel()
+      debouncedEntries.cancel()
       supabase.removeChannel(channel)
     }
   }, [shop.id])

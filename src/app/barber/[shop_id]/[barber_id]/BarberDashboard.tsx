@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import ShopLogo from '@/components/ShopLogo'
 import {
   Avatar,
@@ -237,6 +238,14 @@ export default function BarberDashboard({
       )
     }
 
+    // Debounce: colapsa ráfagas de cambios en un refetch ~250ms tras
+    // el último evento, en vez de uno por evento.
+    const debouncedBarberPeers = debounce(() => {
+      fetchBarber()
+      fetchPeers()
+    }, 250)
+    const debouncedClients = debounce(fetchClients, 250)
+
     const channel = supabase
       .channel(`barber-dashboard-${barber.id}`)
       .on(
@@ -247,10 +256,7 @@ export default function BarberDashboard({
           table: 'barbers',
           filter: `shop_id=eq.${shopId}`,
         },
-        () => {
-          fetchBarber()
-          fetchPeers()
-        },
+        debouncedBarberPeers,
       )
       .on(
         'postgres_changes',
@@ -260,13 +266,13 @@ export default function BarberDashboard({
           table: 'queue_entries',
           filter: `shop_id=eq.${shopId}`,
         },
-        () => {
-          fetchClients()
-        },
+        debouncedClients,
       )
       .subscribe()
 
     return () => {
+      debouncedBarberPeers.cancel()
+      debouncedClients.cancel()
       supabase.removeChannel(channel)
     }
   }, [barber.id, shopId])

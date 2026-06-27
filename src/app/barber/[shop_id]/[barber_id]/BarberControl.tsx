@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import { isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
@@ -98,6 +99,12 @@ export default function BarberControl({
       setCurrentClient(current)
     }
 
+    // Debounce: colapsa ráfagas de cambios en un refetch ~250ms tras
+    // el último evento, en vez de uno por evento.
+    const debouncedBarber = debounce(fetchBarber, 250)
+    const debouncedPeers = debounce(fetchPeers, 250)
+    const debouncedClients = debounce(fetchClients, 250)
+
     const channel = supabase
       .channel(`barber-standalone-${barber.id}`)
       .on(
@@ -108,7 +115,7 @@ export default function BarberControl({
           table: 'barbers',
           filter: `id=eq.${barber.id}`,
         },
-        fetchBarber,
+        debouncedBarber,
       )
       .on(
         'postgres_changes',
@@ -118,7 +125,7 @@ export default function BarberControl({
           table: 'barbers',
           filter: `shop_id=eq.${shopId}`,
         },
-        fetchPeers,
+        debouncedPeers,
       )
       .on(
         'postgres_changes',
@@ -128,11 +135,14 @@ export default function BarberControl({
           table: 'queue_entries',
           filter: `barber_id=eq.${barber.id}`,
         },
-        fetchClients,
+        debouncedClients,
       )
       .subscribe()
 
     return () => {
+      debouncedBarber.cancel()
+      debouncedPeers.cancel()
+      debouncedClients.cancel()
       supabase.removeChannel(channel)
     }
   }, [barber.id, shopId])

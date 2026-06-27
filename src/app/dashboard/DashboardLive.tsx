@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import { useLocale } from '@/lib/i18n'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
@@ -144,26 +145,32 @@ export default function DashboardLive({
       if (s) setShop(s as Shop)
     }
 
+    // Debounce: un solo cambio de estado suele disparar eventos en
+    // varias tablas a la vez (queue + barbers); colapsamos la ráfaga en
+    // un refetch ~250ms después del último evento, no 2-3 seguidos.
+    const debouncedRefresh = debounce(refresh, 250)
+
     const channel = supabase
       .channel(`dashboard-${shop.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'queue_entries', filter: `shop_id=eq.${shop.id}` },
-        refresh,
+        debouncedRefresh,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shop.id}` },
-        refresh,
+        debouncedRefresh,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shops', filter: `id=eq.${shop.id}` },
-        refresh,
+        debouncedRefresh,
       )
       .subscribe()
 
     return () => {
+      debouncedRefresh.cancel()
       supabase.removeChannel(channel)
     }
   }, [shop.id])

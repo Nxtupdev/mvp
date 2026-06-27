@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import {
   Avatar,
   AvatarPicker,
@@ -75,22 +76,29 @@ export default function BarberManager({
 
   useEffect(() => {
     const supabase = createClient()
+
+    const refetch = async () => {
+      const { data } = await supabase
+        .from('barbers')
+        .select('id, name, status, avatar, created_at')
+        .eq('shop_id', shopId)
+        .order('created_at', { ascending: true })
+      if (data) setBarbers(normalize(data))
+    }
+    // Debounce: colapsa ráfagas de cambios en un refetch ~250ms tras
+    // el último evento.
+    const debouncedRefetch = debounce(refetch, 250)
+
     const channel = supabase
       .channel(`barbers-mgr-${shopId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shopId}` },
-        async () => {
-          const { data } = await supabase
-            .from('barbers')
-            .select('id, name, status, avatar, created_at')
-            .eq('shop_id', shopId)
-            .order('created_at', { ascending: true })
-          if (data) setBarbers(normalize(data))
-        },
+        debouncedRefetch,
       )
       .subscribe()
     return () => {
+      debouncedRefetch.cancel()
       supabase.removeChannel(channel)
     }
   }, [shopId])

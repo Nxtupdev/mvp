@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 import { isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
@@ -87,6 +88,10 @@ export default function DeviceGrid({
       if (e) setEntries(e as Entry[])
     }
 
+    // Debounce: colapsa ráfagas de cambios en un refetch ~250ms tras
+    // el último evento, en vez de uno por evento.
+    const debouncedRefresh = debounce(refresh, 250)
+
     const channel = supabase
       .channel(`devices-${shop.id}`)
       .on(
@@ -97,7 +102,7 @@ export default function DeviceGrid({
           table: 'barbers',
           filter: `shop_id=eq.${shop.id}`,
         },
-        refresh,
+        debouncedRefresh,
       )
       .on(
         'postgres_changes',
@@ -107,11 +112,12 @@ export default function DeviceGrid({
           table: 'queue_entries',
           filter: `shop_id=eq.${shop.id}`,
         },
-        refresh,
+        debouncedRefresh,
       )
       .subscribe()
 
     return () => {
+      debouncedRefresh.cancel()
       supabase.removeChannel(channel)
     }
   }, [shop.id])

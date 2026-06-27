@@ -34,6 +34,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
 
 export function useQueueCount(shopId: string, initialCount: number): number {
   const [count, setCount] = useState(initialCount)
@@ -61,6 +62,11 @@ export function useQueueCount(shopId: string, initialCount: number): number {
     // hydration. Cheap (HEAD count, no row payload).
     syncCount()
 
+    // Debounce the re-count: a burst of queue changes (e.g. a cascade
+    // that touches several rows at once) collapses into one HEAD query
+    // ~250ms after the last event, instead of one query per event.
+    const debouncedSync = debounce(syncCount, 250)
+
     const channel = supabase
       .channel(`kiosk-queue-${shopId}`)
       .on(
@@ -71,19 +77,18 @@ export function useQueueCount(shopId: string, initialCount: number): number {
           table: 'queue_entries',
           filter: `shop_id=eq.${shopId}`,
         },
-        () => {
-          // Any change in this shop's queue → re-count. We could
-          // optimize by tracking deltas (e.g. on INSERT just +1), but
-          // status filters make that fragile (an UPDATE from 'waiting'
-          // to 'called' should -1 the visible count; harder to express
-          // cleanly than just re-fetching).
-          syncCount()
-        },
+        // Any change in this shop's queue → re-count (debounced). We
+        // could optimize by tracking deltas (e.g. on INSERT just +1),
+        // but status filters make that fragile (an UPDATE from 'waiting'
+        // to 'called' should -1 the visible count; harder to express
+        // cleanly than just re-fetching).
+        debouncedSync,
       )
       .subscribe()
 
     return () => {
       cancelled = true
+      debouncedSync.cancel()
       supabase.removeChannel(channel)
     }
   }, [shopId])
