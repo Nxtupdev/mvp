@@ -10,3 +10,19 @@ export const DEFAULT_LOCALE: Locale = 'es'
 export function isLocale(value: unknown): value is Locale {
   return value === 'es' || value === 'en'
 }
+
+/**
+ * Sustituye placeholders {var} en un template i18n con sus valores.
+ * Si no se pasan vars, devuelve el template tal cual — así t(key) sin
+ * argumentos sigue comportándose exactamente igual que antes. Mismo
+ * formato ({name}, {count}, {n}...) y misma semántica que el helper
+ * local que usaba el kiosk. Una key ausente se reemplaza por '' para
+ * no ensuciar la UI con placeholders sin resolver.
+ */
+export function interpolate(
+  template: string,
+  vars?: Record<string, string | number>,
+): string {
+  if (!vars) return template
+  return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ''))
+}

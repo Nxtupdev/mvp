@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useState } from 'react'
-import { DEFAULT_LOCALE, type Locale } from './i18n-types'
+import { DEFAULT_LOCALE, interpolate, type Locale } from './i18n-types'
 import { MESSAGES } from './i18n-messages'
 
 // ============================================================
@@ -22,7 +22,7 @@ import { MESSAGES } from './i18n-messages'
 type Ctx = {
   locale: Locale
   setLocale: (next: Locale) => void
-  t: (key: string) => string
+  t: (key: string, vars?: Record<string, string | number>) => string
 }
 
 const LocaleContext = createContext<Ctx | null>(null)
@@ -47,9 +47,10 @@ export function LocaleProvider({
   }, [])
 
   const t = useCallback(
-    (key: string) => {
+    (key: string, vars?: Record<string, string | number>) => {
       const dict = MESSAGES[locale]
-      return dict[key] ?? key // return the key itself so missing translations surface visually
+      // Missing key → return the key itself so it surfaces visually.
+      return interpolate(dict[key] ?? key, vars)
     },
     [locale],
   )
@@ -69,11 +70,12 @@ export function useLocale() {
     return {
       locale: DEFAULT_LOCALE,
       setLocale: () => {},
-      t: (key: string) => MESSAGES[DEFAULT_LOCALE][key] ?? key,
+      t: (key: string, vars?: Record<string, string | number>) =>
+        interpolate(MESSAGES[DEFAULT_LOCALE][key] ?? key, vars),
     }
   }
   return ctx
 }
 
 // Re-export the server-safe utilities so existing imports keep working.
-export { DEFAULT_LOCALE, isLocale, type Locale } from './i18n-types'
+export { DEFAULT_LOCALE, interpolate, isLocale, type Locale } from './i18n-types'

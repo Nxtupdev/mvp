@@ -56,37 +56,44 @@ type Barber = {
 
 type Shop = { id: string; name: string }
 
+// Signature of the t() function from useLocale — passed into the
+// module-level display helpers (describe/formatMetadata/formatVal)
+// so they can resolve i18n keys without importing the hook.
+type TFn = (key: string, vars?: Record<string, string | number>) => string
+
 const RANGE_OPTIONS = [
-  { value: '24h', label: 'Últimas 24h' },
-  { value: 'today', label: 'Hoy (desde 0:00)' },
-  { value: '7d', label: '7 días' },
-  { value: '30d', label: '30 días' },
-  { value: '90d', label: '90 días' },
+  { value: '24h', labelKey: 'activity.range.24h' },
+  { value: 'today', labelKey: 'activity.range.today' },
+  { value: '7d', labelKey: 'activity.range.7d' },
+  { value: '30d', labelKey: 'activity.range.30d' },
+  { value: '90d', labelKey: 'activity.range.90d' },
 ] as const
 type Range = (typeof RANGE_OPTIONS)[number]['value']
 
-const ACTION_OPTIONS: { value: Action | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todas' },
-  { value: 'state_change', label: 'Cambios de estado' },
-  { value: 'client_assigned', label: 'Cliente asignado' },
-  { value: 'position_kept', label: 'Posición mantenida' },
-  { value: 'position_lost', label: 'Posición perdida' },
-  { value: 'no_show', label: 'No-show (cascada)' },
-  { value: 'no_show_no_takers', label: 'No-show sin reemplazo' },
-  { value: 'idle_timeout_offline', label: 'Auto-offline (timeout)' },
-  { value: 'shop_settings_changed', label: 'Cambios de config' },
-  { value: 'toll_cleared_by_owner', label: 'Peaje quitado (legacy)' },
-  { value: 'fifo_moved_by_owner', label: 'Movido en fila por dueño' },
-  { value: 'sanction_applied', label: 'Sanción aplicada' },
-  { value: 'sanction_cleared', label: 'Sanción levantada' },
-  { value: 'break_restored_by_owner', label: 'Break devuelto' },
+const ACTION_OPTIONS: { value: Action | 'all'; labelKey: string }[] = [
+  { value: 'all', labelKey: 'activity.action.all' },
+  { value: 'state_change', labelKey: 'activity.action.state_change' },
+  { value: 'client_assigned', labelKey: 'activity.action.client_assigned' },
+  { value: 'position_kept', labelKey: 'activity.action.position_kept' },
+  { value: 'position_lost', labelKey: 'activity.action.position_lost' },
+  { value: 'no_show', labelKey: 'activity.action.no_show' },
+  { value: 'no_show_no_takers', labelKey: 'activity.action.no_show_no_takers' },
+  { value: 'idle_timeout_offline', labelKey: 'activity.action.idle_timeout_offline' },
+  { value: 'shop_settings_changed', labelKey: 'activity.action.shop_settings_changed' },
+  { value: 'toll_cleared_by_owner', labelKey: 'activity.action.toll_cleared_by_owner' },
+  { value: 'fifo_moved_by_owner', labelKey: 'activity.action.fifo_moved_by_owner' },
+  { value: 'sanction_applied', labelKey: 'activity.action.sanction_applied' },
+  { value: 'sanction_cleared', labelKey: 'activity.action.sanction_cleared' },
+  { value: 'break_restored_by_owner', labelKey: 'activity.action.break_restored_by_owner' },
 ]
 
+// Maps DB status → i18n key. Values are resolved with t() at the call
+// site (reuses the shared status.* labels).
 const STATUS_LABEL: Record<string, string> = {
-  available: 'Disponible',
-  busy: 'Ocupado',
-  break: 'Descanso',
-  offline: 'Fuera',
+  available: 'status.available',
+  busy: 'status.busy',
+  break: 'status.break',
+  offline: 'status.offline',
 }
 
 export default function ActivityFeed({
@@ -182,8 +189,7 @@ export default function ActivityFeed({
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-4xl w-full mx-auto">
       <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.activity')}</h1>
       <p className="text-nxtup-muted text-sm mb-8">
-        Registro de cada acción tomada por los barberos. Para resolver disputas y
-        mantener constancia. Mostrando últimos 90 días.
+        {t('activity.subtitle')}
       </p>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -195,7 +201,7 @@ export default function ActivityFeed({
           >
             {RANGE_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-nxtup-bg">
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
@@ -208,7 +214,7 @@ export default function ActivityFeed({
             className="bg-transparent text-white text-sm focus:outline-none cursor-pointer"
           >
             <option value="all" className="bg-nxtup-bg">
-              Todos los barberos
+              {t('activity.filter.allBarbers')}
             </option>
             {barbers.map(b => (
               <option key={b.id} value={b.id} className="bg-nxtup-bg">
@@ -226,14 +232,14 @@ export default function ActivityFeed({
           >
             {ACTION_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-nxtup-bg">
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
         </FilterChip>
 
         <span className="ml-auto text-nxtup-dim text-xs self-center tabular-nums">
-          {loading ? '...' : `${filtered.length} eventos`}
+          {loading ? '...' : t('activity.eventsCount', { count: filtered.length })}
         </span>
       </div>
 
@@ -241,8 +247,8 @@ export default function ActivityFeed({
         <div className="border border-nxtup-line rounded-2xl py-16 text-center">
           <p className="text-nxtup-muted text-sm">
             {events.length === 0
-              ? 'Sin actividad registrada en este rango'
-              : 'No hay eventos que coincidan con los filtros'}
+              ? t('activity.empty.noneInRange')
+              : t('activity.empty.noMatch')}
           </p>
         </div>
       ) : (
@@ -252,6 +258,7 @@ export default function ActivityFeed({
               key={ev.id}
               event={ev}
               barber={ev.barber_id ? barberMap.get(ev.barber_id) : undefined}
+              t={t}
             />
           ))}
         </ul>
@@ -260,9 +267,9 @@ export default function ActivityFeed({
   )
 }
 
-function ActivityRow({ event, barber }: { event: Event; barber?: Barber }) {
+function ActivityRow({ event, barber, t }: { event: Event; barber?: Barber; t: TFn }) {
   const time = formatTime(event.created_at)
-  const description = describe(event)
+  const description = describe(event, t)
   const accent = ACTION_ACCENT[event.action] ?? 'text-nxtup-muted'
 
   return (
@@ -279,12 +286,12 @@ function ActivityRow({ event, barber }: { event: Event; barber?: Barber }) {
       )}
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm">
-          {barber ? <span className="font-medium">{barber.name}</span> : <span className="text-nxtup-muted">Sistema</span>}{' '}
+          {barber ? <span className="font-medium">{barber.name}</span> : <span className="text-nxtup-muted">{t('activity.actor.system')}</span>}{' '}
           <span className={accent}>{description}</span>
         </p>
         {event.metadata && hasUserVisibleMeta(event) && (
           <p className="text-nxtup-dim text-xs mt-0.5">
-            {formatMetadata(event)}
+            {formatMetadata(event, t)}
           </p>
         )}
       </div>
@@ -319,25 +326,31 @@ const ACTION_ACCENT: Record<Action, string> = {
   break_restored_by_owner: 'text-nxtup-break',
 }
 
-function describe(event: Event): string {
+function describe(event: Event, t: TFn): string {
   switch (event.action) {
     case 'state_change': {
-      const from = event.from_status ? STATUS_LABEL[event.from_status] ?? event.from_status : '—'
-      const to = event.to_status ? STATUS_LABEL[event.to_status] ?? event.to_status : '—'
-      return `pasó de ${from} a ${to}`
+      const from = event.from_status
+        ? STATUS_LABEL[event.from_status] ? t(STATUS_LABEL[event.from_status]) : event.from_status
+        : '—'
+      const to = event.to_status
+        ? STATUS_LABEL[event.to_status] ? t(STATUS_LABEL[event.to_status]) : event.to_status
+        : '—'
+      return t('activity.desc.stateChange', { from, to })
     }
     case 'client_assigned': {
       const name = (event.metadata as { client_name?: string })?.client_name
-      return name ? `recibió a ${name}` : 'recibió un cliente'
+      return name
+        ? t('activity.desc.clientAssigned', { name })
+        : t('activity.desc.clientAssignedGeneric')
     }
     case 'position_kept': {
-      return 'mantuvo su posición al volver del break'
+      return t('activity.desc.positionKept')
     }
     case 'position_lost': {
-      return 'perdió su posición — excedió el break + gracia'
+      return t('activity.desc.positionLost')
     }
     case 'shop_settings_changed': {
-      return 'cambió la configuración del shop'
+      return t('activity.desc.settingsChanged')
     }
     case 'no_show': {
       // Cascada de 2 min (migraciones 035 + 041) — el barbero no
@@ -351,16 +364,16 @@ function describe(event: Event): string {
       const target =
         sentTo === 'break_15min' ? 'break 15 min' : 'offline'
       return name
-        ? `no respondió a ${name} → mandado a ${target} (cascada 2 min)`
-        : `no respondió al cliente → mandado a ${target} (cascada 2 min)`
+        ? t('activity.desc.noShow', { name, target })
+        : t('activity.desc.noShowGeneric', { target })
     }
     case 'no_show_no_takers': {
       // Cascada disparó pero no había barbero disponible para
       // tomar el cliente → vuelve a la cola.
       const name = (event.metadata as { client_name?: string })?.client_name
       return name
-        ? `${name} volvió a la cola — nadie disponible para tomar`
-        : 'cliente volvió a la cola — nadie disponible'
+        ? t('activity.desc.noTakers', { name })
+        : t('activity.desc.noTakersGeneric')
     }
     case 'idle_timeout_offline': {
       // Tres sub-razones en metadata.reason. Distinguimos por la
@@ -368,13 +381,13 @@ function describe(event: Event): string {
       // y el que más le interesa al dueño ver.
       const reason = (event.metadata as { reason?: string })?.reason
       if (reason === 'break_expired') {
-        return 'se pasó del break + gracia → offline automático'
+        return t('activity.desc.autoOffline.breakExpired')
       }
       if (reason === 'busy_too_long') {
-        return 'congelado en busy más de 3h → offline automático'
+        return t('activity.desc.autoOffline.busyTooLong')
       }
       // available_no_action
-      return 'sin actividad por 3h → offline automático'
+      return t('activity.desc.autoOffline.idle')
     }
     case 'toll_cleared_by_owner': {
       // El dueño quitó la penalidad del barbero desde el Centro
@@ -382,14 +395,14 @@ function describe(event: Event): string {
       // acción del dueño y no un fallo automático del peaje.
       const wasLate = (event.metadata as { was_late?: boolean })?.was_late
       return wasLate
-        ? 'penalidad quitada por el dueño'
-        : 'obligaciones de peaje limpiadas por el dueño'
+        ? t('activity.desc.tollCleared')
+        : t('activity.desc.tollClearedLegacy')
     }
     case 'fifo_moved_by_owner': {
       const direction = (event.metadata as { direction?: string })?.direction
       return direction === 'up'
-        ? 'movido un slot arriba en la fila por el dueño'
-        : 'movido un slot abajo en la fila por el dueño'
+        ? t('activity.desc.fifoUp')
+        : t('activity.desc.fifoDown')
     }
     case 'sanction_applied': {
       // Migración 047 — el sistema detectó llegada tarde y aplicó
@@ -406,12 +419,12 @@ function describe(event: Event): string {
           })
         : null
       if (meta.hours && expiresTime) {
-        return `sancionado ${meta.hours}h por llegada tarde — hasta ${expiresTime}`
+        return t('activity.desc.sanctioned', { hours: meta.hours, time: expiresTime })
       }
       if (meta.hours) {
-        return `sancionado ${meta.hours}h por llegada tarde`
+        return t('activity.desc.sanctionedNoTime', { hours: meta.hours })
       }
-      return 'sancionado por llegada tarde'
+      return t('activity.desc.sanctionedGeneric')
     }
     case 'sanction_cleared': {
       // Migración 047 — sanción levantada. Metadata viene de clear_sanction:
@@ -420,9 +433,9 @@ function describe(event: Event): string {
       //   * null si fue el nightly_state_reset (limpieza al final del día)
       const meta = event.metadata as { cleared_by?: string | null }
       if (meta.cleared_by) {
-        return 'sanción levantada por el dueño'
+        return t('activity.desc.sanctionCleared')
       }
-      return 'sanción limpiada en el reset nocturno'
+      return t('activity.desc.sanctionClearedNightly')
     }
     case 'break_restored_by_owner': {
       // Migración 049 — el dueño devolvió un break al barbero. Metadata
@@ -440,9 +453,9 @@ function describe(event: Event): string {
           ? ` (${meta.previous_count} → ${meta.new_count})`
           : ''
       if (meta.was_on_break) {
-        return `el dueño le deshizo el break en curso${counter}`
+        return t('activity.desc.breakUndone', { counter })
       }
-      return `el dueño le devolvió un break${counter}`
+      return t('activity.desc.breakReturned', { counter })
     }
   }
 }
@@ -476,20 +489,25 @@ function hasUserVisibleMeta(event: Event): boolean {
   }
 }
 
-function formatMetadata(event: Event): string {
+function formatMetadata(event: Event, t: TFn): string {
   switch (event.action) {
     case 'state_change': {
       const m = event.metadata as { break_number?: number; break_minutes?: number }
       if (m.break_minutes) {
         const num = m.break_number ?? 0
-        const ord = num === 1 ? 'primer' : num === 2 ? 'segundo' : `#${num}`
-        return `${ord} break — ${m.break_minutes} min`
+        const ord =
+          num === 1
+            ? t('activity.meta.ordinal.first')
+            : num === 2
+              ? t('activity.meta.ordinal.second')
+              : t('activity.meta.ordinal.nth', { n: num })
+        return t('activity.meta.breakDuration', { ordinal: ord, min: m.break_minutes })
       }
       return ''
     }
     case 'client_assigned': {
       const m = event.metadata as { queue_position?: number }
-      return m.queue_position ? `Cola #${m.queue_position}` : ''
+      return m.queue_position ? t('activity.meta.queuePos', { n: m.queue_position }) : ''
     }
     case 'position_kept':
     case 'position_lost': {
@@ -498,7 +516,10 @@ function formatMetadata(event: Event): string {
         allowed_minutes?: number
       }
       if (m.elapsed_minutes != null && m.allowed_minutes != null) {
-        return `${m.elapsed_minutes} min en break · permitido ${m.allowed_minutes} min`
+        return t('activity.meta.breakElapsed', {
+          elapsed: m.elapsed_minutes,
+          allowed: m.allowed_minutes,
+        })
       }
       return ''
     }
@@ -508,7 +529,13 @@ function formatMetadata(event: Event): string {
       }
       if (!m.changes) return ''
       return Object.entries(m.changes)
-        .map(([k, v]) => `${k}: ${formatVal(v.from)} → ${formatVal(v.to)}`)
+        .map(([k, v]) =>
+          t('activity.meta.settingChange', {
+            key: k,
+            from: formatVal(v.from, t),
+            to: formatVal(v.to, t),
+          }),
+        )
         .join(' · ')
     }
     case 'idle_timeout_offline': {
@@ -519,13 +546,16 @@ function formatMetadata(event: Event): string {
         total_allowed_minutes?: number
       }
       if (m.minutes_over != null && m.total_allowed_minutes != null) {
-        return `${m.minutes_over} min sobre el permitido (${m.total_allowed_minutes} min)`
+        return t('activity.meta.minutesOver', {
+          over: m.minutes_over,
+          total: m.total_allowed_minutes,
+        })
       }
       if (m.minutes_idle != null) {
-        return `${m.minutes_idle} min sin actividad`
+        return t('activity.meta.idleMin', { min: m.minutes_idle })
       }
       if (m.hours_idle != null) {
-        return `${m.hours_idle} h sin actividad`
+        return t('activity.meta.idleHours', { hours: m.hours_idle })
       }
       return ''
     }
@@ -535,7 +565,7 @@ function formatMetadata(event: Event): string {
         seconds_elapsed?: number
       }
       if (m.seconds_elapsed != null) {
-        return `${Math.round(m.seconds_elapsed)} s sin tap a busy`
+        return t('activity.meta.secondsNoTap', { seconds: Math.round(m.seconds_elapsed) })
       }
       return ''
     }
@@ -544,8 +574,8 @@ function formatMetadata(event: Event): string {
   }
 }
 
-function formatVal(v: unknown): string {
-  if (typeof v === 'boolean') return v ? 'on' : 'off'
+function formatVal(v: unknown, t: TFn): string {
+  if (typeof v === 'boolean') return v ? t('activity.meta.on') : t('activity.meta.off')
   if (v == null) return '—'
   return String(v)
 }

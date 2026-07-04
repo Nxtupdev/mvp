@@ -53,10 +53,10 @@ type Shop = {
   logo_url: string | null
 }
 
-const STATUS_LABEL: Record<Entry['status'], string> = {
-  waiting: 'Esperando',
-  called: 'Llamado',
-  in_progress: 'En silla',
+const STATUS_KEY: Record<Entry['status'], string> = {
+  waiting: 'status.entry.waiting',
+  called: 'status.entry.called',
+  in_progress: 'status.entry.inProgress',
 }
 
 const STATUS_COLOR: Record<Entry['status'], string> = {
@@ -76,11 +76,11 @@ const BARBER_DOT: Record<Barber['status'], string> = {
 // label del BOTÓN de estado (que se mantiene en inglés AVAILABLE / BUSY
 // / BREAK / OFFLINE por decisión del dueño). Aquí va el texto pequeño
 // que dice "Carlos · Disponible".
-const BARBER_LABEL: Record<Barber['status'], string> = {
-  available: 'Disponible',
-  busy: 'Ocupado',
-  break: 'Descanso',
-  offline: 'Fuera',
+const BARBER_KEY: Record<Barber['status'], string> = {
+  available: 'status.available',
+  busy: 'status.busy',
+  break: 'status.break',
+  offline: 'status.offline',
 }
 
 export default function DashboardLive({
@@ -238,8 +238,10 @@ export default function DashboardLive({
               {shop.is_open ? t('dash.shop.open') : t('dash.shop.closed')}
             </h2>
             <p className="text-nxtup-muted text-sm mt-1">
-              {entries.length} en cola ·{' '}
-              {barbers.filter(b => b.status !== 'offline').length} barberos activos
+              {t('dash.shop.inQueueCount', { count: entries.length })} ·{' '}
+              {t('dash.shop.activeBarbers', {
+                count: barbers.filter(b => b.status !== 'offline').length,
+              })}
             </p>
           </div>
         </div>
@@ -270,7 +272,7 @@ export default function DashboardLive({
 
           {entries.length === 0 ? (
             <div className="border border-nxtup-line rounded-2xl py-16 text-center">
-              <p className="text-nxtup-muted text-sm">No hay clientes en espera</p>
+              <p className="text-nxtup-muted text-sm">{t('dash.shop.noClients')}</p>
             </div>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -300,7 +302,7 @@ export default function DashboardLive({
                     <span
                       className={`text-xs font-bold uppercase tracking-widest ${STATUS_COLOR[entry.status]}`}
                     >
-                      {STATUS_LABEL[entry.status]}
+                      {t(STATUS_KEY[entry.status])}
                     </span>
                   </li>
                 )
@@ -309,9 +311,9 @@ export default function DashboardLive({
           )}
 
           <div className="grid grid-cols-3 gap-2 mt-4">
-            <Stat label="Esperando" value={waiting.length} />
-            <Stat label="Llamados" value={entries.filter(e => e.status === 'called').length} />
-            <Stat label="En silla" value={inProgress.length} />
+            <Stat label={t('dash.stat.waiting')} value={waiting.length} />
+            <Stat label={t('dash.stat.called')} value={entries.filter(e => e.status === 'called').length} />
+            <Stat label={t('dash.stat.inProgress')} value={inProgress.length} />
           </div>
         </section>
 
@@ -321,13 +323,13 @@ export default function DashboardLive({
           <div>
             <div className="flex items-baseline justify-between mb-4">
               <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-                Barberos
+                {t('common.barbers')}
               </h3>
               <Link
                 href="/dashboard/barbers"
                 className="text-nxtup-muted hover:text-white text-xs transition-colors"
               >
-                Administrar →
+                {t('common.manage')} →
               </Link>
             </div>
             {barbers.length === 0 ? (
@@ -335,7 +337,7 @@ export default function DashboardLive({
                 href="/dashboard/barbers"
                 className="block border border-dashed border-nxtup-dim hover:border-white rounded-xl px-4 py-6 text-center text-nxtup-muted hover:text-white text-sm transition-colors"
               >
-                + Agregar primer barbero
+                {t('dash.barbers.addFirst')}
               </Link>
             ) : (
               <div className="flex flex-col gap-2">
@@ -370,7 +372,7 @@ export default function DashboardLive({
                             className={`text-base font-black tabular-nums w-7 text-center ${
                               isLate ? 'text-orange-400' : 'text-nxtup-active'
                             }`}
-                            aria-label={`Posición ${pos}`}
+                            aria-label={t('dash.barber.positionAria', { n: pos })}
                           >
                             #{pos}
                           </span>
@@ -386,12 +388,12 @@ export default function DashboardLive({
                             </span>
                             {isLate && sanctionEndTime && (
                               <span className="block text-orange-400 text-[10px] font-semibold">
-                                Sancionado · hasta {sanctionEndTime}
+                                {t('dash.barber.sanctionedUntil', { time: sanctionEndTime })}
                               </span>
                             )}
                           </div>
                           <span className="text-nxtup-muted text-xs uppercase tracking-widest">
-                            {BARBER_LABEL[b.status]}
+                            {t(BARBER_KEY[b.status])}
                           </span>
                         </li>
                       )
@@ -403,7 +405,7 @@ export default function DashboardLive({
                   <>
                     {inQueueBarbers.length > 0 && (
                       <p className="text-nxtup-dim text-[10px] uppercase tracking-[0.3em] mt-3 mb-1 px-1 font-bold">
-                        Fuera de fila
+                        {t('common.outOfQueue')}
                       </p>
                     )}
                     <ul className="flex flex-col gap-2 opacity-60">
@@ -425,9 +427,9 @@ export default function DashboardLive({
                             {heldPos !== undefined && b.status === 'break' && (
                               <span
                                 className="text-[10px] font-bold uppercase tracking-widest text-nxtup-break border border-nxtup-break/40 rounded px-1.5 py-0.5"
-                                title="El barbero conserva esta posición si vuelve dentro del tiempo permitido"
+                                title={t('dash.barber.keepPositionHint')}
                               >
-                                Vuelve a #{heldPos}
+                                {t('dash.barber.returnsTo', { n: heldPos })}
                               </span>
                             )}
                             {b.status === 'break' && b.break_started_at ? (
@@ -437,7 +439,7 @@ export default function DashboardLive({
                               />
                             ) : (
                               <span className="text-nxtup-muted text-xs uppercase tracking-widest">
-                                {BARBER_LABEL[b.status]}
+                                {t(BARBER_KEY[b.status])}
                               </span>
                             )}
                           </li>
@@ -453,19 +455,19 @@ export default function DashboardLive({
           {/* Share */}
           <div>
             <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-4 font-bold">
-              Compartir
+              {t('common.share')}
             </h3>
             <div className="flex flex-col gap-3">
               <ShareRow
-                label="Check-in del cliente"
-                hint="Imprimí este link como QR en la entrada"
+                label={t('dash.share.checkin.label')}
+                hint={t('dash.share.checkin.hint')}
                 url={checkinUrl}
                 copied={copied === 'checkin'}
                 onCopy={() => copy('checkin', checkinUrl)}
               />
               <ShareRow
-                label="Pantalla TV"
-                hint="Abrir en Fire TV / browser de la TV"
+                label={t('dash.share.tv.label')}
+                hint={t('dash.share.tv.hint')}
                 url={displayUrl}
                 copied={copied === 'display'}
                 onCopy={() => copy('display', displayUrl)}
@@ -540,6 +542,7 @@ function BreakCountdownInline({
   breakStartedAt: string
   breakMinutesAtStart: number | null
 }) {
+  const { t } = useLocale()
   const [now, setNow] = useState(Date.now)
 
   useEffect(() => {
@@ -559,14 +562,14 @@ function BreakCountdownInline({
   if (remainingMin <= 0) {
     return (
       <span className="text-xs font-bold uppercase tracking-widest text-nxtup-busy animate-pulse">
-        vencido
+        {t('dash.break.expired')}
       </span>
     )
   }
 
   return (
     <span className="text-xs font-bold uppercase tracking-widest text-nxtup-break tabular-nums">
-      {remainingMin} min
+      {remainingMin} {t('kiosk.success.min')}
     </span>
   )
 }

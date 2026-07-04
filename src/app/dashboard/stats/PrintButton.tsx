@@ -1,5 +1,7 @@
 'use client'
 
+import { useLocale } from '@/lib/i18n'
+
 /**
  * Botón "Descargar PDF" del reporte de stats.
  *
@@ -19,6 +21,7 @@
  * server-side y el botón sigue siendo el mismo.
  */
 export default function PrintButton({ className }: { className?: string }) {
+  const { t } = useLocale()
   return (
     <button
       type="button"
@@ -28,7 +31,7 @@ export default function PrintButton({ className }: { className?: string }) {
         'print:hidden bg-white text-black rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-nxtup-active transition-colors'
       }
     >
-      Descargar PDF
+      {t('stats.print')}
     </button>
   )
 }

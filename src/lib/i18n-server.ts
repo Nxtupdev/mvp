@@ -11,7 +11,7 @@
 // ============================================================
 
 import { cookies } from 'next/headers'
-import { DEFAULT_LOCALE, isLocale, type Locale } from './i18n-types'
+import { DEFAULT_LOCALE, interpolate, isLocale, type Locale } from './i18n-types'
 import { MESSAGES } from './i18n-messages'
 
 const COOKIE_NAME = 'nxtup_locale'
@@ -40,9 +40,12 @@ export async function getServerLocale(): Promise<Locale> {
  * Si una key falta en el dict, devuelve la key cruda — así las
  * traducciones faltantes se ven visualmente en la UI.
  */
-export function makeServerT(locale: Locale): (key: string) => string {
+export function makeServerT(
+  locale: Locale,
+): (key: string, vars?: Record<string, string | number>) => string {
   const dict = MESSAGES[locale]
-  return (key: string) => dict[key] ?? key
+  return (key: string, vars?: Record<string, string | number>) =>
+    interpolate(dict[key] ?? key, vars)
 }
 
 /**
@@ -55,7 +58,7 @@ export function makeServerT(locale: Locale): (key: string) => string {
  */
 export async function getServerI18n(): Promise<{
   locale: Locale
-  t: (key: string) => string
+  t: (key: string, vars?: Record<string, string | number>) => string
 }> {
   const locale = await getServerLocale()
   return { locale, t: makeServerT(locale) }

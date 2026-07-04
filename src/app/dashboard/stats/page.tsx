@@ -4,7 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { shopDateStart, shopDayStart } from '@/lib/shop-time'
 import { getServerI18n } from '@/lib/i18n-server'
+import type { Locale } from '@/lib/i18n-types'
 import PrintButton from './PrintButton'
+
+// Firma del helper t() bindeado a un locale (ver i18n-server.makeServerT).
+// Se pasa a los helpers module-level que renderizan texto para que
+// puedan traducir sin re-leer la cookie.
+type T = (key: string, vars?: Record<string, string | number>) => string
 
 type Entry = {
   id: string
@@ -39,13 +45,15 @@ type ReferralSource =
   | 'friend'
   | 'other'
 
-const REFERRAL_LABELS: Record<ReferralSource, string> = {
-  'walk-by': 'De pasada',
-  google: 'Google',
-  instagram: 'Instagram',
-  tiktok: 'TikTok',
-  friend: 'Un amigo',
-  other: 'Otro',
+// Cada ReferralSource mapea a su key i18n del kiosk — resolvemos con
+// t() en el render en vez de hardcodear los labels en español.
+const REFERRAL_LABEL_KEYS: Record<ReferralSource, string> = {
+  'walk-by': 'kiosk.source.walk-by',
+  google: 'kiosk.source.google',
+  instagram: 'kiosk.source.instagram',
+  tiktok: 'kiosk.source.tiktok',
+  friend: 'kiosk.source.friend',
+  other: 'kiosk.source.other',
 }
 
 // ── Rangos de fecha ──────────────────────────────────────────────
@@ -64,24 +72,26 @@ const REFERRAL_LABELS: Record<ReferralSource, string> = {
 type PresetKey = 'today' | '7d' | '30d'
 const PRESET_KEYS: PresetKey[] = ['today', '7d', '30d']
 
+// Cada preset apunta a sus keys i18n — resolvemos con t() donde se
+// renderiza (label/heading/comparisonLabel).
 const PRESET_META: Record<
   PresetKey,
   { label: string; heading: string; comparisonLabel: string }
 > = {
   today: {
-    label: 'Hoy',
-    heading: 'Resumen del día. Comparado contra el día anterior.',
-    comparisonLabel: 'ayer',
+    label: 'stats.preset.today.label',
+    heading: 'stats.preset.today.heading',
+    comparisonLabel: 'stats.preset.today.comparison',
   },
   '7d': {
-    label: '7 días',
-    heading: 'Últimos 7 días. Comparado contra los 7 días previos.',
-    comparisonLabel: '7 días previos',
+    label: 'stats.preset.7d.label',
+    heading: 'stats.preset.7d.heading',
+    comparisonLabel: 'stats.preset.7d.comparison',
   },
   '30d': {
-    label: '30 días',
-    heading: 'Últimos 30 días. Comparado contra los 30 días previos.',
-    comparisonLabel: '30 días previos',
+    label: 'stats.preset.30d.label',
+    heading: 'stats.preset.30d.heading',
+    comparisonLabel: 'stats.preset.30d.comparison',
   },
 }
 
@@ -222,10 +232,10 @@ function shopTodayYmd(timeZone: string): string {
  * Ej: "01 jun" — leído en la zona del shop para que no haya off-by-one
  * por el offset UTC.
  */
-function formatYmdShort(ymd: string, timeZone: string): string {
+function formatYmdShort(ymd: string, timeZone: string, locale: Locale): string {
   const date = shopDateStart(timeZone, ymd)
   if (!date) return ymd
-  return new Intl.DateTimeFormat('es', {
+  return new Intl.DateTimeFormat(locale, {
     timeZone,
     day: '2-digit',
     month: 'short',
@@ -235,16 +245,23 @@ function formatYmdShort(ymd: string, timeZone: string): string {
 function getDisplayMeta(
   resolved: ResolvedRange,
   timeZone: string,
+  locale: Locale,
+  t: T,
 ): { label: string; heading: string; comparisonLabel: string } {
   if (resolved.mode === 'preset') {
-    return PRESET_META[resolved.key]
+    const meta = PRESET_META[resolved.key]
+    return {
+      label: t(meta.label),
+      heading: t(meta.heading),
+      comparisonLabel: t(meta.comparisonLabel),
+    }
   }
-  const fromLabel = formatYmdShort(resolved.fromYmd, timeZone)
-  const toLabel = formatYmdShort(resolved.toYmd, timeZone)
+  const fromLabel = formatYmdShort(resolved.fromYmd, timeZone, locale)
+  const toLabel = formatYmdShort(resolved.toYmd, timeZone, locale)
   return {
     label: `${fromLabel} – ${toLabel}`,
-    heading: `Personalizado: ${fromLabel} – ${toLabel}. Comparado contra el período previo del mismo tamaño.`,
-    comparisonLabel: 'período previo',
+    heading: t('stats.custom.heading', { from: fromLabel, to: toLabel }),
+    comparisonLabel: t('stats.custom.comparison'),
   }
 }
 
@@ -279,6 +296,7 @@ function formatPrintDateRange(
   currentStart: Date,
   currentEnd: Date | null,
   timeZone: string,
+  locale: Locale,
 ): string {
   const endInclusive = currentEnd
     ? new Date(currentEnd.getTime() - 1)
@@ -289,7 +307,7 @@ function formatPrintDateRange(
     formatYmdInTz(endInclusive, timeZone)
 
   if (sameDay) {
-    return new Intl.DateTimeFormat('es', {
+    return new Intl.DateTimeFormat(locale, {
       timeZone,
       day: '2-digit',
       month: 'long',
@@ -297,12 +315,12 @@ function formatPrintDateRange(
     }).format(currentStart)
   }
 
-  const start = new Intl.DateTimeFormat('es', {
+  const start = new Intl.DateTimeFormat(locale, {
     timeZone,
     day: '2-digit',
     month: 'short',
   }).format(currentStart)
-  const end = new Intl.DateTimeFormat('es', {
+  const end = new Intl.DateTimeFormat(locale, {
     timeZone,
     day: '2-digit',
     month: 'short',
@@ -315,8 +333,8 @@ function formatPrintDateRange(
  * Timestamp completo para el "Generado el …" del PDF — fecha larga
  * + hora local del shop. Ejemplo: "06 de junio de 2026, 14:23".
  */
-function formatPrintTimestamp(now: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('es', {
+function formatPrintTimestamp(now: Date, timeZone: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
     timeZone,
     day: '2-digit',
     month: 'long',
@@ -333,7 +351,7 @@ export default async function StatsPage({
   searchParams: Promise<{ range?: string; from?: string; to?: string }>
 }) {
   const sp = await searchParams
-  const { t } = await getServerI18n()
+  const { locale, t } = await getServerI18n()
 
   const supabase = await createClient()
   const {
@@ -362,7 +380,7 @@ export default async function StatsPage({
   }
 
   const resolved = resolveRange(sp, timeZone)
-  const meta = getDisplayMeta(resolved, timeZone)
+  const meta = getDisplayMeta(resolved, timeZone, locale, t)
   const todayYmd = shopTodayYmd(timeZone)
   const now = new Date()
   const { currentStart, currentEnd, previousStart, previousEnd } = getBoundaries(
@@ -525,8 +543,13 @@ export default async function StatsPage({
 
   const marketingRows = computeMarketingBreakdown(newClientsCurrent)
 
-  const printDateRange = formatPrintDateRange(currentStart, currentEnd, timeZone)
-  const printTimestamp = formatPrintTimestamp(now, timeZone)
+  const printDateRange = formatPrintDateRange(
+    currentStart,
+    currentEnd,
+    timeZone,
+    locale,
+  )
+  const printTimestamp = formatPrintTimestamp(now, timeZone, locale)
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
@@ -540,7 +563,7 @@ export default async function StatsPage({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={shop.logo_url}
-            alt={`${shop.name} logo`}
+            alt={t('stats.logoAlt', { shop: shop.name })}
             className="h-16 w-auto max-w-[120px] object-contain"
           />
         )}
@@ -549,10 +572,11 @@ export default async function StatsPage({
             {shop.name}
           </h1>
           <p className="text-base mt-1 text-zinc-700">
-            Reporte · <span className="font-semibold">{printDateRange}</span>
+            {t('stats.report')} ·{' '}
+            <span className="font-semibold">{printDateRange}</span>
           </p>
           <p className="text-xs mt-1 text-zinc-500">
-            Generado el {printTimestamp}
+            {t('stats.generatedOn', { date: printTimestamp })}
           </p>
         </div>
       </header>
@@ -568,22 +592,22 @@ export default async function StatsPage({
         <PrintButton />
       </div>
 
-      <RangeTabs resolved={resolved} todayYmd={todayYmd} />
+      <RangeTabs resolved={resolved} todayYmd={todayYmd} t={t} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title={`Walk-ins ${meta.label.toLowerCase()}`}>
+        <Card title={t('stats.card.walkins', { range: meta.label.toLowerCase() })}>
           <BigNumber value={walkInsCurrent.toString()} />
           {walkInsCurrent > 0 && (
             <p className="text-nxtup-muted text-xs mb-1 tabular-nums">
               {[
                 walkInsBreakdown.attended > 0 &&
-                  `${walkInsBreakdown.attended} ${walkInsBreakdown.attended === 1 ? 'atendido' : 'atendidos'}`,
+                  `${walkInsBreakdown.attended} ${walkInsBreakdown.attended === 1 ? t('stats.breakdown.attended.one') : t('stats.breakdown.attended.many')}`,
                 walkInsBreakdown.inProgress > 0 &&
-                  `${walkInsBreakdown.inProgress} en silla`,
+                  `${walkInsBreakdown.inProgress} ${t('stats.breakdown.inProgress')}`,
                 walkInsBreakdown.waiting > 0 &&
-                  `${walkInsBreakdown.waiting} ${walkInsBreakdown.waiting === 1 ? 'esperando' : 'esperando'}`,
+                  `${walkInsBreakdown.waiting} ${t('stats.breakdown.waiting')}`,
                 walkInsBreakdown.cancelled > 0 &&
-                  `${walkInsBreakdown.cancelled} ${walkInsBreakdown.cancelled === 1 ? 'cancelado' : 'cancelados'}`,
+                  `${walkInsBreakdown.cancelled} ${walkInsBreakdown.cancelled === 1 ? t('stats.breakdown.cancelled.one') : t('stats.breakdown.cancelled.many')}`,
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -598,9 +622,9 @@ export default async function StatsPage({
               <p className="text-nxtup-muted text-xs mb-2 tabular-nums">
                 {[
                   walkInsCurrentSplit.returning > 0 &&
-                    `${walkInsCurrentSplit.returning} ${walkInsCurrentSplit.returning === 1 ? 'recurrente' : 'recurrentes'}`,
+                    `${walkInsCurrentSplit.returning} ${walkInsCurrentSplit.returning === 1 ? t('stats.split.returning.one') : t('stats.split.returning.many')}`,
                   walkInsCurrentSplit.newOnes > 0 &&
-                    `${walkInsCurrentSplit.newOnes} ${walkInsCurrentSplit.newOnes === 1 ? 'nuevo' : 'nuevos'}`,
+                    `${walkInsCurrentSplit.newOnes} ${walkInsCurrentSplit.newOnes === 1 ? t('stats.split.new.one') : t('stats.split.new.many')}`,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -611,7 +635,8 @@ export default async function StatsPage({
                       walkInsCurrentSplit.returning,
                       walkInsPreviousSplit.returning,
                       meta.comparisonLabel,
-                      { unitName: 'recurrentes' },
+                      t,
+                      { unitName: t('stats.unit.returning') },
                     )
                     // Saltarse el caso "Igual que ..." en inline — el
                     // dueño no necesita ver "Igual" pegado a un breakdown
@@ -631,16 +656,17 @@ export default async function StatsPage({
               walkInsCurrent,
               walkInsPrevious,
               meta.comparisonLabel,
+              t,
             )
             return <Delta kind={d.kind} label={d.label} />
           })()}
         </Card>
 
-        <Card title="Tiempo promedio de espera">
+        <Card title={t('stats.card.avgWait')}>
           <BigNumber
             value={waitCurrent > 0 ? `${Math.round(waitCurrent)} min` : '—'}
             mutedSuffix={
-              waitCurrent > 0 ? undefined : 'sin entries con called_at'
+              waitCurrent > 0 ? undefined : t('stats.wait.noData')
             }
           />
           <Delta
@@ -656,18 +682,22 @@ export default async function StatsPage({
             invertColors
             label={
               waitPrevious === 0
-                ? `Sin datos de ${meta.comparisonLabel}`
+                ? t('stats.delta.noData', { label: meta.comparisonLabel })
                 : waitDelta === 0
-                  ? `Igual que ${meta.comparisonLabel}`
-                  : `${waitDelta > 0 ? '+' : ''}${waitDelta} min vs ${meta.comparisonLabel} (${Math.round(waitPrevious)} min)`
+                  ? t('stats.delta.equal', { label: meta.comparisonLabel })
+                  : t('stats.delta.waitMin', {
+                      delta: `${waitDelta > 0 ? '+' : ''}${waitDelta}`,
+                      label: meta.comparisonLabel,
+                      prev: Math.round(waitPrevious),
+                    })
             }
           />
         </Card>
 
-        <Card title="Cortes por barbero">
+        <Card title={t('stats.card.cutsByBarber')}>
           {cutsByBarber.length === 0 ? (
             <p className="text-nxtup-dim text-sm py-6">
-              Sin cortes registrados
+              {t('stats.empty.noCuts')}
             </p>
           ) : (
             <ul className="flex flex-col gap-3 mt-2">
@@ -689,10 +719,10 @@ export default async function StatsPage({
           )}
         </Card>
 
-        <Card title="Hora pico">
+        <Card title={t('stats.card.peakHour')}>
           {peak.count === 0 ? (
             <p className="text-nxtup-dim text-sm py-6">
-              Sin walk-ins registrados
+              {t('stats.empty.noWalkins')}
             </p>
           ) : (
             <>
@@ -700,28 +730,30 @@ export default async function StatsPage({
                 value={`${formatHour(peak.hour)} — ${formatHour(peak.hour + 1)}`}
               />
               <p className="text-nxtup-muted text-sm">
-                {peak.count} {peak.count === 1 ? 'walk-in' : 'walk-ins'} en ese rango
+                {peak.count === 1
+                  ? t('stats.peak.count.one', { count: peak.count })
+                  : t('stats.peak.count.many', { count: peak.count })}
               </p>
             </>
           )}
         </Card>
 
         <Card
-          title={`¿Cómo nos conocieron? · ${newClientsCurrent.length} nuevos`}
+          title={t('stats.card.howHeard', { count: newClientsCurrent.length })}
           fullWidth
         >
           {marketingRows.length === 0 ? (
             <p className="text-nxtup-dim text-sm py-6">
               {newClientsCurrent.length === 0
-                ? 'Sin clientes nuevos en el período'
-                : 'Clientes nuevos sin fuente registrada'}
+                ? t('stats.marketing.emptyNone')
+                : t('stats.marketing.emptyNoSource')}
             </p>
           ) : (
             <ul className="flex flex-col gap-3 mt-2">
               {marketingRows.map(row => (
                 <MarketingRow
                   key={row.source}
-                  label={REFERRAL_LABELS[row.source]}
+                  label={t(REFERRAL_LABEL_KEYS[row.source])}
                   count={row.count}
                   pct={row.pct}
                 />
@@ -734,7 +766,8 @@ export default async function StatsPage({
                 newClientsCurrent.length,
                 newClientsPrevious.length,
                 meta.comparisonLabel,
-                { unitName: 'nuevos' },
+                t,
+                { unitName: t('stats.unit.new') },
               )
               return <Delta kind={d.kind} label={d.label} />
             })()}
@@ -742,13 +775,13 @@ export default async function StatsPage({
       </div>
 
       <p className="text-nxtup-dim text-xs mt-6 text-center print:hidden">
-        Última actualización:{' '}
+        {t('stats.lastUpdated')}:{' '}
         {now.toLocaleTimeString('en-GB', {
           hour: '2-digit',
           minute: '2-digit',
           timeZone,
         })}{' '}
-        ({timeZone}) · Recarga para datos frescos.
+        ({timeZone}) · {t('stats.reload')}
       </p>
     </main>
   )
@@ -788,14 +821,21 @@ function formatCountDelta(
   current: number,
   previous: number,
   comparisonLabel: string,
+  t: T,
   opts: { unitName?: string } = {},
 ): DeltaResult {
   if (previous === 0) {
-    return { kind: 'neutral', label: `Sin datos de ${comparisonLabel}` }
+    return {
+      kind: 'neutral',
+      label: t('stats.delta.noData', { label: comparisonLabel }),
+    }
   }
   const delta = current - previous
   if (delta === 0) {
-    return { kind: 'neutral', label: `Igual que ${comparisonLabel}` }
+    return {
+      kind: 'neutral',
+      label: t('stats.delta.equal', { label: comparisonLabel }),
+    }
   }
 
   const unit = opts.unitName ? ` ${opts.unitName}` : ''
@@ -805,14 +845,26 @@ function formatCountDelta(
   if (previous < SMALL_BASE_THRESHOLD) {
     return {
       kind,
-      label: `${sign}${delta}${unit} vs ${comparisonLabel} (era ${previous})`,
+      label: t('stats.delta.count', {
+        sign,
+        delta,
+        unit,
+        label: comparisonLabel,
+        previous,
+      }),
     }
   }
 
   const pct = Math.round((delta / previous) * 100)
   return {
     kind,
-    label: `${sign}${pct}%${unit} vs ${comparisonLabel} (${previous})`,
+    label: t('stats.delta.countPct', {
+      sign,
+      pct,
+      unit,
+      label: comparisonLabel,
+      previous,
+    }),
   }
 }
 
@@ -940,9 +992,11 @@ function formatHour(h: number): string {
 function RangeTabs({
   resolved,
   todayYmd,
+  t,
 }: {
   resolved: ResolvedRange
   todayYmd: string
+  t: T
 }) {
   // Para custom mode los inputs vienen pre-llenados con los valores
   // del URL. Para preset mode quedan vacíos — si el dueño rellena
@@ -955,7 +1009,7 @@ function RangeTabs({
     <div className="print:hidden flex flex-col gap-4 mb-6">
       <nav
         className="inline-flex gap-1 p-1 bg-nxtup-line/40 rounded-lg self-start"
-        aria-label="Atajos de rango"
+        aria-label={t('stats.range.shortcuts')}
       >
         {PRESET_KEYS.map(k => {
           const isCurrent = resolved.mode === 'preset' && resolved.key === k
@@ -976,7 +1030,7 @@ function RangeTabs({
               `}
               aria-current={isCurrent ? 'page' : undefined}
             >
-              {PRESET_META[k].label}
+              {t(PRESET_META[k].label)}
             </Link>
           )
         })}
@@ -991,7 +1045,7 @@ function RangeTabs({
       >
         <label className="flex flex-col gap-1">
           <span className="text-nxtup-muted text-[10px] uppercase tracking-wider font-bold">
-            Desde
+            {t('stats.range.from')}
           </span>
           <input
             type="date"
@@ -1004,7 +1058,7 @@ function RangeTabs({
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-nxtup-muted text-[10px] uppercase tracking-wider font-bold">
-            Hasta
+            {t('stats.range.to')}
           </span>
           <input
             type="date"
@@ -1019,14 +1073,14 @@ function RangeTabs({
           type="submit"
           className="bg-white text-black rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-nxtup-active transition-colors"
         >
-          Aplicar
+          {t('common.apply')}
         </button>
         {resolved.mode === 'custom' && (
           <Link
             href="/dashboard/stats"
             className="text-nxtup-muted hover:text-white text-xs underline underline-offset-4 ml-1"
           >
-            Limpiar
+            {t('common.clear')}
           </Link>
         )}
       </form>

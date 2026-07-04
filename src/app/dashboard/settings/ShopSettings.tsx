@@ -43,15 +43,15 @@ type Shop = {
 const DISPLAY_MESSAGE_MAX = 120
 
 const TIMEZONE_OPTIONS = [
-  { value: 'America/New_York', label: 'Eastern (NY, Miami) — DST' },
-  { value: 'America/Santo_Domingo', label: 'Santo Domingo (RD) — UTC-4 fijo' },
-  { value: 'America/Chicago', label: 'Central (Chicago, CDMX*) — DST' },
-  { value: 'America/Mexico_City', label: 'Ciudad de México — DST' },
-  { value: 'America/Denver', label: 'Mountain (Denver) — DST' },
-  { value: 'America/Los_Angeles', label: 'Pacific (LA) — DST' },
-  { value: 'America/Bogota', label: 'Bogotá — UTC-5 fijo' },
-  { value: 'America/Lima', label: 'Lima — UTC-5 fijo' },
-  { value: 'America/Caracas', label: 'Caracas — UTC-4 fijo' },
+  { value: 'America/New_York', labelKey: 'settings.tz.newYork' },
+  { value: 'America/Santo_Domingo', labelKey: 'settings.tz.santoDomingo' },
+  { value: 'America/Chicago', labelKey: 'settings.tz.chicago' },
+  { value: 'America/Mexico_City', labelKey: 'settings.tz.mexicoCity' },
+  { value: 'America/Denver', labelKey: 'settings.tz.denver' },
+  { value: 'America/Los_Angeles', labelKey: 'settings.tz.losAngeles' },
+  { value: 'America/Bogota', labelKey: 'settings.tz.bogota' },
+  { value: 'America/Lima', labelKey: 'settings.tz.lima' },
+  { value: 'America/Caracas', labelKey: 'settings.tz.caracas' },
 ] as const
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024
@@ -227,11 +227,11 @@ export default function ShopSettings({
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-2xl w-full mx-auto">
       <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.settings')}</h1>
       <p className="text-nxtup-muted text-sm mb-8">
-        Configuración del shop. Los cambios afectan al display, check-in y barber app.
+        {t('settings.subtitle')}
       </p>
 
       <form onSubmit={handleSave} className="flex flex-col gap-6">
-        <Field label="Shop name">
+        <Field label={t('settings.field.shopName')}>
           <input
             required
             value={name}
@@ -243,15 +243,15 @@ export default function ShopSettings({
         {/* Migración 051 — mensaje del cintillo del TV. Si está vacío,
             el cintillo no aparece en la pantalla del shop. */}
         <Field
-          label="Mensaje en la pantalla (TV)"
-          hint="Aparece rotando en el cintillo de abajo de la TV del shop. Promos, avisos, horarios. Déjalo vacío para ocultar el cintillo."
+          label={t('settings.field.displayMessage')}
+          hint={t('settings.hint.displayMessage')}
         >
           <textarea
             value={displayMessage}
             onChange={e => setDisplayMessage(e.target.value.slice(0, DISPLAY_MESSAGE_MAX))}
             maxLength={DISPLAY_MESSAGE_MAX}
             rows={2}
-            placeholder="Ej: ¡2x1 mañana por el 4 de julio! · Cerramos a las 6 hoy"
+            placeholder={t('settings.placeholder.displayMessage')}
             className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim resize-none leading-relaxed"
           />
           <p className="text-nxtup-dim text-xs mt-1 text-right tabular-nums">
@@ -262,13 +262,13 @@ export default function ShopSettings({
         {/* Migración 052 — idioma del TV. El TV es público (nadie toca un
             toggle ahí), así que el dueño elige el idioma desde aquí. */}
         <Field
-          label="Idioma de la pantalla (TV)"
-          hint="En qué idioma se ven los títulos de la TV del shop (Disponibles/Available, etc.)."
+          label={t('settings.field.displayLanguage')}
+          hint={t('settings.hint.displayLanguage')}
         >
           <fieldset className="flex gap-2">
             {([
-              { value: 'es', label: 'Español' },
-              { value: 'en', label: 'English' },
+              { value: 'es', label: t('kiosk.lang.es') },
+              { value: 'en', label: t('kiosk.lang.en') },
             ] as const).map(opt => (
               <label
                 key={opt.value}
@@ -292,7 +292,7 @@ export default function ShopSettings({
           </fieldset>
         </Field>
 
-        <Field label="Max queue size" hint="Cupos disponibles a la vez">
+        <Field label={t('settings.field.maxQueue')} hint={t('settings.hint.maxQueue')}>
           <input
             type="number"
             min={1}
@@ -305,15 +305,13 @@ export default function ShopSettings({
 
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
-            Breaks
+            {t('settings.section.breaks')}
           </p>
           <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
-            El primer break del turno suele ser más largo (almuerzo). Los breaks
-            siguientes son más cortos (baño, fumar). Se reinicia el contador cuando
-            el barbero termina su turno.
+            {t('settings.breaks.blurb')}
           </p>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="First break (min)" hint="Almuerzo / break largo">
+            <Field label={t('settings.field.firstBreak')} hint={t('settings.hint.firstBreak')}>
               <input
                 type="number"
                 min={1}
@@ -323,7 +321,7 @@ export default function ShopSettings({
                 className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
               />
             </Field>
-            <Field label="Next break (min)" hint="Cualquier break después del primero">
+            <Field label={t('settings.field.nextBreak')} hint={t('settings.hint.nextBreak')}>
               <input
                 type="number"
                 min={1}
@@ -338,40 +336,39 @@ export default function ShopSettings({
 
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
-            Reglas de la cola
+            {t('settings.section.queueRules')}
           </p>
           <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
-            Cada barbería opera diferente. Estas reglas determinan qué pasa con la
-            posición FIFO de un barbero cuando toma break.
+            {t('settings.queueRules.blurb')}
           </p>
 
           {/* Two-radio picker. The wording is intentionally direct so
               the owner reads the trade-off without ambiguity — this
               setting affects every barber's daily reality. */}
           <fieldset className="flex flex-col gap-2">
-            <legend className="sr-only">Política del turno durante break</legend>
+            <legend className="sr-only">{t('settings.queueRules.legend')}</legend>
 
             <BreakModeOption
               value="guaranteed"
               selected={breakMode === 'guaranteed'}
               onChange={setBreakMode}
-              title="Turno garantizado"
-              body="El barbero conserva su posición FIFO mientras esté en break y vuelva dentro del tiempo + gracia. Predictable: si vuelve a tiempo, recupera el turno pase lo que pase."
+              title={t('settings.breakMode.guaranteed.title')}
+              body={t('settings.breakMode.guaranteed.body')}
             />
 
             <BreakModeOption
               value="not_guaranteed"
               selected={breakMode === 'not_guaranteed'}
               onChange={setBreakMode}
-              title="Turno no garantizado"
-              body="Igual al anterior, PERO si alguien que estaba debajo en la fila toma un walk-in y lo termina durante el break, el barbero pierde su turno aunque regrese a tiempo. Empuja a tomar break en momentos tranquilos."
+              title={t('settings.breakMode.notGuaranteed.title')}
+              body={t('settings.breakMode.notGuaranteed.body')}
             />
           </fieldset>
 
           <div className="mt-4">
             <Field
-              label="Minutos de gracia post-break"
-              hint="Tiempo extra después del break antes de perder la posición. Aplica a ambos modos."
+              label={t('settings.field.grace')}
+              hint={t('settings.hint.grace')}
             >
               <input
                 type="number"
@@ -396,14 +393,10 @@ export default function ShopSettings({
               el viejo sistema de cortes por tiempo de sanción. */}
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
-            Llegada tarde
+            {t('settings.section.lateArrival')}
           </p>
           <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
-            Si un barbero llega después de la hora marcada y otros ya
-            están trabajando, recibe una sanción por el tiempo que elijas.
-            Durante la sanción no recibe walk-ins (pero sí clientes que
-            lo piden por nombre) y queda al fondo de la cola con marca
-            naranja. Se limpia sola al final del día.
+            {t('settings.lateArrival.blurb')}
           </p>
 
           <label className="flex items-center gap-3 mb-4 cursor-pointer">
@@ -414,15 +407,15 @@ export default function ShopSettings({
               className="h-4 w-4 accent-white cursor-pointer"
             />
             <span className="text-white text-sm">
-              Activar regla de llegada tarde
+              {t('settings.lateArrival.enable')}
             </span>
           </label>
 
           {lateEnabled && (
             <div className="space-y-4">
               <Field
-                label="Hora límite"
-                hint={`Hora local en ${timezone}. Después de esto, la primera vez que pase a DISPONIBLE se le aplica la sanción.`}
+                label={t('settings.field.lateThreshold')}
+                hint={t('settings.hint.lateThreshold', { timezone })}
               >
                 <input
                   type="time"
@@ -432,8 +425,8 @@ export default function ShopSettings({
                 />
               </Field>
               <Field
-                label="Duración de la sanción"
-                hint="Tiempo que el barbero queda sin recibir walk-ins."
+                label={t('settings.field.sanctionDuration')}
+                hint={t('settings.hint.sanctionDuration')}
               >
                 <fieldset className="grid grid-cols-4 gap-2">
                   {PRESET_SANCTION_HOURS.map(n => {
@@ -477,7 +470,7 @@ export default function ShopSettings({
                       onChange={() => setCustomMode(true)}
                       className="sr-only"
                     />
-                    <span className="text-xs font-bold">Personalizado</span>
+                    <span className="text-xs font-bold">{t('settings.custom')}</span>
                   </label>
                 </fieldset>
                 {customMode && (
@@ -494,7 +487,7 @@ export default function ShopSettings({
                       }}
                       className="w-28 bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
                     />
-                    <span className="text-nxtup-muted text-sm">horas</span>
+                    <span className="text-nxtup-muted text-sm">{t('settings.hoursUnit')}</span>
                   </div>
                 )}
               </Field>
@@ -503,8 +496,8 @@ export default function ShopSettings({
         </div>
 
         <Field
-          label="Zona horaria del shop"
-          hint="Define qué es 'hoy' para las stats, la bitácora y los resets diarios. Cambiala si el shop opera en otra ciudad."
+          label={t('settings.field.timezone')}
+          hint={t('settings.hint.timezone')}
         >
           <select
             value={timezone}
@@ -513,7 +506,7 @@ export default function ShopSettings({
           >
             {TIMEZONE_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-nxtup-bg">
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
             {/* Allow the current value even if it's not in our preset list */}
@@ -533,10 +526,10 @@ export default function ShopSettings({
             disabled={saving || !dirty || !name.trim()}
             className="px-5 py-3 bg-white text-black font-semibold rounded-lg disabled:opacity-40 transition-all active:scale-[0.98]"
           >
-            {saving ? 'Saving...' : 'Save changes'}
+            {saving ? t('settings.saving') : t('settings.save')}
           </button>
           {savedAt && !dirty && (
-            <span className="text-nxtup-active text-sm">Saved</span>
+            <span className="text-nxtup-active text-sm">{t('settings.saved')}</span>
           )}
         </div>
       </form>
@@ -557,12 +550,12 @@ export default function ShopSettings({
 
       <section className="flex flex-col gap-2">
         <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold mb-3">
-          Account
+          {t('settings.account.heading')}
         </h2>
         <div className="flex items-center justify-between border border-nxtup-line rounded-xl px-4 py-3">
           <div>
             <p className="text-nxtup-muted text-xs uppercase tracking-widest mb-1">
-              Email
+              {t('settings.account.email')}
             </p>
             <p className="text-white font-medium">{userEmail}</p>
           </div>
@@ -571,7 +564,7 @@ export default function ShopSettings({
               type="submit"
               className="text-nxtup-muted hover:text-nxtup-busy text-sm transition-colors"
             >
-              Sign out
+              {t('dash.nav.signout')}
             </button>
           </form>
         </div>
@@ -587,6 +580,7 @@ function LogoSection({
   shop: Shop
   onUpdated: (next: Shop) => void
 }) {
+  const { t } = useLocale()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -606,11 +600,11 @@ function LogoSection({
   function pickFile(file: File | null | undefined) {
     if (!file) return
     if (!ALLOWED_TYPES.includes(file.type)) {
-      setError('Formato no soportado. Usa PNG, JPG, WebP o SVG.')
+      setError(t('settings.logo.errorFormat'))
       return
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setError('El logo debe pesar menos de 2 MB.')
+      setError(t('settings.logo.errorSize'))
       return
     }
     setError('')
@@ -671,7 +665,7 @@ function LogoSection({
 
   async function handleRemove() {
     if (!shop.logo_url || busy) return
-    if (!confirm('Eliminar logo del shop?')) return
+    if (!confirm(t('settings.logo.removeConfirm'))) return
     setBusy('remove')
     setError('')
 
@@ -701,7 +695,7 @@ function LogoSection({
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold">
-        Logo
+        {t('settings.logo.heading')}
       </h2>
 
       <input
@@ -716,12 +710,12 @@ function LogoSection({
         <div className="w-16 h-16 rounded-md bg-nxtup-line flex items-center justify-center overflow-hidden flex-shrink-0">
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt="Logo preview" className="w-full h-full object-contain" />
+            <img src={preview} alt={t('settings.logo.altPreview')} className="w-full h-full object-contain" />
           ) : shop.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={shop.logo_url} alt="Current logo" className="w-full h-full object-contain" />
+            <img src={shop.logo_url} alt={t('settings.logo.altCurrent')} className="w-full h-full object-contain" />
           ) : (
-            <span className="text-nxtup-dim text-xs">No logo</span>
+            <span className="text-nxtup-dim text-xs">{t('settings.logo.none')}</span>
           )}
         </div>
 
@@ -730,18 +724,18 @@ function LogoSection({
             <>
               <p className="text-white text-sm font-medium truncate">{pendingFile.name}</p>
               <p className="text-nxtup-muted text-xs">
-                {Math.round(pendingFile.size / 1024)} KB · listo para subir
+                {Math.round(pendingFile.size / 1024)} KB · {t('settings.logo.readyToUpload')}
               </p>
             </>
           ) : shop.logo_url ? (
             <>
-              <p className="text-white text-sm font-medium">Logo actual</p>
-              <p className="text-nxtup-muted text-xs">Se muestra en el dashboard, display y check-in</p>
+              <p className="text-white text-sm font-medium">{t('settings.logo.current')}</p>
+              <p className="text-nxtup-muted text-xs">{t('settings.logo.currentHint')}</p>
             </>
           ) : (
             <>
-              <p className="text-white text-sm font-medium">Sin logo</p>
-              <p className="text-nxtup-muted text-xs">PNG, JPG, WebP o SVG · max 2 MB</p>
+              <p className="text-white text-sm font-medium">{t('settings.logo.noneLabel')}</p>
+              <p className="text-nxtup-muted text-xs">{t('settings.logo.formatHint')}</p>
             </>
           )}
         </div>
@@ -755,7 +749,7 @@ function LogoSection({
                 disabled={busy !== null}
                 className="px-3 py-1.5 bg-white text-black text-xs font-semibold rounded-md disabled:opacity-40 transition-opacity active:scale-[0.98]"
               >
-                {busy === 'upload' ? 'Subiendo...' : 'Save logo'}
+                {busy === 'upload' ? t('settings.logo.uploading') : t('settings.logo.save')}
               </button>
               <button
                 type="button"
@@ -766,7 +760,7 @@ function LogoSection({
                 disabled={busy !== null}
                 className="text-nxtup-muted hover:text-white text-xs px-2 py-1 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </>
           ) : (
@@ -777,7 +771,7 @@ function LogoSection({
                 disabled={busy !== null}
                 className="px-3 py-1.5 bg-nxtup-bg border border-nxtup-dim hover:border-white text-white text-xs font-medium rounded-md disabled:opacity-40 transition-colors"
               >
-                {shop.logo_url ? 'Replace' : 'Upload'}
+                {shop.logo_url ? t('settings.logo.replace') : t('settings.logo.upload')}
               </button>
               {shop.logo_url && (
                 <button
@@ -786,7 +780,7 @@ function LogoSection({
                   disabled={busy !== null}
                   className="text-nxtup-muted hover:text-nxtup-busy text-xs px-2 py-1 transition-colors disabled:opacity-40"
                 >
-                  {busy === 'remove' ? 'Removing...' : 'Remove'}
+                  {busy === 'remove' ? t('settings.logo.removing') : t('settings.logo.remove')}
                 </button>
               )}
             </>
@@ -843,6 +837,7 @@ function AntiCheatSection({
   currentIp: string | null
   onUpdated: (next: Shop) => void
 }) {
+  const { t } = useLocale()
   const [busy, setBusy] = useState<'save' | 'clear' | null>(null)
   const [error, setError] = useState('')
 
@@ -857,7 +852,7 @@ function AntiCheatSection({
     const res = await fetch('/api/shops/refresh-ip', { method: 'POST' })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setError(data.error ?? 'Error al guardar')
+      setError(data.error ?? t('settings.antiCheat.errorSave'))
     } else {
       onUpdated({ ...shop, trusted_public_ip: data.trusted_public_ip })
     }
@@ -866,18 +861,13 @@ function AntiCheatSection({
 
   async function clear() {
     if (busy) return
-    if (
-      !confirm(
-        'Desactivar la protección? Los barberos podrán entrar a la fila desde cualquier red.',
-      )
-    )
-      return
+    if (!confirm(t('settings.antiCheat.disableConfirm'))) return
     setBusy('clear')
     setError('')
     const res = await fetch('/api/shops/refresh-ip', { method: 'DELETE' })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      setError(data.error ?? 'Error al desactivar')
+      setError(data.error ?? t('settings.antiCheat.errorClear'))
     } else {
       onUpdated({ ...shop, trusted_public_ip: null })
     }
@@ -888,13 +878,10 @@ function AntiCheatSection({
     <section className="flex flex-col gap-4">
       <div>
         <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold mb-2">
-          Anti-trampa por ubicación
+          {t('settings.antiCheat.heading')}
         </h2>
         <p className="text-nxtup-dim text-xs leading-relaxed max-w-prose">
-          Solo se permite entrar a la fila desde la conexión WiFi de la
-          barbería. Registra la IP del shop una vez parado adentro y conectado
-          al WiFi. Si tu internet cambia (raro pero pasa), vuelve a tocar
-          &quot;Registrar IP actual&quot;.
+          {t('settings.antiCheat.blurb')}
         </p>
       </div>
 
@@ -902,15 +889,15 @@ function AntiCheatSection({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-nxtup-muted text-[10px] uppercase tracking-widest mb-1">
-              IP registrada del shop
+              {t('settings.antiCheat.registeredIp')}
             </p>
             <p className="text-white font-mono tabular-nums">
-              {trusted ?? <span className="text-nxtup-dim">No registrada</span>}
+              {trusted ?? <span className="text-nxtup-dim">{t('settings.antiCheat.notRegistered')}</span>}
             </p>
           </div>
           <div>
             <p className="text-nxtup-muted text-[10px] uppercase tracking-widest mb-1">
-              Tu IP ahora mismo
+              {t('settings.antiCheat.yourIp')}
             </p>
             <p className="text-white font-mono tabular-nums">
               {currentIp ?? <span className="text-nxtup-dim">—</span>}
@@ -925,8 +912,8 @@ function AntiCheatSection({
             }`}
           >
             {isHereNow
-              ? '✓ Estás conectado desde la red del shop'
-              : 'No estás conectado desde la red del shop'}
+              ? `✓ ${t('settings.antiCheat.connected')}`
+              : t('settings.antiCheat.notConnected')}
           </p>
         )}
 
@@ -938,10 +925,10 @@ function AntiCheatSection({
             className="px-4 py-2 bg-white text-black text-sm font-semibold rounded-md disabled:opacity-40 transition-opacity active:scale-[0.98]"
           >
             {busy === 'save'
-              ? 'Guardando…'
+              ? t('settings.antiCheat.saving')
               : enabled
-                ? 'Refrescar IP del shop'
-                : 'Registrar IP actual'}
+                ? t('settings.antiCheat.refreshIp')
+                : t('settings.antiCheat.registerIp')}
           </button>
           {enabled && (
             <button
@@ -950,7 +937,7 @@ function AntiCheatSection({
               disabled={busy !== null}
               className="px-4 py-2 border border-nxtup-dim text-nxtup-muted hover:text-nxtup-busy hover:border-nxtup-busy text-sm rounded-md disabled:opacity-40 transition-colors"
             >
-              {busy === 'clear' ? 'Desactivando…' : 'Desactivar protección'}
+              {busy === 'clear' ? t('settings.antiCheat.disabling') : t('settings.antiCheat.disable')}
             </button>
           )}
         </div>

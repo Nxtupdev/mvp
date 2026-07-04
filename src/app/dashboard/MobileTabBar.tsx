@@ -36,7 +36,7 @@ export default function MobileTabBar() {
 
   return (
     <nav
-      aria-label="Dashboard navigation"
+      aria-label={t('dash.nav.aria')}
       // The pb-safe + safe-area inset on iOS leaves room for the
       // home-indicator bar at the bottom of modern iPhones so the
       // last row of pixels isn't hidden under it.

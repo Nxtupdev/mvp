@@ -69,11 +69,11 @@ type Shop = {
 // Centro de Mando (que se mantiene en inglés AVAILABLE / BUSY / BREAK
 // / OFFLINE por decisión del dueño). Aquí va el texto que dice el
 // status actual al lado del nombre del barbero.
-const STATUS_LABEL: Record<Status, string> = {
-  available: 'Disponible',
-  busy: 'Ocupado',
-  break: 'Descanso',
-  offline: 'Fuera',
+const STATUS_KEY: Record<Status, string> = {
+  available: 'status.available',
+  busy: 'status.busy',
+  break: 'status.break',
+  offline: 'status.offline',
 }
 
 // Orden visual de los cards en el Centro de Mando.
@@ -246,12 +246,12 @@ export default function ControlPanel({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'No se pudo cambiar el estado')
+        setError(data.error ?? t('control.errorChangeState'))
       }
       // Realtime subscription will reflect the change; no manual
       // setBarbers needed here.
     } catch {
-      setError('Error de red')
+      setError(t('control.errorNetwork'))
     } finally {
       setPendingBy(p => ({ ...p, [barberId]: false }))
     }
@@ -273,11 +273,11 @@ export default function ControlPanel({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'No se pudo levantar la sanción')
+        setError(data.error ?? t('control.errorClearSanction'))
       }
       // Realtime refresca el estado localmente.
     } catch {
-      setError('Error de red')
+      setError(t('control.errorNetwork'))
     } finally {
       setPendingBy(p => ({ ...p, [barberId]: false }))
     }
@@ -301,14 +301,14 @@ export default function ControlPanel({
         const data = await res.json().catch(() => ({}))
         const raw = String(data.error ?? '')
         if (data.code === 'already_zero') {
-          setError('Ya no tiene breaks por devolver')
+          setError(t('control.errorNoBreaks'))
         } else {
-          setError(raw || 'No se pudo devolver el break')
+          setError(raw || t('control.errorRestoreBreak'))
         }
       }
       // Realtime refresca breaks_taken_today localmente.
     } catch {
-      setError('Error de red')
+      setError(t('control.errorNetwork'))
     } finally {
       setPendingBy(p => ({ ...p, [barberId]: false }))
     }
@@ -338,24 +338,24 @@ export default function ControlPanel({
         if (raw === 'no neighbor in that direction') {
           setError(
             direction === 'up'
-              ? 'Ya está en el primer lugar de la fila'
-              : 'Ya está en el último lugar de la fila',
+              ? t('control.errorFirstInLine')
+              : t('control.errorLastInLine'),
           )
         } else if (raw === 'barber not in available state') {
-          setError('Solo se puede mover si el barbero está disponible')
+          setError(t('control.errorMoveNotAvailable'))
         } else if (raw === 'barber has no FIFO position') {
-          setError('El barbero no está en la fila')
+          setError(t('control.errorNotInLine'))
         } else if (raw.startsWith('barber is paying toll')) {
           // Migración 047: este error ya no debería dispararse porque
           // late_toll_remaining queda siempre en 0. Lo mantenemos por
           // robustez en caso de que haya data legacy en tránsito.
-          setError('Tiene una sanción activa — levántala antes de moverlo')
+          setError(t('control.errorSanctionedMove'))
         } else {
-          setError(data.error ?? 'No se pudo mover el barbero')
+          setError(data.error ?? t('control.errorMoveGeneric'))
         }
       }
     } catch {
-      setError('Error de red')
+      setError(t('control.errorNetwork'))
     } finally {
       setPendingBy(p => ({ ...p, [barberId]: false }))
     }
@@ -368,14 +368,14 @@ export default function ControlPanel({
           href="/dashboard/barbers"
           className="text-nxtup-muted hover:text-white text-xs uppercase tracking-[0.2em] inline-flex items-center gap-1 mb-4 transition-colors"
         >
-          ← Barberos
+          ← {t('common.barbers')}
         </Link>
       )}
       <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.control')}</h1>
       <p className="text-nxtup-muted text-sm mb-8 max-w-prose">
         {panelToken
-          ? `${shop.name} · Cambia el estado de cualquier barbero. Si se fue sin tocar BREAK o necesitas reorganizar la fila, lo haces desde aquí.`
-          : 'Cambia el estado de cualquier barbero remotamente. Útil si alguien se fue sin tocar BREAK, o si necesitas reorganizar la fila desde fuera del shop.'}
+          ? t('control.subtitleToken', { shop: shop.name })
+          : t('control.subtitle')}
       </p>
 
       {error && (
@@ -386,9 +386,7 @@ export default function ControlPanel({
 
       {barbers.length === 0 ? (
         <div className="border border-dashed border-nxtup-dim rounded-2xl py-16 text-center">
-          <p className="text-nxtup-muted text-sm">
-            Sin barberos en este shop.
-          </p>
+          <p className="text-nxtup-muted text-sm">{t('control.emptyBarbers')}</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -439,6 +437,7 @@ function BarberControlRow({
   onRestoreBreak: () => void
   onMoveFifo: (direction: 'up' | 'down') => void
 }) {
+  const { t } = useLocale()
   // Sanción por llegada tarde (migración 047): si sanctioned_until
   // está en el futuro, el barbero está sancionado — ring naranja en
   // la fila para que el dueño lo detecte de un vistazo.
@@ -501,7 +500,7 @@ function BarberControlRow({
           />
           {isLate && sanctionEndTime && (
             <p className="text-orange-400 text-[11px] font-semibold mt-0.5">
-              ⏳ Sancionado hasta {sanctionEndTime}
+              ⏳ {t('control.sanctionedUntil', { time: sanctionEndTime })}
             </p>
           )}
         </div>
@@ -565,7 +564,7 @@ function BarberControlRow({
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              Levantar sanción
+              {t('control.clearSanction')}
             </button>
           )}
           {canRestoreBreak && (
@@ -573,7 +572,7 @@ function BarberControlRow({
               type="button"
               onClick={onRestoreBreak}
               disabled={pending}
-              title={`Tomó ${barber.breaks_taken_today} break${(barber.breaks_taken_today ?? 0) > 1 ? 's' : ''} hoy. Devuelve uno.`}
+              title={t('control.restoreBreakHint', { n: barber.breaks_taken_today ?? 0 })}
               className="
                 flex-1 rounded-lg border border-nxtup-break/40 bg-nxtup-break/10
                 px-3 py-2 text-nxtup-break text-xs font-bold tracking-wide
@@ -582,7 +581,7 @@ function BarberControlRow({
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              Devolver break
+              {t('control.restoreBreak')}
             </button>
           )}
           {canMoveInFifo && (
@@ -591,7 +590,7 @@ function BarberControlRow({
                 type="button"
                 onClick={() => onMoveFifo('up')}
                 disabled={pending}
-                aria-label="Subir en la cola"
+                aria-label={t('control.moveUp')}
                 className="
                   rounded-lg border border-nxtup-dim bg-nxtup-bg
                   px-3 py-2 text-white text-sm font-bold
@@ -606,7 +605,7 @@ function BarberControlRow({
                 type="button"
                 onClick={() => onMoveFifo('down')}
                 disabled={pending}
-                aria-label="Bajar en la cola"
+                aria-label={t('control.moveDown')}
                 className="
                   rounded-lg border border-nxtup-dim bg-nxtup-bg
                   px-3 py-2 text-white text-sm font-bold
@@ -636,21 +635,24 @@ function StatusLine({
   fifoPosition: number | undefined
   entry: Entry | null
 }) {
+  const { t } = useLocale()
   const color = STATUS_COLOR[barber.status]
-  const label = STATUS_LABEL[barber.status]
+  const label = t(STATUS_KEY[barber.status])
 
   if (barber.status === 'available') {
     return (
       <p className={`text-xs ${color}`}>
         {label}
-        {fifoPosition !== undefined ? ` · #${fifoPosition} en fila` : ' · sin posición'}
+        {fifoPosition !== undefined
+          ? ` · ${t('control.inLinePos', { n: fifoPosition })}`
+          : ` · ${t('control.noPosition')}`}
       </p>
     )
   }
   if (barber.status === 'busy' && entry) {
     return (
       <p className={`text-xs ${color}`}>
-        {label} · con {entry.client_name}
+        {label} · {t('control.busyWith', { name: entry.client_name })}
       </p>
     )
   }
@@ -661,6 +663,7 @@ function StatusLine({
 }
 
 function BreakLine({ barber, shop }: { barber: Barber; shop: Shop }) {
+  const { t } = useLocale()
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -668,7 +671,7 @@ function BreakLine({ barber, shop }: { barber: Barber; shop: Shop }) {
   }, [])
 
   if (!barber.break_started_at) {
-    return <p className="text-xs text-nxtup-break">Break</p>
+    return <p className="text-xs text-nxtup-break">{t('status.break')}</p>
   }
   const startedMs = new Date(barber.break_started_at).getTime()
   const elapsedSec = Math.max(0, Math.floor((now - startedMs) / 1000))
@@ -688,8 +691,8 @@ function BreakLine({ barber, shop }: { barber: Barber; shop: Shop }) {
 
   return (
     <p className="text-xs text-nxtup-break tabular-nums">
-      Break · {formatted}
-      {forfeited && <span className="text-nxtup-busy ml-2 font-bold">turno perdido</span>}
+      {t('status.break')} · {formatted}
+      {forfeited && <span className="text-nxtup-busy ml-2 font-bold">{t('control.turnForfeited')}</span>}
     </p>
   )
 }

@@ -144,7 +144,7 @@ export default function BarberManager({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Eliminar barbero? Esta acción no se puede deshacer.')) return
+    if (!confirm(t('barbers.deleteConfirm'))) return
     setPendingId(id)
     const supabase = createClient()
     const { error: delErr } = await supabase.from('barbers').delete().eq('id', id)
@@ -156,10 +156,7 @@ export default function BarberManager({
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
       <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.barbers')}</h1>
-      <p className="text-nxtup-muted text-sm mb-8">
-        Cada barbero tiene su ícono — el equivalente digital del magnet con el que se
-        identifica en la pizarra. Status se actualiza desde el NXT TAP o la app de respaldo.
-      </p>
+      <p className="text-nxtup-muted text-sm mb-8">{t('barbers.subtitle')}</p>
 
       <form
         onSubmit={handleAdd}
@@ -169,7 +166,7 @@ export default function BarberManager({
           <button
             type="button"
             onClick={() => setPickerOpen(o => !o)}
-            aria-label="Elegir ícono"
+            aria-label={t('barbers.chooseIcon')}
             className="hover:opacity-80 transition-opacity"
           >
             <Avatar avatar={newAvatar} name={name} size={40} />
@@ -178,7 +175,7 @@ export default function BarberManager({
             required
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="Nombre del barbero"
+            placeholder={t('barbers.namePlaceholder')}
             className="flex-1 bg-nxtup-bg text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
           />
           <button
@@ -186,7 +183,7 @@ export default function BarberManager({
             disabled={adding || !name.trim()}
             className="px-5 py-3 bg-white text-black font-semibold rounded-lg disabled:opacity-40 transition-all active:scale-[0.98] whitespace-nowrap"
           >
-            {adding ? '...' : 'Agregar'}
+            {adding ? '...' : t('common.add')}
           </button>
         </div>
 
@@ -195,7 +192,7 @@ export default function BarberManager({
           onClick={() => setPickerOpen(o => !o)}
           className="text-nxtup-muted hover:text-white text-xs uppercase tracking-widest text-left transition-colors"
         >
-          {pickerOpen ? '▾ Ocultar íconos' : '▸ Elegir ícono (opcional)'}
+          {pickerOpen ? t('barbers.hideIcons') : t('barbers.chooseIconOptional')}
         </button>
 
         {pickerOpen && (
@@ -213,9 +210,7 @@ export default function BarberManager({
 
       {barbers.length === 0 ? (
         <div className="border border-dashed border-nxtup-dim rounded-2xl py-16 text-center">
-          <p className="text-nxtup-muted text-sm">
-            Sin barberos todavía. Agrega el primero arriba.
-          </p>
+          <p className="text-nxtup-muted text-sm">{t('barbers.emptyState')}</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -240,18 +235,16 @@ export default function BarberManager({
       {barbers.length > 0 && (
         <div className="mt-10 pt-6 border-t border-nxtup-line">
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold mb-3">
-            Supervisión
+            {t('barbers.supervision')}
           </p>
           <p className="text-nxtup-dim text-sm mb-4 leading-relaxed max-w-prose">
-            ¿Necesitas cambiar el estado de un barbero desde fuera del shop?
-            Útil si alguien se fue sin tocar BREAK o quieres reorganizar la
-            fila a distancia.
+            {t('barbers.supervisionBlurb')}
           </p>
           <Link
             href="/dashboard/barbers/control"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-white text-black font-bold text-sm tracking-tight transition-all active:scale-[0.98] hover:opacity-90"
           >
-            Centro de mando
+            {t('dash.heading.control')}
             <span aria-hidden>→</span>
           </Link>
         </div>
@@ -305,7 +298,7 @@ function BarberRow({
         <button
           type="button"
           onClick={() => setPickerOpen(o => !o)}
-          aria-label="Cambiar ícono"
+          aria-label={t('barbers.changeIcon')}
           className="hover:opacity-80 transition-opacity"
         >
           <Avatar avatar={barber.avatar} name={barber.name} size={36} />
@@ -342,19 +335,19 @@ function BarberRow({
         <button
           onClick={onShare}
           className="text-nxtup-muted hover:text-white text-xs px-2 py-1 transition-colors inline-flex items-center gap-1"
-          aria-label={`Compartir link de ${barber.name}`}
-          title="Mándale el link al barbero por QR o WhatsApp"
+          aria-label={t('barbers.shareAria', { name: barber.name })}
+          title={t('barbers.shareTitle')}
         >
           <ShareGlyph />
-          <span className="hidden sm:inline">Compartir</span>
+          <span className="hidden sm:inline">{t('common.share')}</span>
         </button>
         <button
           onClick={onDelete}
           disabled={pending}
           className="text-nxtup-dim hover:text-nxtup-busy text-xs px-2 py-1 transition-colors disabled:opacity-40"
-          aria-label={`Eliminar ${barber.name}`}
+          aria-label={t('barbers.deleteAria', { name: barber.name })}
         >
-          Eliminar
+          {t('common.delete')}
         </button>
       </div>
 
