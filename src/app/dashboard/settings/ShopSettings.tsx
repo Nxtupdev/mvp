@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/i18n'
@@ -229,6 +230,22 @@ export default function ShopSettings({
       <p className="text-nxtup-muted text-sm mb-8">
         {t('settings.subtitle')}
       </p>
+
+      <Link
+        href="/dashboard/services"
+        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-8 hover:border-white transition-colors group"
+      >
+        <div className="min-w-0">
+          <p className="text-white font-semibold text-sm">{t('services.title')}</p>
+          <p className="text-nxtup-dim text-xs">{t('services.linkHint')}</p>
+        </div>
+        <span
+          className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
+          aria-hidden
+        >
+          →
+        </span>
+      </Link>
 
       <form onSubmit={handleSave} className="flex flex-col gap-6">
         <Field label={t('settings.field.shopName')}>

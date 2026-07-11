@@ -196,6 +196,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.nav.signout': 'Cerrar sesión',
     'dash.nav.aria': 'Navegación del dashboard',
 
+    // ── Servicios y precios (editor del dueño → voz Julie) ─────
+    'services.title': 'Servicios y precios',
+    'services.subtitle':
+      'Julie cita estos precios por teléfono cuando un cliente pregunta. Actualízalos aquí y se sincronizan solos con ella.',
+    'services.linkHint': 'Precios que Julie cita por teléfono',
+    'services.namePlaceholder': 'Nombre del servicio',
+    'services.pricePlaceholder': 'Precio',
+    'services.empty': 'Aún no hay servicios. Agrega el primero arriba.',
+    'services.deleteConfirm': '¿Eliminar este servicio?',
+    'services.back': '← Configuración',
+
     // Page headings del dashboard
     'dash.heading.stats': 'Estadísticas',
     'dash.heading.barbers': 'Barberos',
@@ -720,6 +731,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.nav.short.settings': 'Settings',
     'dash.nav.signout': 'Sign out',
     'dash.nav.aria': 'Dashboard navigation',
+
+    // ── Services & prices ──────────────────────────────────────
+    'services.title': 'Services & prices',
+    'services.subtitle':
+      'Julie quotes these prices on the phone when a client asks. Update them here and they sync to her automatically.',
+    'services.linkHint': 'Prices Julie quotes on the phone',
+    'services.namePlaceholder': 'Service name',
+    'services.pricePlaceholder': 'Price',
+    'services.empty': 'No services yet. Add the first one above.',
+    'services.deleteConfirm': 'Delete this service?',
+    'services.back': '← Settings',
 
     'dash.heading.stats': 'Stats',
     'dash.heading.barbers': 'Barbers',

@@ -85,6 +85,15 @@ type MamacitaEvent =
   | { event: 'turn_approaching'; external_id: string; shop_id: string; position?: number; eta_minutes?: number }
   | { event: 'entry_completed'; external_id: string; shop_id: string }
   | { event: 'entry_no_show'; external_id: string; shop_id: string }
+  // Perfil del shop (servicios + precios) cambió — el dueño lo editó en
+  // NXTUP. Mamacita lo formatea a services_text para que Julie cite
+  // precios por voz. Nota: usa `nxtup_shop_id` (no `shop_id`) — así lo
+  // definió el contrato del lado Mamacita para este evento.
+  | {
+      event: 'shop_profile_updated'
+      nxtup_shop_id: string
+      services: { name: string; price: number | null; duration_min?: number }[]
+    }
 
 /**
  * Fire a signed webhook to Mamacita's nxtup-events function. Best-effort:
