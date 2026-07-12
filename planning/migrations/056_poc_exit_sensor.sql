@@ -73,6 +73,11 @@ from poc_sensor_devices d
 left join poc_scan_observations o on o.device_id = d.id
 group by d.id, d.shop_id, d.label, d.ip;
 
+-- La vista respeta el RLS del que consulta (no los derechos del creador):
+-- así el anon/authenticated NO puede leer resúmenes de otros shops. La
+-- página del dueño la lee con service role (ignora RLS), sin cambios.
+alter view poc_sensor_summary set (security_invoker = true);
+
 -- ── RLS ──────────────────────────────────────────────────────
 -- config + observations: solo server-side (service role, endpoints del
 -- agente + página del dueño). Sin policies públicas = anon/authenticated
