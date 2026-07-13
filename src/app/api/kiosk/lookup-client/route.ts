@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit, rateLimited } from '@/lib/rate-limit'
 
 /**
  * Kiosk client lookup — phase 1 of the new check-in flow.
@@ -44,6 +45,11 @@ type ClientRow = {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit app-level por IP — read-only pero enumerable (floodear
+  // teléfonos). Más holgado que checkin (30/min). Ver rate-limit.ts.
+  const rl = await checkRateLimit(request, 'lookup', { limit: 30, windowSeconds: 60 })
+  if (!rl.ok) return rateLimited(rl.retryAfter)
+
   let body: LookupBody
   try {
     body = await request.json()

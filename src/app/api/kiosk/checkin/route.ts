@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit, rateLimited } from '@/lib/rate-limit'
 
 /**
  * Kiosk check-in v2 — combined upsert-client + create-queue-entry.
@@ -81,6 +82,12 @@ function estimateEta(positionsAhead: number): { min: number; max: number } {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit app-level por IP (abuso/flood casual). El límite es
+  // generoso: un shop entero sale por la IP del WiFi del kiosco, así que
+  // 20/min cubre un shop lleno pero corta un flood real. Ver rate-limit.ts.
+  const rl = await checkRateLimit(request, 'checkin', { limit: 20, windowSeconds: 60 })
+  if (!rl.ok) return rateLimited(rl.retryAfter)
+
   let body: CheckInBody
   try {
     body = await request.json()
