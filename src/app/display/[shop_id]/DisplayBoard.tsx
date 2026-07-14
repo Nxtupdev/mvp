@@ -1026,7 +1026,7 @@ function DisplayMessageTicker({ message }: { message: string | null }) {
   return (
     <footer className="border-t border-nxtup-line bg-nxtup-bg overflow-hidden">
       <div
-        className="queue-ticker-track flex whitespace-nowrap py-5"
+        className="queue-ticker-track flex w-max whitespace-nowrap py-5"
         style={{ animation: `queue-ticker ${durationSec}s linear infinite` }}
       >
         {segments.map(idx => (

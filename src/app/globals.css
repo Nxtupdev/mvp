@@ -125,10 +125,21 @@ html, body {
    Used by the bottom strip of /display/[shop_id] to show the entire waiting
    queue scrolling horizontally. The content is rendered TWICE side-by-side
    in the JSX; translating from 0 to -50% gives a seamless infinite loop
-   (when we wrap back to 0, the second copy is exactly where the first was). */
+   (when we wrap back to 0, the second copy is exactly where the first was).
+
+   CLAVE: el track DEBE medir lo que su contenido (Tailwind `w-max` =
+   width:max-content). Solo así -50% cae EXACTO en el borde de la 1ª
+   copia. Si el track queda block-level (ancho = viewport), -50% mueve
+   medio viewport en vez de una copia y el loop salta/retrocede. */
 @keyframes queue-ticker {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
+}
+
+.queue-ticker-track {
+  /* Compón la animación en su propia capa GPU: en la TV (navegador
+     débil) evita el jank / "se traba" de animar en CPU. */
+  will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
