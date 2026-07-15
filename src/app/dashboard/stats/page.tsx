@@ -23,6 +23,11 @@ type Entry = {
   // el card de Walk-ins: comparamos entry.created_at vs el first_visit_at
   // del cliente para saber si esta entry FUE el primer visit del cliente.
   client_id: string | null
+  // Presencia física (mig. 053): arrived_at != null = el cliente LLEGÓ
+  // (walk-in nace con ella; voz se activa al hacer check-in). Reserva de
+  // voz que nunca llega = arrived_at NULL + mamacita_entry_id != null.
+  arrived_at: string | null
+  mamacita_entry_id: string | null
 }
 
 type Barber = {
@@ -396,7 +401,7 @@ export default async function StatsPage({
   // (start del día siguiente a `to`). Cuando es Date agregamos `.lt()`.
   let currentQuery = supabase
     .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at, client_id')
+    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id')
     .eq('shop_id', shop.id)
     .gte('created_at', currentStart.toISOString())
   if (currentEnd) {
@@ -405,7 +410,7 @@ export default async function StatsPage({
 
   const previousQuery = supabase
     .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at, client_id')
+    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id')
     .eq('shop_id', shop.id)
     .gte('created_at', previousStart.toISOString())
     .lt('created_at', previousEnd.toISOString())
@@ -456,25 +461,38 @@ export default async function StatsPage({
   const newClientsPrevious = (clientsPrevious ?? []) as ClientRow[]
 
   // ── Cards ─────────────────────────────────────────────────────
-  const walkInsCurrent = current.length
-  const walkInsPrevious = previous.length
+  // "Clientes de hoy" cuenta solo a los que LLEGARON, no a los que
+  // llamaron. Una reserva de voz (Mamacita) que nunca aparece se queda
+  // con arrived_at NULL → no debe inflar el número. Señal de llegada:
+  //   arrived_at != null        → walk-in (nace así) o voz activada al check-in
+  //   mamacita_entry_id == null → walk-in (cubre entries pre-mig-053 sin
+  //                               arrived_at, que también son presenciales)
+  // Pendiente = reserva de voz sin llegar (mamacita_entry_id + arrived_at NULL).
+  const isPendingVoice = (e: Entry) =>
+    e.mamacita_entry_id !== null && e.arrived_at === null
+  const arrivedCurrent = current.filter(e => !isPendingVoice(e))
+  const arrivedPrevious = previous.filter(e => !isPendingVoice(e))
+  const voiceEnRouteCurrent = current.length - arrivedCurrent.length
 
-  const waitCurrent = avgWaitMinutes(current)
-  const waitPrevious = avgWaitMinutes(previous)
+  const walkInsCurrent = arrivedCurrent.length
+  const walkInsPrevious = arrivedPrevious.length
+
+  const waitCurrent = avgWaitMinutes(arrivedCurrent)
+  const waitPrevious = avgWaitMinutes(arrivedPrevious)
   const waitDelta = Math.round(waitCurrent - waitPrevious)
 
-  const cutsByBarber = computeCutsByBarber(current, allBarbers)
-  const peak = computePeakHour(current, timeZone)
+  const cutsByBarber = computeCutsByBarber(arrivedCurrent, allBarbers)
+  const peak = computePeakHour(arrivedCurrent, timeZone)
 
-  // Breakdown del total de walk-ins por status — para que el dueño
-  // entienda por qué el total (12) puede no cuadrar con los cortes
-  // por barbero (suma de status='done'). Reportado como bug por el
-  // dueño de Fade Factory: "math not mathing".
+  // Breakdown de los clientes que llegaron, por status — para que el
+  // dueño entienda por qué el total puede no cuadrar con los cortes por
+  // barbero (suma de status='done'). Reportado como bug por el dueño de
+  // Fade Factory: "math not mathing".
   const walkInsBreakdown = {
-    attended: current.filter(e => e.status === 'done').length,
-    inProgress: current.filter(e => e.status === 'in_progress').length,
-    waiting: current.filter(e => e.status === 'waiting' || e.status === 'called').length,
-    cancelled: current.filter(e => e.status === 'cancelled').length,
+    attended: arrivedCurrent.filter(e => e.status === 'done').length,
+    inProgress: arrivedCurrent.filter(e => e.status === 'in_progress').length,
+    waiting: arrivedCurrent.filter(e => e.status === 'waiting' || e.status === 'called').length,
+    cancelled: arrivedCurrent.filter(e => e.status === 'cancelled').length,
   }
 
   // ── Split nuevo/recurrente ──────────────────────────────────────
@@ -489,10 +507,10 @@ export default async function StatsPage({
   // y el INSERT al queue_entries que hace /api/kiosk/checkin: son
   // dos round trips secuenciales, normalmente <100ms aparte.
   const allClientIds = new Set<string>()
-  for (const e of current) {
+  for (const e of arrivedCurrent) {
     if (e.client_id) allClientIds.add(e.client_id)
   }
-  for (const e of previous) {
+  for (const e of arrivedPrevious) {
     if (e.client_id) allClientIds.add(e.client_id)
   }
 
@@ -538,8 +556,8 @@ export default async function StatsPage({
     return { newOnes, returning }
   }
 
-  const walkInsCurrentSplit = classifyEntries(current)
-  const walkInsPreviousSplit = classifyEntries(previous)
+  const walkInsCurrentSplit = classifyEntries(arrivedCurrent)
+  const walkInsPreviousSplit = classifyEntries(arrivedPrevious)
 
   const marketingRows = computeMarketingBreakdown(newClientsCurrent)
 
@@ -611,6 +629,11 @@ export default async function StatsPage({
               ]
                 .filter(Boolean)
                 .join(' · ')}
+            </p>
+          )}
+          {voiceEnRouteCurrent > 0 && (
+            <p className="text-nxtup-break text-xs mb-1 tabular-nums">
+              {t('stats.voice.enRoute', { count: voiceEnRouteCurrent })}
             </p>
           )}
           {/* Split nuevo/recurrente — segundo nivel de breakdown que

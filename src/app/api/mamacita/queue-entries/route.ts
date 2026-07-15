@@ -19,7 +19,7 @@ import { verifyMamacitaSignature } from '@/lib/mamacita'
  *     customer_phone: string,
  *     source: 'voice',
  *     check_in_code: string,  // 4 chars Mamacita already sent via WhatsApp
- *     eta_at?: string         // ISO; informational only
+ *     eta_at?: string         // ISO/UTC; hora estimada de llegada (se guarda + se muestra en el TV)
  *   }
  *
  * Response 200: { nxtup_entry_id, position }
@@ -178,6 +178,13 @@ export async function POST(request: NextRequest) {
       position,
       mamacita_entry_id: external_id,
       check_in_code: check_in_code ?? null,
+      // ETA que el cliente le dio a Julie por voz. Se muestra en el TV
+      // junto al badge "En camino" (migración 058). Validamos que sea una
+      // fecha parseable antes de guardar; si no, NULL.
+      eta_at:
+        body.eta_at && !Number.isNaN(Date.parse(body.eta_at))
+          ? new Date(body.eta_at).toISOString()
+          : null,
     })
     .select('id, position')
     .single()

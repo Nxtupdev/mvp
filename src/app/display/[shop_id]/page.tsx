@@ -23,7 +23,7 @@ export default async function DisplayPage({
   const { data: entries } = await supabase
     .from('queue_entries')
     .select(
-      'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at',
+      'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at, eta_at',
     )
     .eq('shop_id', shop_id)
     .in('status', ['waiting', 'called', 'in_progress'])

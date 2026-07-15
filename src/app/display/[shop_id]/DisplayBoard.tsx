@@ -26,6 +26,9 @@ type Entry = {
   // check-in físico → viene en camino (badge "En camino" en la cola).
   mamacita_entry_id: string | null
   arrived_at: string | null
+  // Mamacita: hora estimada de llegada (ISO) que el cliente dio por voz.
+  // Solo en entradas de voz. Se muestra junto a "En camino" (mig. 058).
+  eta_at: string | null
 }
 
 type Barber = {
@@ -283,7 +286,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('queue_entries')
         .select(
-          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at',
+          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at, eta_at',
         )
         .eq('shop_id', shop.id)
         .in('status', ['waiting', 'called', 'in_progress'])
@@ -565,6 +568,7 @@ export default function DisplayBoard({
                   position={idx + 1}
                   clientName={e.client_name}
                   enCamino={e.mamacita_entry_id !== null && e.arrived_at === null}
+                  etaAt={e.eta_at}
                   density={density}
                 />
               ))
@@ -657,10 +661,21 @@ function Empty() {
 // histórico). A la derecha, badge "En camino" para clientes que
 // reservaron por teléfono con Mamacita y aún no llegan (enCamino).
 // ──────────────────────────────────────────────────────────────
+// Hora estimada de llegada → reloj local ("3:15 PM"). El TV corre EN la
+// tienda, así que la hora local del navegador ES la del shop. Devuelve
+// null si no hay eta o la fecha es inválida.
+function formatEtaClock(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
 function QueueClientCard({
   position,
   clientName,
   enCamino,
+  etaAt,
   density,
 }: {
   position: number
@@ -668,9 +683,13 @@ function QueueClientCard({
   // Mamacita: el cliente llamó por teléfono y viene en camino (aún no
   // hizo check-in físico). El barbero NO debe llamarlo hasta que llegue.
   enCamino: boolean
+  // Hora estimada de llegada (ISO) para las entradas de voz. Se muestra
+  // junto a "En camino" como hora local (el TV está en la tienda).
+  etaAt: string | null
   density: Density
 }) {
   const s = SIZE[density]
+  const etaClock = enCamino ? formatEtaClock(etaAt) : null
   return (
     <li
       className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
@@ -700,7 +719,7 @@ function QueueClientCard({
             aria-label="Llamó por teléfono, viene en camino"
           >
             <Phone size={density === 'lg' ? 18 : density === 'md' ? 15 : 13} aria-hidden />
-            En camino
+            En camino{etaClock ? ` · ~${etaClock}` : ''}
           </span>
         )}
       </div>
