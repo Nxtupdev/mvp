@@ -6,6 +6,8 @@ import { canAccessAdminRoutes } from '@/lib/admin-auth'
 import { InstallButton } from '@/components/InstallButton'
 import DashboardNav from './DashboardNav'
 import MobileTabBar from './MobileTabBar'
+import ResetDemoButton from './ResetDemoButton'
+import { isDemoOwner } from '@/lib/demo'
 
 export const metadata = {
   title: 'Dashboard — NXTUP',
@@ -55,7 +57,10 @@ export default async function DashboardLayout({
           </span>
         </Link>
 
-        <DashboardNav />
+        <div className="flex items-center gap-3">
+          {isDemoOwner(user.email) && <ResetDemoButton />}
+          <DashboardNav />
+        </div>
       </header>
 
       {/* Bottom padding only on mobile to clear the fixed MobileTabBar.
