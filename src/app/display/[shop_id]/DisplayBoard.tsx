@@ -658,8 +658,9 @@ function Empty() {
 // QueueClientCard (rediseño 051) — un cliente esperando en la cola.
 // #posición + nombre. La posición es 1-based del orden FIFO de los
 // que esperan (no el entry.position del DB, que es un counter
-// histórico). A la derecha, badge "En camino" para clientes que
-// reservaron por teléfono con Mamacita y aún no llegan (enCamino).
+// histórico). A la derecha, para reservas de voz (enCamino): ícono de
+// teléfono + hora estimada de llegada (~3:15); si no hay hora, solo el
+// ícono. Sin texto "En camino" — la columna de cola ya lo dice.
 // ──────────────────────────────────────────────────────────────
 // Hora estimada de llegada → reloj local ("3:15 PM"). El TV corre EN la
 // tienda, así que la hora local del navegador ES la del shop. Devuelve
@@ -700,29 +701,32 @@ function QueueClientCard({
       >
         #{position}
       </span>
-      {/* Nombre + (si aplica) badge "En camino" APILADOS en columna, no
-          lado a lado. En la columna angosta del TV (1/3 del ancho) el badge
-          inline se comía el nombre y lo truncaba a 1 letra. Apilado, el
-          nombre usa todo el ancho y "En camino" va como subtítulo ámbar
-          debajo — mismo patrón que ActiveCalledCard / BreakCard. */}
-      <div className="flex-1 min-w-0">
+      {/* UNA sola línea: el nombre ocupa el ancho (trunca si hace falta) y
+          el chip de voz va a la derecha con flex-shrink-0 para que NUNCA se
+          coma el nombre. Ahorra espacio vertical: la tarjeta de voz mide lo
+          mismo que una de walk-in. El chip = teléfono + hora estimada
+          (~3:15); si no hay hora, solo el ícono. Sin "En camino": la
+          columna de cola + el teléfono ya lo comunican. */}
+      <span
+        className={`text-white font-bold flex-1 min-w-0 truncate ${s.nameSingle}`}
+      >
+        {clientName}
+      </span>
+      {enCamino && (
         <span
-          className={`text-white font-bold block truncate ${enCamino ? s.nameDouble : s.nameSingle}`}
+          className={`flex items-center flex-shrink-0 text-nxtup-break font-black tabular-nums ${
+            density === 'lg' ? 'gap-2 text-2xl' : density === 'md' ? 'gap-1.5 text-xl' : 'gap-1 text-base'
+          }`}
+          aria-label={
+            etaClock
+              ? `Reservó por teléfono, llega alrededor de las ${etaClock}`
+              : 'Reservó por teléfono, viene en camino'
+          }
         >
-          {clientName}
+          <Phone size={density === 'lg' ? 20 : density === 'md' ? 17 : 14} aria-hidden />
+          {etaClock ? `~${etaClock}` : ''}
         </span>
-        {enCamino && (
-          <span
-            className={`flex items-center text-nxtup-break font-black uppercase tracking-wider ${
-              density === 'lg' ? 'gap-2 text-base' : density === 'md' ? 'gap-1.5 text-sm' : 'gap-1 text-xs'
-            }`}
-            aria-label="Llamó por teléfono, viene en camino"
-          >
-            <Phone size={density === 'lg' ? 18 : density === 'md' ? 15 : 13} aria-hidden />
-            En camino{etaClock ? ` · ~${etaClock}` : ''}
-          </span>
-        )}
-      </div>
+      )}
     </li>
   )
 }
