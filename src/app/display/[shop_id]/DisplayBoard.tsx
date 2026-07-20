@@ -658,8 +658,8 @@ function Empty() {
 // QueueClientCard (rediseño 051) — un cliente esperando en la cola.
 // #posición + nombre. La posición es 1-based del orden FIFO de los
 // que esperan (no el entry.position del DB, que es un counter
-// histórico). A la derecha, para reservas de voz (enCamino): ícono de
-// teléfono + hora estimada de llegada (~3:15); si no hay hora, solo el
+// histórico). DEBAJO del nombre, para reservas de voz (enCamino): ícono
+// de teléfono + hora estimada de llegada (~3:15); si no hay hora, solo el
 // ícono. Sin texto "En camino" — la columna de cola ya lo dice.
 // ──────────────────────────────────────────────────────────────
 // Hora estimada de llegada → reloj local ("3:15 PM"). El TV corre EN la
@@ -701,32 +701,34 @@ function QueueClientCard({
       >
         #{position}
       </span>
-      {/* UNA sola línea: el nombre ocupa el ancho (trunca si hace falta) y
-          el chip de voz va a la derecha con flex-shrink-0 para que NUNCA se
-          coma el nombre. Ahorra espacio vertical: la tarjeta de voz mide lo
-          mismo que una de walk-in. El chip = teléfono + hora estimada
-          (~3:15); si no hay hora, solo el ícono. Sin "En camino": la
-          columna de cola + el teléfono ya lo comunican. */}
-      <span
-        className={`text-white font-bold flex-1 min-w-0 truncate ${s.nameSingle}`}
-      >
-        {clientName}
-      </span>
-      {enCamino && (
+      {/* Nombre en su PROPIA línea (ancho completo) y la hora debajo como
+          subtítulo. Volvimos a apilar: en UNA sola línea, con la fuente
+          grande del TV, el nombre competía con el chip de la hora y quedaba
+          en una letra ("D…"). El nombre MANDA — usa todo el ancho; la hora
+          va chica debajo. Sin "En camino": el teléfono + la columna de cola
+          ya lo comunican. */}
+      <div className="flex-1 min-w-0">
         <span
-          className={`flex items-center flex-shrink-0 text-nxtup-break font-black tabular-nums ${
-            density === 'lg' ? 'gap-2 text-2xl' : density === 'md' ? 'gap-1.5 text-xl' : 'gap-1 text-base'
-          }`}
-          aria-label={
-            etaClock
-              ? `Reservó por teléfono, llega alrededor de las ${etaClock}`
-              : 'Reservó por teléfono, viene en camino'
-          }
+          className={`text-white font-bold block truncate ${enCamino ? s.nameDouble : s.nameSingle}`}
         >
-          <Phone size={density === 'lg' ? 20 : density === 'md' ? 17 : 14} aria-hidden />
-          {etaClock ? `~${etaClock}` : ''}
+          {clientName}
         </span>
-      )}
+        {enCamino && (
+          <span
+            className={`flex items-center text-nxtup-break font-black tabular-nums ${
+              density === 'lg' ? 'gap-2 text-lg' : density === 'md' ? 'gap-1.5 text-base' : 'gap-1 text-xs'
+            }`}
+            aria-label={
+              etaClock
+                ? `Reservó por teléfono, llega alrededor de las ${etaClock}`
+                : 'Reservó por teléfono, viene en camino'
+            }
+          >
+            <Phone size={density === 'lg' ? 17 : density === 'md' ? 14 : 12} aria-hidden />
+            {etaClock ? `~${etaClock}` : ''}
+          </span>
+        )}
+      </div>
     </li>
   )
 }
