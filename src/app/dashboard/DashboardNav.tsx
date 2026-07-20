@@ -15,6 +15,7 @@ export default function DashboardNav() {
     { href: '/dashboard/barbers', label: t('dash.nav.barbers') },
     { href: '/dashboard/activity', label: t('dash.nav.activity') },
     { href: '/dashboard/settings', label: t('dash.nav.settings') },
+    { href: '/dashboard/billing', label: t('dash.nav.billing') },
   ]
 
   return (

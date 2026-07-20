@@ -186,6 +186,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.nav.barbers': 'Barberos',
     'dash.nav.activity': 'Actividad',
     'dash.nav.settings': 'Configuración',
+    'dash.nav.billing': 'Suscripción',
     // Variantes cortas para el MobileTabBar (5 tabs en mobile, espacio
     // apretado — usamos labels más compactos).
     'dash.nav.short.live': 'En vivo',
@@ -725,6 +726,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.nav.barbers': 'Barbers',
     'dash.nav.activity': 'Activity',
     'dash.nav.settings': 'Settings',
+    'dash.nav.billing': 'Billing',
     'dash.nav.short.live': 'Live',
     'dash.nav.short.stats': 'Stats',
     'dash.nav.short.barbers': 'Barbers',
