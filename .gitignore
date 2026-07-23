@@ -8,6 +8,9 @@ src/out/
 
 # env files
 src/.env.local
+
+# credenciales locales sueltas — NUNCA subir
+NXTUP VERCEL CODES.txt
 src/.env.*.local
 .env.local
 .env.*.local
