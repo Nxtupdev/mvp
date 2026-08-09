@@ -382,7 +382,7 @@ export default function DisplayBoard({
         <p className="text-nxtup-muted text-3xl uppercase tracking-[0.4em] mb-6">
           {tt('display.shopClosed')}
         </p>
-        <h1 className="text-7xl font-black tracking-tight">{shop.name}</h1>
+        <h1 className="font-display text-7xl tracking-tight">{shop.name}</h1>
       </main>
     )
   }
@@ -450,7 +450,7 @@ export default function DisplayBoard({
           ) : (
             <Logo className="h-9 w-auto" tone="dark" />
           )}
-          <span className="text-white text-2xl font-bold truncate">{shop.name}</span>
+          <span className="text-white font-display text-2xl truncate">{shop.name}</span>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
           {/* Connection status — subtle. Green when realtime is healthy,

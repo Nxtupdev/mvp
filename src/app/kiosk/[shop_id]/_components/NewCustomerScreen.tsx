@@ -145,7 +145,7 @@ export function NewCustomerScreen({
             {...sectionTransition(0.1)}
             className="
               bg-gradient-to-br from-zinc-50 to-emerald-400/80
-              bg-clip-text text-center text-4xl font-light
+              bg-clip-text text-center font-display text-4xl
               tracking-tight text-transparent
               sm:text-6xl
             "

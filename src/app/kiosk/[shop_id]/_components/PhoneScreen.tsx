@@ -149,7 +149,7 @@ export function PhoneScreen({
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
             className="
               bg-gradient-to-br from-zinc-50 to-emerald-400/80
-              bg-clip-text text-4xl font-light tracking-tight text-transparent
+              bg-clip-text font-display text-4xl tracking-tight text-transparent
               sm:text-6xl
             "
             style={{ letterSpacing: '-0.03em' }}

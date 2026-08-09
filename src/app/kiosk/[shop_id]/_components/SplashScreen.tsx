@@ -135,7 +135,7 @@ export function SplashScreen({
             variants={welcomeV}
             className="
               bg-gradient-to-br from-zinc-50 to-emerald-400/80
-              bg-clip-text text-5xl font-light tracking-tight text-transparent
+              bg-clip-text font-display text-5xl tracking-tight text-transparent
               sm:text-7xl
             "
             style={{ letterSpacing: '-0.04em' }}
@@ -147,7 +147,7 @@ export function SplashScreen({
             initial="initial"
             animate="animate"
             variants={welcomeV}
-            className="text-3xl font-light tracking-tight text-zinc-400 sm:text-5xl"
+            className="font-display text-3xl tracking-tight text-zinc-400 sm:text-5xl"
             style={{ letterSpacing: '-0.04em' }}
           >
             Welcome
