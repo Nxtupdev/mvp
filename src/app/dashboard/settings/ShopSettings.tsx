@@ -5,6 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/lib/i18n'
+import {
+  scheduleFromDb,
+  hasAnyOpenDay,
+  type WeekSchedule,
+} from '@/lib/business-hours'
+import WeeklyScheduleEditor from './WeeklyScheduleEditor'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
 
@@ -36,6 +42,10 @@ type Shop = {
   display_language: 'es' | 'en'
   is_open: boolean
   logo_url: string | null
+  // Migración 062 — horario semanal {mon..sun}. NULL = sin auto-horario
+  // (apertura manual pura). El cron apply_business_hours abre/cierra
+  // is_open en las transiciones.
+  business_hours: unknown
 }
 
 // Migración 051 — límite del mensaje del cintillo. Lo suficientemente
@@ -115,6 +125,14 @@ export default function ShopSettings({
   const [displayLanguage, setDisplayLanguage] = useState<'es' | 'en'>(
     initial.display_language ?? 'es',
   )
+  // Migración 062 — horario de apertura. hoursEnabled = toggle UI que
+  // mapea a business_hours NULL (apagado) o al jsonb del editor.
+  const [hoursEnabled, setHoursEnabled] = useState<boolean>(
+    initial.business_hours != null,
+  )
+  const [schedule, setSchedule] = useState<WeekSchedule>(
+    scheduleFromDb(initial.business_hours),
+  )
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
@@ -123,6 +141,9 @@ export default function ShopSettings({
   const lateThresholdForDb = lateEnabled ? `${lateThreshold}:00` : null
   // Vacío/espacios → null en DB (sin cintillo).
   const displayMessageForDb = displayMessage.trim() || null
+  // Horario: toggle apagado (o sin ningún día activo) → NULL en DB.
+  const businessHoursForDb =
+    hoursEnabled && hasAnyOpenDay(schedule) ? schedule : null
 
   const dirty =
     name.trim() !== shop.name ||
@@ -135,7 +156,9 @@ export default function ShopSettings({
     lateThresholdForDb !== shop.late_arrival_threshold_time ||
     lateHours !== shop.late_arrival_sanction_hours ||
     displayMessageForDb !== shop.display_message ||
-    displayLanguage !== shop.display_language
+    displayLanguage !== shop.display_language ||
+    JSON.stringify(businessHoursForDb) !==
+      JSON.stringify(shop.business_hours ?? null)
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -199,10 +222,14 @@ export default function ShopSettings({
         late_arrival_sanction_hours: lateHours,
         display_message: displayMessageForDb,
         display_language: displayLanguage,
+        business_hours: businessHoursForDb,
+        // Reset del tracker del cron: al próximo tick (≤1 min) re-aplica
+        // el horario nuevo aunque el estado deseado no haya "cambiado".
+        hours_auto_state: null,
       })
       .eq('id', shop.id)
       .select(
-        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, display_language, is_open, logo_url',
+        'id, name, max_queue_size, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, break_mode, trusted_public_ip, timezone, late_arrival_threshold_time, late_arrival_cuts_required, late_arrival_sanction_hours, display_message, display_language, is_open, logo_url, business_hours',
       )
       .single()
 
@@ -319,6 +346,27 @@ export default function ShopSettings({
             className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
           />
         </Field>
+
+        <div>
+          <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
+            {t('settings.section.hours')}
+          </p>
+          <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
+            {t('settings.hours.blurb')}
+          </p>
+          <label className="mb-4 flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={hoursEnabled}
+              onChange={e => setHoursEnabled(e.target.checked)}
+              className="h-4 w-4 accent-salvia"
+            />
+            <span className="text-sm text-white">{t('settings.hours.toggle')}</span>
+          </label>
+          {hoursEnabled && (
+            <WeeklyScheduleEditor value={schedule} onChange={setSchedule} />
+          )}
+        </div>
 
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">

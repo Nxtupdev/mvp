@@ -1,6 +1,8 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { canAccessAdminRoutes } from '@/lib/admin-auth'
+import { getServerI18n } from '@/lib/i18n-server'
 import DashboardLive from './DashboardLive'
 
 export default async function DashboardPage() {
@@ -12,7 +14,7 @@ export default async function DashboardPage() {
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name, is_open, max_queue_size, logo_url')
+    .select('id, name, is_open, max_queue_size, logo_url, business_hours')
     .eq('owner_id', user.id)
     .maybeSingle()
   if (!shop) {
@@ -36,11 +38,29 @@ export default async function DashboardPage() {
       .order('name'),
   ])
 
+  const { t } = await getServerI18n()
+
   return (
-    <DashboardLive
-      shop={shop}
-      initialEntries={entries ?? []}
-      initialBarbers={barbers ?? []}
-    />
+    <>
+      {/* Nudge de horario (062): visible hasta que el dueño lo configure.
+          Decisión de producto: los horarios NO van en el onboarding (se
+          mantiene mínimo — nombre + logo); se descubren aquí. */}
+      {shop.business_hours == null && (
+        <div className="print:hidden mx-auto mt-4 w-full max-w-5xl px-4 sm:px-6">
+          <Link
+            href="/dashboard/settings"
+            className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.03] ring-1 ring-white/[0.07] px-4 py-3 text-sm text-nxtup-muted transition-colors hover:bg-white/[0.06] hover:ring-white/[0.14] hover:text-white"
+          >
+            <span>⏰ {t('dash.hoursNudge')}</span>
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
+      )}
+      <DashboardLive
+        shop={shop}
+        initialEntries={entries ?? []}
+        initialBarbers={barbers ?? []}
+      />
+    </>
   )
 }

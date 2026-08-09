@@ -45,6 +45,8 @@ export default async function SettingsPage() {
     display_message?: string | null
     // Migración 052 — idioma del TV.
     display_language?: 'es' | 'en' | null
+    // Migración 062 — horario semanal (jsonb).
+    business_hours?: unknown
     is_open: boolean
     logo_url: string | null
   }
@@ -75,6 +77,8 @@ export default async function SettingsPage() {
     display_language: (row.display_language ?? 'es') as 'es' | 'en',
     is_open: row.is_open,
     logo_url: row.logo_url,
+    // Migración 062 — horario semanal. NULL = sin auto-horario.
+    business_hours: row.business_hours ?? null,
   }
 
   // The IP the owner is connecting from right now — used by the anti-

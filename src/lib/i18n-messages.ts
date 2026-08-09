@@ -253,6 +253,18 @@ export const MESSAGES: Record<Locale, Messages> = {
     'display.col.occupied': 'Ocupados',
     'display.col.queue': 'En cola',
     'display.shopClosed': 'Cerrado',
+    'display.opensToday': 'Abrimos hoy a las {time}',
+    'display.opensTomorrow': 'Abrimos mañana a las {time}',
+    'display.opensOn': 'Abrimos el {day} a las {time}',
+
+    // Días de la semana (horario de apertura, migración 062)
+    'day.mon': 'Lunes',
+    'day.tue': 'Martes',
+    'day.wed': 'Miércoles',
+    'day.thu': 'Jueves',
+    'day.fri': 'Viernes',
+    'day.sat': 'Sábado',
+    'day.sun': 'Domingo',
 
     // ControlPanel (Centro de Mando) buttons + banner
     'control.clearSanction': 'Levantar sanción',
@@ -386,6 +398,14 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.field.grace': 'Minutos de gracia post-break',
     'settings.hint.grace':
       'Tiempo extra después del break antes de perder la posición. Aplica a ambos modos.',
+    'settings.section.hours': 'Horario de apertura',
+    'settings.hours.blurb':
+      'Define tus días y horas. La tienda se abre y cierra sola según el horario (en tu zona horaria). El botón manual de abrir/cerrar siempre gana hasta el próximo cambio de horario — para festivos o cerrar temprano.',
+    'settings.hours.toggle': 'Abrir y cerrar automáticamente',
+    'settings.hours.closedDay': 'Cerrado',
+    'settings.hours.invalidRange': 'cierre debe ser después de abre',
+    'dash.hoursNudge':
+      'Configura tu horario de apertura — la tienda abrirá y cerrará sola',
     'settings.section.lateArrival': 'Llegada tarde',
     'settings.lateArrival.blurb':
       'Si un barbero llega después de la hora marcada y otros ya están trabajando, recibe una sanción por el tiempo que elijas. Durante la sanción no recibe walk-ins (pero sí clientes que lo piden por nombre) y queda al fondo de la cola con marca naranja. Se limpia sola al final del día.',
@@ -784,6 +804,18 @@ export const MESSAGES: Record<Locale, Messages> = {
     'display.col.occupied': 'Busy',
     'display.col.queue': 'In queue',
     'display.shopClosed': 'Closed',
+    'display.opensToday': 'We open today at {time}',
+    'display.opensTomorrow': 'We open tomorrow at {time}',
+    'display.opensOn': 'We open {day} at {time}',
+
+    // Weekdays (opening hours, migration 062)
+    'day.mon': 'Monday',
+    'day.tue': 'Tuesday',
+    'day.wed': 'Wednesday',
+    'day.thu': 'Thursday',
+    'day.fri': 'Friday',
+    'day.sat': 'Saturday',
+    'day.sun': 'Sunday',
 
     'control.clearSanction': 'Clear sanction',
     'control.restoreBreak': 'Return break',
@@ -915,6 +947,14 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.field.grace': 'Post-break grace minutes',
     'settings.hint.grace':
       'Extra time after the break before losing the position. Applies to both modes.',
+    'settings.section.hours': 'Opening hours',
+    'settings.hours.blurb':
+      'Set your days and hours. The shop opens and closes itself on schedule (in your timezone). The manual open/close toggle always wins until the next schedule change — for holidays or closing early.',
+    'settings.hours.toggle': 'Open and close automatically',
+    'settings.hours.closedDay': 'Closed',
+    'settings.hours.invalidRange': 'closing must be after opening',
+    'dash.hoursNudge':
+      'Set your opening hours — the shop will open and close itself',
     'settings.section.lateArrival': 'Late arrival',
     'settings.lateArrival.blurb':
       'If a barber arrives after the marked time and others are already working, they get a sanction for the time you choose. During the sanction they receive no walk-ins (but do get clients who ask for them by name) and go to the back of the line with an orange mark. It clears itself at the end of the day.',

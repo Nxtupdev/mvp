@@ -9,6 +9,12 @@ import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { buildHeldPositions } from '@/lib/queue-order'
 import { MESSAGES } from '@/lib/i18n-messages'
+import { interpolate } from '@/lib/i18n-types'
+import {
+  scheduleFromDb,
+  nextOpening,
+  formatHourLabel,
+} from '@/lib/business-hours'
 
 type Entry = {
   id: string
@@ -65,6 +71,10 @@ type Shop = {
   // Migración 052 — idioma del TV elegido por el dueño. El TV es
   // público (nadie toca un toggle), así que NO depende de la cookie.
   display_language: 'es' | 'en'
+  // Migración 062 — horario semanal (para "Abrimos a las X" en la
+  // pantalla de cerrado). NULL = sin horario definido.
+  business_hours: unknown
+  timezone: string | null
 }
 
 // ── Density tiers ─────────────────────────────────────────────────
@@ -319,7 +329,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('shops')
         .select(
-          'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, display_message, display_language',
+          'id, name, is_open, logo_url, first_break_minutes, next_break_minutes, keep_position_on_break, break_position_grace_minutes, display_message, display_language, business_hours, timezone',
         )
         .eq('id', shop.id)
         .single()
@@ -383,6 +393,28 @@ export default function DisplayBoard({
           {tt('display.shopClosed')}
         </p>
         <h1 className="font-display text-7xl tracking-tight">{shop.name}</h1>
+        {(() => {
+          // "Abrimos hoy/mañana/el {día} a las {hora}" — solo si el dueño
+          // definió horario (062). El TV está EN la tienda, pero usamos la
+          // zona del shop de la DB para no depender del reloj del aparato.
+          if (!shop.business_hours) return null
+          const next = nextOpening(
+            scheduleFromDb(shop.business_hours),
+            shop.timezone || 'America/New_York',
+          )
+          if (!next) return null
+          const time = formatHourLabel(next.start)
+          const text =
+            next.daysAhead === 0
+              ? interpolate(tt('display.opensToday'), { time })
+              : next.daysAhead === 1
+                ? interpolate(tt('display.opensTomorrow'), { time })
+                : interpolate(tt('display.opensOn'), {
+                    day: tt(`day.${next.dayKey}`),
+                    time,
+                  })
+          return <p className="text-nxtup-break text-2xl mt-8">{text}</p>
+        })()}
       </main>
     )
   }
