@@ -710,13 +710,15 @@ function ActionButton({
   disabled: boolean
   onClick: () => void
 }) {
-  // Each tone has a coloured ring/fill when currently set, neutral
-  // outline otherwise. Disabled greys everything out.
+  // Piel sobria (portada de la vertical dealer): superficie casi neutra
+  // con hairline ring + punto LED discreto. El estado se marca con tinte
+  // suave SOLO en el botón activo — nada de bloques saturados con
+  // border-2 (el look viejo).
   const palette = {
-    active: { border: 'border-emerald-500', text: 'text-emerald-300', bg: 'bg-emerald-500' },
-    busy: { border: 'border-rose-500', text: 'text-rose-300', bg: 'bg-rose-500' },
-    break: { border: 'border-amber-500', text: 'text-amber-300', bg: 'bg-amber-500' },
-    offline: { border: 'border-nxtup-dim', text: 'text-nxtup-muted', bg: 'bg-nxtup-dim' },
+    active: { dot: 'bg-nxtup-active', ring: 'ring-nxtup-active/50', tint: 'bg-nxtup-active/10', text: 'text-nxtup-active' },
+    busy: { dot: 'bg-nxtup-busy', ring: 'ring-nxtup-busy/50', tint: 'bg-nxtup-busy/10', text: 'text-nxtup-busy' },
+    break: { dot: 'bg-nxtup-break', ring: 'ring-nxtup-break/50', tint: 'bg-nxtup-break/10', text: 'text-nxtup-break' },
+    offline: { dot: 'bg-nxtup-dim', ring: 'ring-nxtup-dim/60', tint: 'bg-white/[0.03]', text: 'text-nxtup-muted' },
   }[tone]
 
   return (
@@ -725,15 +727,20 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={`
-        rounded-md py-2.5 text-xs font-black tracking-widest uppercase
-        transition-all active:scale-[0.97]
+        flex items-center justify-center gap-1.5
+        rounded-xl py-2.5 text-xs font-semibold uppercase tracking-[0.15em]
+        transition-all duration-200 active:scale-[0.98]
         ${current
-          ? `${palette.bg} text-black border-2 ${palette.border}`
-          : `bg-transparent border-2 ${palette.border} ${palette.text} hover:bg-nxtup-bg`
+          ? `${palette.tint} ring-1 ${palette.ring} ${palette.text}`
+          : 'bg-white/[0.03] ring-1 ring-white/[0.07] text-nxtup-fg/70 hover:bg-white/[0.06] hover:ring-white/[0.14]'
         }
         disabled:opacity-40 disabled:cursor-not-allowed
       `}
     >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${current ? palette.dot : 'bg-nxtup-dim/60'}`}
+      />
       {label}
     </button>
   )

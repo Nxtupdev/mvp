@@ -816,29 +816,38 @@ function ActionButton({
   disabled: boolean
   onClick: () => void
 }) {
+  // Piel sobria (portada de la vertical dealer): nada de bloques
+  // saturados border-2. Superficie casi neutra con hairline; el estado
+  // se comunica con un punto LED discreto + tinte suave SOLO cuando el
+  // botón es el estado actual. Los tres botones en reposo se ven
+  // iguales de sobrios.
   const palette: Record<
     ActionTone,
-    { bg: string; border: string; text: string }
+    { dot: string; ring: string; tint: string; text: string }
   > = {
     active: {
-      bg: 'bg-emerald-500',
-      border: 'border-emerald-400',
-      text: 'text-emerald-300',
+      dot: 'bg-nxtup-active',
+      ring: 'ring-nxtup-active/50',
+      tint: 'bg-nxtup-active/10',
+      text: 'text-nxtup-active',
     },
     busy: {
-      bg: 'bg-rose-500',
-      border: 'border-rose-400',
-      text: 'text-rose-300',
+      dot: 'bg-nxtup-busy',
+      ring: 'ring-nxtup-busy/50',
+      tint: 'bg-nxtup-busy/10',
+      text: 'text-nxtup-busy',
     },
     break: {
-      bg: 'bg-amber-500',
-      border: 'border-amber-400',
-      text: 'text-amber-300',
+      dot: 'bg-nxtup-break',
+      ring: 'ring-nxtup-break/50',
+      tint: 'bg-nxtup-break/10',
+      text: 'text-nxtup-break',
     },
     offline: {
-      bg: 'bg-zinc-500',
-      border: 'border-zinc-600',
-      text: 'text-zinc-400',
+      dot: 'bg-nxtup-dim',
+      ring: 'ring-nxtup-dim/60',
+      tint: 'bg-white/[0.03]',
+      text: 'text-nxtup-muted',
     },
   }
   const p = palette[tone]
@@ -849,19 +858,31 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={`
-        flex items-center justify-center
-        rounded-lg py-5 text-base font-black tracking-widest
-        transition-all active:scale-[0.97]
+        flex flex-col items-center justify-center gap-2
+        rounded-2xl py-5
+        transition-all duration-200 active:scale-[0.98]
         ${
           current
-            ? `${p.bg} text-black border-2 ${p.border}`
-            : `bg-transparent border-2 ${p.border} ${p.text} hover:bg-nxtup-line`
+            ? `${p.tint} ring-1 ${p.ring}`
+            : 'bg-white/[0.03] ring-1 ring-white/[0.07] hover:bg-white/[0.06] hover:ring-white/[0.14]'
         }
         ${loading ? 'opacity-60' : ''}
         disabled:opacity-40 disabled:cursor-not-allowed
       `}
     >
-      {loading ? '...' : label}
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full transition-colors ${
+          current ? p.dot : 'bg-nxtup-dim/60'
+        }`}
+      />
+      <span
+        className={`text-[13px] font-semibold uppercase tracking-[0.18em] ${
+          current ? p.text : 'text-nxtup-fg/80'
+        }`}
+      >
+        {loading ? '...' : label}
+      </span>
     </button>
   )
 }
