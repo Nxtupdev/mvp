@@ -205,7 +205,7 @@ export function SuccessScreen({
           <motion.h1
             variants={itemV}
             className="
-              bg-gradient-to-br from-zinc-50 to-emerald-400/80
+              bg-gradient-to-br from-zinc-50 to-salvia/80
               bg-clip-text text-center font-display text-4xl
               tracking-tight text-transparent
               sm:text-6xl
@@ -223,14 +223,14 @@ export function SuccessScreen({
             >
               <div
                 className="
-                  rounded-3xl border border-emerald-400/30
-                  bg-emerald-400/10 px-8 py-8 sm:px-12 sm:py-10
-                  shadow-[0_0_60px_rgba(52,211,153,0.20)]
+                  rounded-3xl border border-salvia/30
+                  bg-salvia/10 px-8 py-8 sm:px-12 sm:py-10
+                  shadow-[0_0_60px_rgba(126,215,174,0.20)]
                 "
               >
                 <p
                   className="
-                    text-3xl font-medium text-emerald-300
+                    text-3xl font-medium text-salvia-light
                     sm:text-5xl
                   "
                   style={{ letterSpacing: '-0.02em' }}
@@ -239,7 +239,7 @@ export function SuccessScreen({
                     name: assignedBarber.name,
                   })}
                 </p>
-                <p className="mt-2 text-sm text-emerald-200/70 sm:text-base">
+                <p className="mt-2 text-sm text-salvia-light/70 sm:text-base">
                   {t('kiosk.success.goWithSub')}
                 </p>
               </div>
@@ -286,11 +286,11 @@ export function SuccessScreen({
             className="
               mt-2 flex h-16 w-full max-w-md items-center justify-center
               overflow-hidden rounded-2xl text-lg font-medium text-zinc-950
-              bg-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.35)]
+              bg-salvia shadow-[0_0_40px_rgba(126,215,174,0.35)]
               transition-all duration-300
-              hover:bg-emerald-300
+              hover:bg-salvia-light
               focus-visible:outline-none focus-visible:ring-2
-              focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+              focus-visible:ring-salvia focus-visible:ring-offset-2
               focus-visible:ring-offset-[#0A0A0B]
             "
           >
@@ -348,7 +348,7 @@ export function SuccessScreen({
                       transition-colors
                       ${
                         isMe
-                          ? 'bg-emerald-400/15 border border-emerald-400/40'
+                          ? 'bg-salvia/15 border border-salvia/40'
                           : 'border border-transparent hover:bg-zinc-900/50'
                       }
                     `}
@@ -356,7 +356,7 @@ export function SuccessScreen({
                     <span
                       className={`
                         text-base font-black tabular-nums w-8 text-center
-                        ${isMe ? 'text-emerald-300' : 'text-zinc-500'}
+                        ${isMe ? 'text-salvia-light' : 'text-zinc-500'}
                       `}
                     >
                       #{entry.position}
@@ -364,7 +364,7 @@ export function SuccessScreen({
                     <span
                       className={`
                         flex-1 truncate text-base font-medium
-                        ${isMe ? 'text-emerald-100' : 'text-zinc-200'}
+                        ${isMe ? 'text-salvia-bright' : 'text-zinc-200'}
                       `}
                     >
                       {entry.name}
@@ -372,9 +372,9 @@ export function SuccessScreen({
                     {isMe && (
                       <span
                         className="
-                          rounded-md bg-emerald-400/25 px-2 py-0.5
+                          rounded-md bg-salvia/25 px-2 py-0.5
                           text-[10px] font-bold uppercase tracking-wider
-                          text-emerald-200
+                          text-salvia-light
                         "
                       >
                         {t('kiosk.success.you')}
@@ -383,9 +383,9 @@ export function SuccessScreen({
                     {!isMe && isCalled && (
                       <span
                         className="
-                          rounded-md bg-amber-400/15 px-2 py-0.5
+                          rounded-md bg-nxtup-break/15 px-2 py-0.5
                           text-[10px] font-bold uppercase tracking-wider
-                          text-amber-300
+                          text-nxtup-break
                         "
                       >
                         {t('kiosk.success.statusCalled')}

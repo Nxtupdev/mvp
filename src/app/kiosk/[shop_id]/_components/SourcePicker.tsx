@@ -131,11 +131,11 @@ function SourceButton({
         group flex h-24 flex-col items-center justify-center gap-2
         rounded-2xl backdrop-blur-xl transition-all duration-300
         focus-visible:outline-none focus-visible:ring-2
-        focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+        focus-visible:ring-salvia focus-visible:ring-offset-2
         focus-visible:ring-offset-[#0A0A0B]
         ${
           selected
-            ? 'bg-emerald-400/[0.08] ring-2 ring-emerald-400/70 shadow-[0_0_30px_rgba(52,211,153,0.2)]'
+            ? 'bg-salvia/[0.08] ring-2 ring-salvia/70 shadow-[0_0_30px_rgba(126,215,174,0.2)]'
             : 'bg-white/[0.04] ring-1 ring-white/[0.08] hover:bg-white/[0.08] hover:ring-white/[0.16]'
         }
       `}

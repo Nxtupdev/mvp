@@ -114,7 +114,7 @@ export function NewCustomerScreen({
             px-3 py-2 text-sm font-medium text-zinc-400
             transition-colors hover:text-zinc-100
             focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+            focus-visible:ring-salvia focus-visible:ring-offset-2
             focus-visible:ring-offset-[#0A0A0B]
           "
         >
@@ -144,7 +144,7 @@ export function NewCustomerScreen({
           <motion.h1
             {...sectionTransition(0.1)}
             className="
-              bg-gradient-to-br from-zinc-50 to-emerald-400/80
+              bg-gradient-to-br from-zinc-50 to-salvia/80
               bg-clip-text text-center font-display text-4xl
               tracking-tight text-transparent
               sm:text-6xl
@@ -202,11 +202,11 @@ export function NewCustomerScreen({
               overflow-hidden rounded-2xl text-lg font-medium
               transition-all duration-300
               focus-visible:outline-none focus-visible:ring-2
-              focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+              focus-visible:ring-salvia focus-visible:ring-offset-2
               focus-visible:ring-offset-[#0A0A0B]
-              enabled:bg-emerald-400 enabled:text-zinc-950
-              enabled:shadow-[0_0_40px_rgba(52,211,153,0.35)]
-              enabled:hover:bg-emerald-300
+              enabled:bg-salvia enabled:text-zinc-950
+              enabled:shadow-[0_0_40px_rgba(126,215,174,0.35)]
+              enabled:hover:bg-salvia-light
               enabled:active:scale-[0.99]
               disabled:cursor-not-allowed disabled:bg-white/[0.04]
               disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
@@ -215,7 +215,7 @@ export function NewCustomerScreen({
             {t('kiosk.new.continue')}
           </button>
           {serverError && (
-            <p className="mt-3 text-center text-sm text-rose-400">
+            <p className="mt-3 text-center text-sm text-nxtup-busy">
               {serverError}
             </p>
           )}
@@ -243,11 +243,11 @@ function SectionHeader({
   return (
     <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-100 sm:text-2xl">
       {text}
-      {required && <span className="text-rose-400">*</span>}
+      {required && <span className="text-nxtup-busy">*</span>}
       {showAttention && (
         <span
           aria-hidden
-          className="inline-block h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.6)]"
+          className="inline-block h-2 w-2 rounded-full bg-nxtup-busy shadow-[0_0_12px_rgba(251,113,133,0.6)]"
         />
       )}
     </h2>
@@ -280,7 +280,7 @@ function NameInput({
     <label className="flex flex-col gap-1.5">
       <span className="px-1 text-xs font-medium uppercase tracking-[0.1em] text-zinc-500">
         {label}
-        {required && <span className="ml-1 text-rose-400">*</span>}
+        {required && <span className="ml-1 text-nxtup-busy">*</span>}
       </span>
       <input
         type="text"
@@ -297,8 +297,8 @@ function NameInput({
           text-zinc-50 placeholder:text-zinc-600
           ring-1 backdrop-blur-xl transition-all duration-300
           focus:outline-none focus:bg-white/[0.06]
-          focus:ring-emerald-400/50
-          ${invalid ? 'ring-rose-400/60' : 'ring-white/[0.08]'}
+          focus:ring-salvia/50
+          ${invalid ? 'ring-nxtup-busy/60' : 'ring-white/[0.08]'}
         `}
       />
     </label>

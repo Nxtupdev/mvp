@@ -5,17 +5,31 @@
   --color-nxtup-blue: #1e3aff;
   --color-nxtup-red: #ef2424;
 
-  /* Surfaces */
-  --color-nxtup-bg: #000000;
-  --color-nxtup-fg: #ffffff;
-  --color-nxtup-muted: #71717a;
-  --color-nxtup-dim: #3f3f46;
-  --color-nxtup-line: #18181b;
+  /* ── Piel BARBERÍA: "barbería de noche" ─────────────────────
+     Misma RECETA que la vertical dealer (desaturar, calidez, cero
+     neón) pero con identidad PROPIA en familia verde — NO copiar
+     champagne/jade/terracota del dealer. Grafito con sombra verde,
+     platino frío, estados apagados legibles de lejos, y el acento
+     de marca es el SALVIA (la versión elegante de nuestro verde) —
+     con cuentagotas: CTAs, selección, degradados. */
 
-  /* Status (LED-style queue states) */
-  --color-nxtup-active: #22c55e;
-  --color-nxtup-busy: #ef4444;
-  --color-nxtup-break: #eab308;
+  /* Surfaces */
+  --color-nxtup-bg: #0a0b0a;
+  --color-nxtup-fg: #ebefec;
+  --color-nxtup-muted: #878e88;
+  --color-nxtup-dim: #474d49;
+  --color-nxtup-line: #1d211e;
+
+  /* Status (queue states — apagados, sin neón, distinguibles de lejos) */
+  --color-nxtup-active: #6eb996;
+  --color-nxtup-busy: #c14f4f;
+  --color-nxtup-break: #ccab4e;
+
+  /* Acento de marca barbería (escala salvia, del CTA al hairline) */
+  --color-salvia: #7ed7ae;
+  --color-salvia-light: #a3e6c6;
+  --color-salvia-bright: #cef3e2;
+  --color-salvia-pale: #eefaf5;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

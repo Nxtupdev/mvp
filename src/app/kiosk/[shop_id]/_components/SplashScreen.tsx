@@ -134,7 +134,7 @@ export function SplashScreen({
             animate="animate"
             variants={welcomeV}
             className="
-              bg-gradient-to-br from-zinc-50 to-emerald-400/80
+              bg-gradient-to-br from-zinc-50 to-salvia/80
               bg-clip-text font-display text-5xl tracking-tight text-transparent
               sm:text-7xl
             "
@@ -218,7 +218,7 @@ function LanguageButton({
         transition-all duration-200
         hover:bg-white/[0.06] hover:ring-white/[0.14]
         focus-visible:outline-none focus-visible:ring-2
-        focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+        focus-visible:ring-salvia focus-visible:ring-offset-2
         focus-visible:ring-offset-[#0A0A0B]
         active:scale-[0.98]
         sm:h-40

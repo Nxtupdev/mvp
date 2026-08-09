@@ -37,7 +37,7 @@ export function QueueStatBlock({
 }: QueueStatBlockProps) {
   const valueColor =
     tone === 'primary'
-      ? 'text-emerald-300'
+      ? 'text-salvia-light'
       : 'text-zinc-50'
 
   return (

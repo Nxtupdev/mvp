@@ -123,7 +123,7 @@ export function PhoneScreen({
             px-3 py-2 text-sm font-medium text-zinc-400
             transition-colors hover:text-zinc-100
             focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+            focus-visible:ring-salvia focus-visible:ring-offset-2
             focus-visible:ring-offset-[#0A0A0B]
           "
         >
@@ -148,7 +148,7 @@ export function PhoneScreen({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
             className="
-              bg-gradient-to-br from-zinc-50 to-emerald-400/80
+              bg-gradient-to-br from-zinc-50 to-salvia/80
               bg-clip-text font-display text-4xl tracking-tight text-transparent
               sm:text-6xl
             "
@@ -215,11 +215,11 @@ export function PhoneScreen({
             overflow-hidden rounded-2xl text-lg font-medium
             transition-all duration-300
             focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+            focus-visible:ring-salvia focus-visible:ring-offset-2
             focus-visible:ring-offset-[#0A0A0B]
-            enabled:bg-emerald-400 enabled:text-zinc-950
-            enabled:shadow-[0_0_40px_rgba(52,211,153,0.35)]
-            enabled:hover:bg-emerald-300
+            enabled:bg-salvia enabled:text-zinc-950
+            enabled:shadow-[0_0_40px_rgba(126,215,174,0.35)]
+            enabled:hover:bg-salvia-light
             enabled:active:scale-[0.98]
             disabled:cursor-not-allowed disabled:bg-white/[0.04]
             disabled:text-zinc-600 disabled:ring-1 disabled:ring-white/[0.06]
@@ -229,7 +229,7 @@ export function PhoneScreen({
         </button>
 
         {serverError && (
-          <p className="mt-3 text-center text-sm text-rose-400">
+          <p className="mt-3 text-center text-sm text-nxtup-busy">
             {serverError}
           </p>
         )}

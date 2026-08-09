@@ -527,7 +527,7 @@ export default function BarberDashboard({
             ✎
           </span>
         </button>
-        <h1 className="text-3xl font-black tracking-tight">{barber.name}</h1>
+        <h1 className="font-display text-4xl tracking-tight">{barber.name}</h1>
         <StatusLine
           barber={barber}
           shop={shop}

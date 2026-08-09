@@ -66,7 +66,7 @@ export function PhoneInput({
           bg-white/[0.04] ring-1 backdrop-blur-xl transition-all duration-300
           ${
             isValid
-              ? 'ring-emerald-400/50 shadow-[0_0_30px_rgba(52,211,153,0.15)]'
+              ? 'ring-salvia/50 shadow-[0_0_30px_rgba(126,215,174,0.15)]'
               : 'ring-white/[0.08]'
           }
         `}
@@ -113,7 +113,7 @@ export function PhoneInput({
         <p
           className={`
             px-2 text-center text-sm
-            ${helperTone === 'error' ? 'text-rose-400' : 'text-zinc-500'}
+            ${helperTone === 'error' ? 'text-nxtup-busy' : 'text-zinc-500'}
           `}
         >
           {helper}

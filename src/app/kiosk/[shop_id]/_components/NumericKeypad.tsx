@@ -111,7 +111,7 @@ function KeypadKey({
         hover:bg-white/[0.08] hover:ring-white/[0.12]
         active:scale-[0.96] active:bg-white/[0.12]
         focus-visible:outline-none focus-visible:ring-2
-        focus-visible:ring-emerald-400 focus-visible:ring-offset-2
+        focus-visible:ring-salvia focus-visible:ring-offset-2
         focus-visible:ring-offset-[#0A0A0B]
         disabled:cursor-not-allowed disabled:opacity-40
       "
