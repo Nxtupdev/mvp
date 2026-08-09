@@ -212,29 +212,19 @@ function LanguageButton({
       onClick={onClick}
       className="
         group relative flex h-32 flex-1 items-center justify-center
-        overflow-hidden rounded-3xl
-        bg-white/[0.04] backdrop-blur-xl
-        ring-1 ring-white/[0.08]
-        transition-all duration-300
-        hover:bg-white/[0.08] hover:ring-emerald-400/40
-        hover:shadow-[0_0_40px_rgba(52,211,153,0.25)]
+        overflow-hidden rounded-2xl
+        bg-white/[0.03]
+        ring-1 ring-white/[0.07]
+        transition-all duration-200
+        hover:bg-white/[0.06] hover:ring-white/[0.14]
         focus-visible:outline-none focus-visible:ring-2
         focus-visible:ring-emerald-400 focus-visible:ring-offset-2
         focus-visible:ring-offset-[#0A0A0B]
-        active:bg-white/[0.06]
+        active:scale-[0.98]
         sm:h-40
       "
     >
-      <div
-        aria-hidden
-        className="
-          absolute inset-0 bg-gradient-to-br from-emerald-400/0 to-emerald-400/0
-          opacity-0 transition-opacity duration-500
-          group-hover:from-emerald-400/[0.06] group-hover:to-emerald-400/[0.02]
-          group-hover:opacity-100
-        "
-      />
-      <span className="relative text-2xl font-medium tracking-tight text-zinc-50 sm:text-3xl">
+      <span className="relative text-xl font-semibold uppercase tracking-[0.18em] text-nxtup-fg/80 transition-colors group-hover:text-nxtup-fg sm:text-2xl">
         {label}
       </span>
     </motion.button>
