@@ -38,8 +38,14 @@ export async function POST() {
   const admin = createAdminClient()
   const { data, error } = await admin.rpc('reset_demo_shop')
   if (error) {
-    console.error('[demo/reset] rpc error:', error.message)
-    return Response.json({ error: 'No se pudo resetear el demo.' }, { status: 500 })
+    // Mensaje REAL al cliente: esta ruta solo la ve la cuenta demo
+    // (interna, sin PII), y el detalle es la diferencia entre poder
+    // diagnosticar un fallo del socio en campo o quedarnos ciegos.
+    console.error('[demo/reset] rpc error:', error.code, error.message, error.details)
+    return Response.json(
+      { error: `No se pudo resetear: ${error.message} (${error.code ?? 'sin código'})` },
+      { status: 500 },
+    )
   }
 
   return Response.json({ ok: true, shop_id: data })

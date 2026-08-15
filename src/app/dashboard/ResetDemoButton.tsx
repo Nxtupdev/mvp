@@ -27,14 +27,19 @@ export default function ResetDemoButton() {
       const res = await fetch('/api/demo/reset', { method: 'POST' })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        window.alert(j.error ?? 'No se pudo resetear el demo.')
+        // Mostrar status + mensaje real del servidor — sin esto, un fallo
+        // en campo es indistinguible ("no funciona") y no se puede
+        // diagnosticar remoto.
+        window.alert(`Error ${res.status}: ${j.error ?? 'sin detalle del servidor'}`)
         return
       }
       setDone(true)
       router.refresh()
       setTimeout(() => setDone(false), 2500)
-    } catch {
-      window.alert('No se pudo resetear el demo.')
+    } catch (e) {
+      window.alert(
+        `Error de red: ${e instanceof Error ? e.message : 'sin conexión con el servidor'}`,
+      )
     } finally {
       setLoading(false)
     }
