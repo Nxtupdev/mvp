@@ -54,6 +54,9 @@ type Entry = {
   client_name: string
   status: 'called' | 'in_progress'
   position: number
+  // Migración 063 — in_progress puesto por el sistema (sin confirmar).
+  auto_busy: boolean | null
+  called_at: string | null
 }
 
 type Shop = {
@@ -167,7 +170,7 @@ export default function ControlPanel({
     const fetchEntries = async () => {
       const { data } = await supabase
         .from('queue_entries')
-        .select('id, barber_id, client_name, status, position')
+        .select('id, barber_id, client_name, status, position, auto_busy, called_at')
         .eq('shop_id', shop.id)
         .in('status', ['called', 'in_progress'])
       if (data) setEntries(data as Entry[])
@@ -650,9 +653,24 @@ function StatusLine({
     )
   }
   if (barber.status === 'busy' && entry) {
+    // Migración 063 — silla sin confirmar (auto-BUSY). Marca sutil
+    // siempre; alerta roja si lleva >40 min sin cerrar (un corte real
+    // ya habría terminado → probable fantasma que nadie reclamó).
+    const staleAutoBusy =
+      entry.auto_busy === true &&
+      entry.called_at != null &&
+      Date.now() - new Date(entry.called_at).getTime() > 40 * 60_000
     return (
       <p className={`text-xs ${color}`}>
         {label} · {t('control.busyWith', { name: entry.client_name })}
+        {entry.auto_busy === true && !staleAutoBusy && (
+          <span className="text-nxtup-break ml-2">{t('control.unconfirmed')}</span>
+        )}
+        {staleAutoBusy && (
+          <span className="text-nxtup-busy ml-2 font-bold">
+            {t('control.unconfirmedStale')}
+          </span>
+        )}
       </p>
     )
   }

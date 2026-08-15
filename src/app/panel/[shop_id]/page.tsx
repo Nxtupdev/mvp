@@ -59,7 +59,7 @@ export default async function PanelPage({
       .order('name'),
     admin
       .from('queue_entries')
-      .select('id, barber_id, client_name, status, position')
+      .select('id, barber_id, client_name, status, position, auto_busy, called_at')
       .eq('shop_id', shop_id)
       .in('status', ['called', 'in_progress']),
   ])

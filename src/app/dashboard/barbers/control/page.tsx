@@ -44,7 +44,7 @@ export default async function ControlPanelPage() {
       .order('name'),
     supabase
       .from('queue_entries')
-      .select('id, barber_id, client_name, status, position')
+      .select('id, barber_id, client_name, status, position, auto_busy, called_at')
       .eq('shop_id', shop.id)
       .in('status', ['called', 'in_progress']),
   ])

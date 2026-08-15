@@ -253,6 +253,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'display.col.occupied': 'Ocupados',
     'display.col.queue': 'En cola',
     'display.shopClosed': 'Cerrado',
+    'display.unconfirmedStale': '⚠ Sin confirmar — ¿sigue con el cliente?',
     'display.opensToday': 'Abrimos hoy a las {time}',
     'display.opensTomorrow': 'Abrimos mañana a las {time}',
     'display.opensOn': 'Abrimos el {day} a las {time}',
@@ -292,6 +293,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'control.inLinePos': '#{n} en fila',
     'control.noPosition': 'sin posición',
     'control.busyWith': 'con {name}',
+    'control.unconfirmed': 'sin confirmar',
+    'control.unconfirmedStale': '⚠ ¿sigue con el cliente?',
     'control.turnForfeited': 'turno perdido',
 
     // Stats page
@@ -804,6 +807,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'display.col.occupied': 'Busy',
     'display.col.queue': 'In queue',
     'display.shopClosed': 'Closed',
+    'display.unconfirmedStale': '⚠ Unconfirmed — still with the client?',
     'display.opensToday': 'We open today at {time}',
     'display.opensTomorrow': 'We open tomorrow at {time}',
     'display.opensOn': 'We open {day} at {time}',
@@ -843,6 +847,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'control.inLinePos': '#{n} in line',
     'control.noPosition': 'no position',
     'control.busyWith': 'with {name}',
+    'control.unconfirmed': 'unconfirmed',
+    'control.unconfirmedStale': '⚠ still with the client?',
     'control.turnForfeited': 'turn lost',
 
     'stats.print': 'Download PDF',

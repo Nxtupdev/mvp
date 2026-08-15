@@ -5,24 +5,32 @@ import { getClientIp } from '@/lib/client-ip'
 /**
  * POST /api/queue/[entry_id]/claim
  *
- * "Tomar yo" — lets the next-available barber pre-empt the 5-min
- * auto-release when the originally called barber walks off the floor.
- * The negligent barber gets bumped to offline + activity log entry,
- * the entry is reassigned to the caller (re-calling them so they
- * can immediately go BUSY with the client).
+ * "Tomar yo" — rediseñado en la migración 063 (auto-BUSY).
  *
- * Body: { barber_id: uuid }   // the claimer
+ * Antes: reclamable mientras la entrada estaba 'called' con ≥60s (el
+ * timer adivinaba ausencia). Ahora la ventana 0-2 min es EXCLUSIVA del
+ * barbero llamado; a los 2 min el cascade pone AUTO-BUSY (asume que
+ * está trabajando) y es AHÍ cuando se abre el reclamo: una entrada
+ * in_progress con auto_busy=true es una silla sin confirmar, y el
+ * siguiente barbero del piso — que VE si el cliente está varado — puede
+ * reclamarla. El reclamo ES la confirmación humana de la ausencia.
+ *
+ * Al reclamar:
+ *   - El cliente pasa DIRECTO a la silla del reclamante (in_progress,
+ *     auto_busy=false, called_at=now para que su timer de silla arranque
+ *     limpio). Sin countdown nuevo: reclamar = lo estoy agarrando ya.
+ *   - El ausente va a BREAK (decisión de Francisco, ago 2026): sin
+ *     posición retenida, contando el break del día, con el timer normal
+ *     — si no vuelve, el cron de break vencido (028) lo baja a offline
+ *     solo. + no_show en la bitácora.
  *
  * Guards (in order):
- *   1. Entry must still be 'called' (race against the original barber
- *      finally tapping BUSY, or against another claimer).
- *   2. The 'called' must be at least 60s old. The grace window stops
- *      barbers from racing to steal each other's freshly-called clients.
- *   3. The claimer must be ACTIVE (status='available') with a valid
- *      FIFO position.
- *   4. The claimer must in fact be the NEXT-available barber in FIFO
- *      order, excluding the negligent one. So #3 can't jump #2.
- *   5. WiFi presence check (same trusted_public_ip gate as state).
+ *   1. Entry in_progress con auto_busy=true (la ÚNICA ventana de reclamo).
+ *   2. El reclamante debe estar ACTIVO (available + available_since).
+ *   3. Sancionados no reclaman (misma regla de siempre, migración 047).
+ *   4. El reclamante debe ser el SIGUIENTE disponible en FIFO
+ *      (excluyendo al ausente) — #3 no puede saltarse a #2.
+ *   5. WiFi presence (mismo gate que el resto de mutaciones).
  */
 export async function POST(
   request: NextRequest,
@@ -43,45 +51,31 @@ export async function POST(
 
   const supabase = createAdminClient()
 
-  // Fetch the entry and its current state in one round trip.
   const { data: entry } = await supabase
     .from('queue_entries')
-    .select('id, shop_id, status, barber_id, client_name, called_at, position')
+    .select('id, shop_id, status, auto_busy, barber_id, client_name, called_at, position')
     .eq('id', entry_id)
     .single()
 
   if (!entry) {
     return Response.json({ error: 'Cliente no encontrado' }, { status: 404 })
   }
-  if (entry.status !== 'called') {
+  // Solo se reclama la silla SIN CONFIRMAR (auto-BUSY del cascade). Una
+  // entrada 'called' sigue en la ventana exclusiva del barbero llamado;
+  // una in_progress confirmada (el barbero tocó BUSY) jamás se toca.
+  if (entry.status !== 'in_progress' || entry.auto_busy !== true) {
     return Response.json(
-      { error: 'El cliente ya no está disponible' },
+      { error: 'El cliente ya no está disponible para tomar' },
       { status: 409 },
     )
   }
-  if (!entry.called_at) {
-    return Response.json({ error: 'Estado inválido' }, { status: 409 })
-  }
 
-  const negligentBarberId: string = entry.barber_id
+  const absentBarberId: string = entry.barber_id
   const shopId: string = entry.shop_id
-  const calledAtMs = new Date(entry.called_at).getTime()
-  const ageSec = (Date.now() - calledAtMs) / 1000
 
-  if (ageSec < 60) {
+  if (claimerId === absentBarberId) {
     return Response.json(
-      {
-        error: 'Esperá un poco — el barbero podría estar caminando todavía',
-        code: 'too_soon',
-        seconds_until_claimable: Math.ceil(60 - ageSec),
-      },
-      { status: 403 },
-    )
-  }
-
-  if (claimerId === negligentBarberId) {
-    return Response.json(
-      { error: 'No puedes tomar tu propio cliente — toca BUSY' },
+      { error: 'Es tu propio cliente — si lo estás atendiendo, ya está contigo' },
       { status: 400 },
     )
   }
@@ -89,7 +83,7 @@ export async function POST(
   // Verify claimer is ACTIVE in this shop, fetch peers in one shot.
   const { data: peers } = await supabase
     .from('barbers')
-    .select('id, shop_id, status, available_since, sanctioned_until')
+    .select('id, shop_id, status, available_since, sanctioned_until, breaks_taken_today')
     .eq('shop_id', shopId)
 
   const claimer = peers?.find(p => p.id === claimerId)
@@ -104,9 +98,7 @@ export async function POST(
   }
 
   // Sanction-aware (migración 047): un barbero sancionado no puede
-  // "Tomar yo" — esa sería la forma más obvia de saltarse la sanción.
-  // El cliente abandonado se considera walk-in (originalmente fue
-  // auto-asignado al negligente), y los sancionados no reciben walk-ins.
+  // "Tomar yo" — sería la forma más obvia de saltarse la sanción.
   const nowMs = Date.now()
   const isClaimerSanctioned =
     claimer.sanctioned_until !== null &&
@@ -122,13 +114,12 @@ export async function POST(
     )
   }
 
-  // Compute "next available" — anyone ACTIVE with a FIFO position,
-  // excluding the negligent barber and sancionados. The smallest
-  // available_since (earliest into the queue) is the rightful next claimer.
+  // El reclamante debe ser el SIGUIENTE disponible en FIFO, excluyendo
+  // al ausente y a los sancionados.
   const fifoCandidates = (peers ?? [])
     .filter(
       p =>
-        p.id !== negligentBarberId &&
+        p.id !== absentBarberId &&
         p.status === 'available' &&
         p.available_since &&
         (p.sanctioned_until === null ||
@@ -151,13 +142,11 @@ export async function POST(
     )
   }
 
-  // WiFi presence — same gate as /api/barbers/[id]/state. Even though
-  // the claimer is presumably IN the shop (they're ACTIVE), we honor
-  // the rule consistently: any meaningful queue mutation requires the
-  // shop's WiFi.
+  // WiFi presence — misma regla que el resto de mutaciones de cola. El
+  // shop select trae también next_break_minutes para el break penal.
   const { data: shop } = await supabase
     .from('shops')
-    .select('trusted_public_ip')
+    .select('trusted_public_ip, next_break_minutes')
     .eq('id', shopId)
     .single()
   if (shop?.trusted_public_ip) {
@@ -176,54 +165,62 @@ export async function POST(
 
   const now = new Date().toISOString()
 
-  // ── Mutations (best-effort sequence — if a later step errors we
-  // log it but still acknowledge the take, because the client has
-  // already swapped barbers visually). ──
+  // ── Mutations (best-effort sequence — si un paso posterior falla se
+  // loguea pero el take ya está reconocido). ──
   //
-  // 1. Reassign the entry to the claimer + reset called_at so the
-  //    5-min countdown restarts from this moment for the new barber.
+  // 1. El cliente pasa DIRECTO a la silla del reclamante. auto_busy se
+  //    limpia: el reclamo ES la confirmación (lo está agarrando ya).
+  //    called_at=now para que el timer de silla (stats de duración)
+  //    arranque desde este momento.
   await supabase
     .from('queue_entries')
-    .update({ barber_id: claimerId, called_at: now })
+    .update({
+      barber_id: claimerId,
+      status: 'in_progress',
+      auto_busy: false,
+      called_at: now,
+    })
     .eq('id', entry_id)
 
-  // 2. Negligent barber → offline + cleared break state.
+  // 2. El reclamante queda ocupado con su cliente nuevo.
+  await supabase
+    .from('barbers')
+    .update({ status: 'busy', available_since: null })
+    .eq('id', claimerId)
+
+  // 3. El ausente → BREAK penal (regla de Francisco, 063): sin posición
+  //    retenida (break_held_since null — no se premia al que no estaba),
+  //    contando el break del día, con el timer normal para que el cron
+  //    de break vencido (028) lo baje a offline si nunca regresa.
+  const absent = peers?.find(p => p.id === absentBarberId)
   await supabase
     .from('barbers')
     .update({
-      status: 'offline',
+      status: 'break',
       available_since: null,
-      break_started_at: null,
+      break_started_at: now,
       break_held_since: null,
-      break_minutes_at_start: null,
+      break_minutes_at_start: shop?.next_break_minutes ?? 15,
+      breaks_taken_today: (absent?.breaks_taken_today ?? 0) + 1,
       break_invalidating_barber_ids: [],
       break_invalidated: false,
     })
-    .eq('id', negligentBarberId)
+    .eq('id', absentBarberId)
 
-  // 3. Claimer no longer has a FIFO position (they have a called
-  //    client now). Mirrors the same treatment in state/route.ts.
-  await supabase
-    .from('barbers')
-    .update({ available_since: null })
-    .eq('id', claimerId)
-
-  // 4. Audit. Two rows: one no_show against the negligent barber,
-  //    one client_assigned to the claimer with `claimed_from` so
-  //    the activity log tells the full story.
+  // 4. Audit — dos filas: el no_show del ausente (a break, no a offline)
+  //    y el client_assigned del reclamante con claimed_from.
   await supabase.from('activity_log').insert([
     {
       shop_id: shopId,
-      barber_id: negligentBarberId,
+      barber_id: absentBarberId,
       action: 'no_show',
-      from_status: 'available',
-      to_status: 'offline',
+      from_status: 'busy',
+      to_status: 'break',
       metadata: {
         entry_id,
         client_name: entry.client_name,
         called_at: entry.called_at,
-        minutes_elapsed: Math.round(ageSec / 60),
-        released_by: 'peer_claim',
+        released_by: 'peer_claim_after_auto_busy',
         claimed_by_barber_id: claimerId,
       },
     },
@@ -235,7 +232,8 @@ export async function POST(
         entry_id,
         client_name: entry.client_name,
         queue_position: entry.position,
-        claimed_from_barber_id: negligentBarberId,
+        claimed_from_barber_id: absentBarberId,
+        via: 'claim_after_auto_busy',
       },
     },
   ])

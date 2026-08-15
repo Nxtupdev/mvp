@@ -124,9 +124,10 @@ export default function BarberDashboard({
     useState<DeviceClient>(initialCalledClient)
   const [currentClient, setCurrentClient] =
     useState<DeviceClient>(initialCurrentClient)
-  // Called entries belonging to OTHER barbers in the shop. We watch
-  // them so the "next available" barber can pre-empt a no-show by
-  // tapping "Tomar yo" after the original has stalled for 60s.
+  // Sillas SIN CONFIRMAR de otros barberos (auto-BUSY, migración 063):
+  // entradas que el cascade pasó a in_progress porque el barbero nunca
+  // tocó BUSY. Mientras estén así, el siguiente disponible puede
+  // reclamarlas con "Tomar yo" — él VE si el cliente está varado.
   type PeerCalled = {
     id: string
     barber_id: string
@@ -134,8 +135,9 @@ export default function BarberDashboard({
     called_at: string
   }
   const [peerCalled, setPeerCalled] = useState<PeerCalled[]>([])
-  // Reactive clock so the "x seconds since called" computation
-  // recomputes the claim eligibility window without realtime pings.
+  // Reloj reactivo — lo consume el PeerRoster (timers de breaks de los
+  // colegas). Ya NO gatea el "Tomar yo" (063: la marca auto_busy es la
+  // señal, sin ventana de tiempo client-side).
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 3000)
@@ -227,7 +229,8 @@ export default function BarberDashboard({
             .from('queue_entries')
             .select('id, barber_id, client_name, called_at')
             .eq('shop_id', shopId)
-            .eq('status', 'called'),
+            .eq('status', 'in_progress')
+            .eq('auto_busy', true),
         ])
       setCalledClient(called)
       setCurrentClient(current)
@@ -286,24 +289,19 @@ export default function BarberDashboard({
     return buildHeldPositions(peers).get(barber.id)
   }, [peers, barber.id])
 
-  // ── No-show takeover detection ──────────────────────────────────
+  // ── Detección de silla sin confirmar (auto-BUSY, migración 063) ──
   //
-  // If any peer barber has had a client in 'called' status for >60s
-  // AND I'm the next-available barber in the FIFO (excluding the
-  // stalled one), surface a "Tomar yo" banner so I can pre-empt the
-  // 5-min auto-release and keep the queue moving.
-  //
-  // Re-evaluated whenever peerCalled or peers changes, AND on every
-  // `nowTick` so the banner appears on time without a realtime ping.
+  // Si una entrada del shop quedó en auto-BUSY (el barbero nunca tocó
+  // BUSY tras 2 min) Y yo soy el siguiente disponible en FIFO, muestro
+  // el banner "Tomar yo". Ya no hay gate de tiempo aquí: la marca
+  // auto_busy ES la señal de que la ventana exclusiva del llamado
+  // terminó. Yo decido con mis ojos — si lo veo pelando, no reclamo.
   const stuckCallFor: PeerCalled | null = useMemo(() => {
     if (barber.status !== 'available' || !barber.available_since) return null
     if (peerCalled.length === 0) return null
 
-    // For each stalled call, check if I am the rightful next claimer.
+    // For each unconfirmed chair, check if I am the rightful next claimer.
     for (const entry of peerCalled) {
-      const ageSec = (nowTick - new Date(entry.called_at).getTime()) / 1000
-      if (ageSec < 60) continue
-
       // FIFO-by-availability among ACTIVE barbers, excluding the
       // stalled one. We have to include `barber` itself in the list
       // since `peers` may or may not include self depending on the
@@ -327,7 +325,7 @@ export default function BarberDashboard({
       if (fifo[0]?.id === barber.id) return entry
     }
     return null
-  }, [peerCalled, peers, barber, nowTick])
+  }, [peerCalled, peers, barber])
 
   // Name of the stalled barber, for the banner copy.
   const stuckBarberName: string | null = useMemo(() => {
@@ -488,19 +486,21 @@ export default function BarberDashboard({
         )
       })()}
 
-      {/* No-show takeover banner — only renders when this barber is
-          the next-available AND a peer's called client has been
-          waiting >60s. Lets them pre-empt the 5-min auto-release. */}
+      {/* Banner de silla sin confirmar (auto-BUSY, 063) — solo cuando
+          este barbero es el siguiente disponible Y hay una entrada que
+          el sistema marcó ocupada sin que el barbero confirmara.
+          Reclamar es para cuando VES al cliente varado — no para
+          quitarle el cliente a un colega que está trabajando. */}
       {stuckCallFor && (
         <div className="border border-nxtup-break bg-nxtup-break/10 rounded-xl p-4 mb-6 flex items-start gap-3">
           <span className="text-nxtup-break text-xl leading-none mt-0.5">⚠</span>
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-semibold leading-snug">
-              {stuckCallFor.client_name} lleva esperando a {stuckBarberName}
+              {stuckCallFor.client_name} quedó con {stuckBarberName} sin confirmar
             </p>
             <p className="text-nxtup-muted text-xs mt-0.5">
-              Eres el siguiente disponible. Si {stuckBarberName} no aparece,
-              puedes atender al cliente.
+              Eres el siguiente disponible. Si {stuckBarberName} NO lo está
+              atendiendo, tómalo tú — si lo está pelando, no lo toques.
             </p>
             <button
               type="button"

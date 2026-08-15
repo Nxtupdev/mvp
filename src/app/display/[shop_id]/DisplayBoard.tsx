@@ -35,6 +35,9 @@ type Entry = {
   // Mamacita: hora estimada de llegada (ISO) que el cliente dio por voz.
   // Solo en entradas de voz. Se muestra junto a "En camino" (mig. 058).
   eta_at: string | null
+  // Migración 063 — in_progress puesto por el sistema (el barbero nunca
+  // tocó BUSY). Si lleva >40 min sin cerrar, el TV lo marca en rojo.
+  auto_busy: boolean | null
 }
 
 type Barber = {
@@ -296,7 +299,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('queue_entries')
         .select(
-          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at, eta_at',
+          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at, eta_at, auto_busy',
         )
         .eq('shop_id', shop.id)
         .in('status', ['waiting', 'called', 'in_progress'])
@@ -556,11 +559,20 @@ export default function DisplayBoard({
             <>
               {busyBarbers.map(b => {
                 const c = inProgressEntries.find(e => e.barber_id === b.id)
+                // Silla sin confirmar (auto-BUSY, 063) que lleva >40 min
+                // sin cerrar — un corte real ya habría terminado. Rojo.
+                const stale = !!(
+                  c?.auto_busy &&
+                  c?.called_at &&
+                  now &&
+                  now.getTime() - new Date(c.called_at).getTime() > 40 * 60_000
+                )
                 return (
                   <BusyCard
                     key={b.id}
                     barber={b}
                     clientName={c?.client_name ?? null}
+                    staleLabel={stale ? tt('display.unconfirmedStale') : null}
                     density={density}
                   />
                 )
@@ -937,16 +949,21 @@ function CalledCountdown({ calledAt }: { calledAt: string }) {
 function BusyCard({
   barber,
   clientName,
+  staleLabel,
   density,
 }: {
   barber: Barber
   clientName: string | null
+  // No-null = silla auto-BUSY con >40 min sin cerrar → alerta roja.
+  staleLabel?: string | null
   density: Density
 }) {
   const s = SIZE[density]
   return (
     <li
-      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap}`}
+      className={`flex items-center bg-nxtup-line rounded-2xl ${s.cardPad} ${s.cardGap} ${
+        staleLabel ? 'ring-2 ring-nxtup-busy' : ''
+      }`}
     >
       <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
       <div className="flex-1 min-w-0">
@@ -958,6 +975,11 @@ function BusyCard({
         {clientName && (
           <p className={`text-nxtup-muted truncate ${s.subtitle}`}>
             con {clientName}
+          </p>
+        )}
+        {staleLabel && (
+          <p className={`text-nxtup-busy font-bold truncate ${s.subtitle}`}>
+            {staleLabel}
           </p>
         )}
       </div>
