@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
 import ShopLogo from '@/components/ShopLogo'
@@ -653,6 +653,13 @@ export default function BarberDashboard({
           onClose={() => setPickerOpen(false)}
           saving={savingAvatar}
           shopAvatars={shopAvatars}
+          barberId={barber.id}
+          onPhotoSaved={url => {
+            // El endpoint ya persistió la foto — solo sincronizamos el
+            // estado local y cerramos (realtime confirma después).
+            setBarber(b => ({ ...b, avatar: url }))
+            setPickerOpen(false)
+          }}
         />
       )}
     </main>
@@ -887,19 +894,85 @@ function ActionButton({
   )
 }
 
+/**
+ * Recorta la imagen a un cuadrado centrado y la comprime a JPEG en el
+ * teléfono ANTES de subir. Una selfie de 12MP baja a ~50-100KB en 512px
+ * — el TV y el dashboard cargan al instante y el bucket no engorda.
+ */
+async function squareJpeg(file: File, side: number, quality: number): Promise<Blob> {
+  const bitmap = await createImageBitmap(file)
+  try {
+    const src = Math.min(bitmap.width, bitmap.height)
+    const sx = (bitmap.width - src) / 2
+    const sy = (bitmap.height - src) / 2
+    const canvas = document.createElement('canvas')
+    canvas.width = side
+    canvas.height = side
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('canvas 2d no disponible')
+    ctx.drawImage(bitmap, sx, sy, src, src, 0, 0, side, side)
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        b => (b ? resolve(b) : reject(new Error('toBlob falló'))),
+        'image/jpeg',
+        quality,
+      )
+    })
+  } finally {
+    bitmap.close()
+  }
+}
+
 function AvatarPickerModal({
   value,
   onChange,
   onClose,
   saving,
   shopAvatars,
+  barberId,
+  onPhotoSaved,
 }: {
   value: string | null
   onChange: (next: string | null) => void
   onClose: () => void
   saving: boolean
   shopAvatars: ShopAvatar[]
+  barberId: string
+  /** La foto ya quedó guardada por el endpoint — el padre solo
+   *  sincroniza estado local y cierra. */
+  onPhotoSaved: (url: string) => void
 }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite re-elegir el mismo archivo
+    if (!file || uploading) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      const blob = await squareJpeg(file, 512, 0.85)
+      const fd = new FormData()
+      fd.append('file', blob, 'photo.jpg')
+      const res = await fetch(`/api/barbers/${barberId}/photo`, {
+        method: 'POST',
+        body: fd,
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setUploadError(j.error ?? 'No se pudo subir la foto')
+        return
+      }
+      onPhotoSaved(j.avatar as string)
+    } catch {
+      setUploadError('No se pudo procesar la imagen — intenta con otra foto')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div
       role="dialog"
@@ -914,7 +987,7 @@ function AvatarPickerModal({
       >
         <div className="flex items-center justify-between mb-4">
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
-            Elige tu ícono
+            Tu foto o ícono
           </p>
           <button
             type="button"
@@ -924,6 +997,30 @@ function AvatarPickerModal({
             Cerrar
           </button>
         </div>
+
+        {/* ── Foto real (migración 065) ── */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFile}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.03] ring-1 ring-white/[0.07] px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/[0.06] hover:ring-white/[0.14] disabled:opacity-50"
+        >
+          📷 {uploading ? 'Subiendo tu foto…' : 'Subir mi foto'}
+        </button>
+        {uploadError && (
+          <p className="text-nxtup-busy mb-2 text-xs">{uploadError}</p>
+        )}
+        <p className="text-nxtup-dim mb-4 text-xs">
+          Se recorta cuadrada automáticamente. O elige un ícono:
+        </p>
+
         <AvatarPicker
           value={value}
           onChange={onChange}

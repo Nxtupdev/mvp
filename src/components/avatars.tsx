@@ -604,9 +604,14 @@ export function Avatar({
   // wrapper's rounded-full mask. object-contain on top guarantees
   // the full source remains visible without cropping.
   if (typeof avatar === 'string' && (avatar.startsWith('/') || avatar.startsWith('http'))) {
+    // Foto real del barbero (bucket barber-photos, migración 065) vs
+    // ícono custom del shop: la FOTO llena el círculo (object-cover,
+    // sin fondo blanco ni margen — es un retrato); el ícono conserva
+    // su margen del 84% + fondo blanco porque trae su propio lienzo.
+    const isPhoto = avatar.includes('/barber-photos/')
     return (
       <span
-        className={`inline-flex items-center justify-center rounded-full overflow-hidden flex-shrink-0 bg-white ${className}`}
+        className={`inline-flex items-center justify-center rounded-full overflow-hidden flex-shrink-0 ${isPhoto ? '' : 'bg-white'} ${className}`}
         style={{ width: size, height: size }}
         aria-hidden
       >
@@ -614,10 +619,14 @@ export function Avatar({
         <img
           src={avatar}
           alt=""
-          width={Math.round(size * 0.84)}
-          height={Math.round(size * 0.84)}
-          className="object-contain"
-          style={{ width: '84%', height: '84%' }}
+          width={Math.round(size * (isPhoto ? 1 : 0.84))}
+          height={Math.round(size * (isPhoto ? 1 : 0.84))}
+          className={isPhoto ? 'object-cover' : 'object-contain'}
+          style={
+            isPhoto
+              ? { width: '100%', height: '100%' }
+              : { width: '84%', height: '84%' }
+          }
         />
       </span>
     )
