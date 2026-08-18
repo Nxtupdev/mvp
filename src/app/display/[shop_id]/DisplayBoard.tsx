@@ -616,15 +616,17 @@ export default function DisplayBoard({
                 // discusión en el piso: explica por qué este cliente irá
                 // con SU barbero aunque otros estén antes en la lista.
                 let apptLabel: string | null = null
+                const apptPending =
+                  e.appointment_barber_id !== null && e.barber_id === null
                 if (e.appointment_barber_id) {
                   const abName =
                     barbers.find(b => b.id === e.appointment_barber_id)?.name ??
                     '—'
                   apptLabel = interpolate(
                     tt(
-                      e.barber_id
-                        ? 'display.appt.confirmed'
-                        : 'display.appt.pending',
+                      apptPending
+                        ? 'display.appt.pending'
+                        : 'display.appt.confirmed',
                     ),
                     { name: abName },
                   )
@@ -637,6 +639,7 @@ export default function DisplayBoard({
                     enCamino={e.mamacita_entry_id !== null && e.arrived_at === null}
                     etaAt={e.eta_at}
                     apptLabel={apptLabel}
+                    apptPending={apptPending}
                     density={density}
                   />
                 )
@@ -747,6 +750,7 @@ function QueueClientCard({
   enCamino,
   etaAt,
   apptLabel,
+  apptPending,
   density,
 }: {
   position: number
@@ -759,6 +763,9 @@ function QueueClientCard({
   etaAt: string | null
   // Cita (066): "Cita · Carlos (· por confirmar)". Null = no es cita.
   apptLabel?: string | null
+  // Pendiente de confirmación → la línea PULSA en el TV para que el
+  // barbero la note de reojo (capa 2 de notificación: el TV avisa).
+  apptPending?: boolean
   density: Density
 }) {
   const s = SIZE[density]
@@ -804,7 +811,7 @@ function QueueClientCard({
           <span
             className={`block truncate text-salvia font-bold tabular-nums ${
               density === 'lg' ? 'text-lg' : density === 'md' ? 'text-base' : 'text-xs'
-            }`}
+            } ${apptPending ? 'animate-pulse' : ''}`}
           >
             📅 {apptLabel}
           </span>
