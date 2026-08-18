@@ -59,6 +59,10 @@ type CheckInBody = {
   first_name?: string
   source?: ReferralSource | null
   preferred_language?: 'es' | 'en'
+  // Migración 066 — el cliente dijo "tengo cita" y eligió barbero. La
+  // entrada nace visible pero SIN match automático; el barbero la
+  // confirma desde su panel (o expira a walk-in a los 10 min).
+  appointment_barber_id?: string | null
 }
 
 const VALID_SOURCES: ReferralSource[] = [
@@ -146,6 +150,21 @@ export async function POST(request: NextRequest) {
 
   if (queueCount !== null && queueCount >= shop.max_queue_size) {
     return Response.json({ error: 'La cola está llena' }, { status: 409 })
+  }
+
+  // ── Cita (066): validar que el barbero elegido sea de ESTE shop ──
+  let apptBarber: { id: string; name: string } | null = null
+  if (body.appointment_barber_id) {
+    const { data: ab } = await supabase
+      .from('barbers')
+      .select('id, name')
+      .eq('id', body.appointment_barber_id)
+      .eq('shop_id', shop_id)
+      .maybeSingle()
+    if (!ab) {
+      return Response.json({ error: 'Barbero de la cita no encontrado' }, { status: 400 })
+    }
+    apptBarber = ab
   }
 
   // ── Look up existing client to decide new vs returning ──────
@@ -344,6 +363,9 @@ export async function POST(request: NextRequest) {
         service_id: null, // service capture removed from the flow
         position,
         arrived_at: nowIso, // walk-ins are present at check-in time
+        // Cita pendiente (066): visible en el TV, excluida del match
+        // hasta que el barbero la confirme.
+        appointment_barber_id: apptBarber?.id ?? null,
       })
       .select()
       .single()
@@ -382,22 +404,28 @@ export async function POST(request: NextRequest) {
   let finalEntry = entry
 
   const matchNowIso = new Date().toISOString()
-  let { data: nextBarber } = await supabase
-    .from('barbers')
-    .select('id, name, available_since')
-    .eq('shop_id', shop_id)
-    .eq('status', 'available')
-    .not('available_since', 'is', null)
-    .or(`sanctioned_until.is.null,sanctioned_until.lte.${matchNowIso}`)
-    .order('available_since', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // Cita (066): SIN match automático — el cliente espera a SU barbero,
+  // que debe confirmar la cita desde su panel primero.
+  let nextBarber: { id: string; name: string; available_since: string | null } | null = null
+  if (!apptBarber) {
+    const primary = await supabase
+      .from('barbers')
+      .select('id, name, available_since')
+      .eq('shop_id', shop_id)
+      .eq('status', 'available')
+      .not('available_since', 'is', null)
+      .or(`sanctioned_until.is.null,sanctioned_until.lte.${matchNowIso}`)
+      .order('available_since', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    nextBarber = primary.data
+  }
 
   // Fallback a sancionado si nadie no-sancionado está disponible.
   // Solo afecta el caso "todos los no-sancionados están busy/break/offline
   // y solo queda el sancionado en available" — el resto del tiempo el
   // sancionado sigue saltado por la regla principal.
-  if (!nextBarber) {
+  if (!apptBarber && !nextBarber) {
     const fallback = await supabase
       .from('barbers')
       .select('id, name, available_since')
@@ -498,5 +526,9 @@ export async function POST(request: NextRequest) {
     eta_minutes: etaMinutes,
     assigned_barber: assignedBarber,
     queue_list: queueList,
+    // Cita (066): la SuccessScreen muestra "espera a que {name} confirme".
+    appointment: apptBarber
+      ? { barber_id: apptBarber.id, barber_name: apptBarber.name }
+      : null,
   })
 }

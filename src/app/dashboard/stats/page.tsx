@@ -28,6 +28,10 @@ type Entry = {
   // voz que nunca llega = arrived_at NULL + mamacita_entry_id != null.
   arrived_at: string | null
   mamacita_entry_id: string | null
+  // Migración 066 — cita: barbero elegido por el cliente en el kiosko.
+  // ≠ null en un 'done' = ese corte fue una CITA, no un walk-in del pool
+  // (relevante para dueños que pagan por porciento).
+  appointment_barber_id: string | null
 }
 
 type Barber = {
@@ -401,7 +405,7 @@ export default async function StatsPage({
   // (start del día siguiente a `to`). Cuando es Date agregamos `.lt()`.
   let currentQuery = supabase
     .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id')
+    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id, appointment_barber_id')
     .eq('shop_id', shop.id)
     .gte('created_at', currentStart.toISOString())
   if (currentEnd) {
@@ -410,7 +414,7 @@ export default async function StatsPage({
 
   const previousQuery = supabase
     .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id')
+    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id, appointment_barber_id')
     .eq('shop_id', shop.id)
     .gte('created_at', previousStart.toISOString())
     .lt('created_at', previousEnd.toISOString())
@@ -727,8 +731,18 @@ export default async function StatsPage({
               {cutsByBarber.map(b => (
                 <li key={b.id} className="flex items-center gap-3">
                   <Avatar avatar={b.avatar} name={b.name} size={28} />
-                  <span className="text-white text-sm font-medium flex-1 truncate">
-                    {b.name}
+                  <span className="flex-1 min-w-0">
+                    <span className="text-white text-sm font-medium block truncate">
+                      {b.name}
+                    </span>
+                    {b.appts > 0 && (
+                      <span className="text-nxtup-muted text-xs block tabular-nums">
+                        {t('stats.cuts.apptSplit', {
+                          appts: b.appts,
+                          walkins: b.count - b.appts,
+                        })}
+                      </span>
+                    )}
                   </span>
                   <span className="text-white text-lg font-black tabular-nums w-8 text-right">
                     {b.count}
@@ -905,15 +919,18 @@ function avgWaitMinutes(entries: Entry[]): number {
 
 function computeCutsByBarber(entries: Entry[], barbers: Barber[]) {
   const done = entries.filter(e => e.status === 'done' && e.barber_id)
-  const byId = new Map<string, { count: number; chairMins: number[] }>()
+  const byId = new Map<string, { count: number; appts: number; chairMins: number[] }>()
   for (const e of done) {
     if (!e.barber_id) continue
     let agg = byId.get(e.barber_id)
     if (!agg) {
-      agg = { count: 0, chairMins: [] }
+      agg = { count: 0, appts: 0, chairMins: [] }
       byId.set(e.barber_id, agg)
     }
     agg.count++
+    // Cita (066) vs walk-in del pool — el split que le importa al dueño
+    // que paga por porciento (la cita es clientela del barbero).
+    if (e.appointment_barber_id) agg.appts++
     if (e.called_at && e.completed_at) {
       const min =
         (new Date(e.completed_at).getTime() -
@@ -930,6 +947,7 @@ function computeCutsByBarber(entries: Entry[], barbers: Barber[]) {
         name: b.name,
         avatar: b.avatar,
         count: agg?.count ?? 0,
+        appts: agg?.appts ?? 0,
         avgChairMin:
           agg && agg.chairMins.length > 0
             ? agg.chairMins.reduce((a, b) => a + b, 0) / agg.chairMins.length

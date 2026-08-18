@@ -531,6 +531,10 @@ export async function PATCH(
           // Ver voice-presence-spec.md. Walk-ins (mamacita_entry_id NULL)
           // siguen siendo elegibles.
           .or('mamacita_entry_id.is.null,arrived_at.not.is.null')
+          // Citas PENDIENTES (066): amarradas a su barbero elegido hasta
+          // que él confirme (o expiren a los 10 min) — el pool las salta.
+          // Las confirmadas tienen barber_id ≠ null y ya no entran aquí.
+          .is('appointment_barber_id', null)
           .order('position', { ascending: true })
           .limit(1)
           .maybeSingle()

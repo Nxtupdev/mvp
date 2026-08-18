@@ -34,6 +34,7 @@ import { useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n-types'
 import { KioskHeader } from './_components/KioskHeader'
+import { AppointmentScreen, type KioskBarber } from './_components/AppointmentScreen'
 import { NewCustomerScreen } from './_components/NewCustomerScreen'
 import { PhoneScreen } from './_components/PhoneScreen'
 import { ReturningCustomerScreen } from './_components/ReturningCustomerScreen'
@@ -46,7 +47,13 @@ import type { ReferralSource, Shop } from './_types'
 // ────────────────────────────────────────────────────────────────────
 // Types
 
-type Step = 'splash' | 'phone' | 'newCustomer' | 'returningCustomer' | 'success'
+type Step =
+  | 'splash'
+  | 'phone'
+  | 'newCustomer'
+  | 'returningCustomer'
+  | 'appointment'
+  | 'success'
 
 type NewCustomerFormState = {
   firstName: string
@@ -82,11 +89,15 @@ type CheckInResult = {
     status: 'waiting' | 'called'
     position: number
   }>
+  /** Cita (066): el cliente eligió barbero; queda pendiente de que él
+   *  la confirme desde su panel. null = walk-in normal. */
+  appointment: { barber_id: string; barber_name: string } | null
 }
 
 type KioskAppProps = {
   shop: Shop
   initialWaitingCount: number
+  barbers: KioskBarber[]
 }
 
 const INITIAL_FORM: NewCustomerFormState = {
@@ -125,9 +136,13 @@ async function readServerError(res: Response, fallback: string): Promise<string>
 // ────────────────────────────────────────────────────────────────────
 // Component
 
-export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
+export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) {
   const { locale, setLocale } = useLocale()
   const [step, setStep] = useState<Step>('splash')
+  // Modo del checkin pendiente mientras el cliente responde la pregunta
+  // de cita (066) — el submit de nuevo/recurrente ya pasó, el checkin
+  // real se dispara al salir de la pantalla de cita.
+  const [pendingMode, setPendingMode] = useState<'new' | 'returning' | null>(null)
   const [phone, setPhone] = useState<string>('')
   const [newCustomerForm, setNewCustomerForm] =
     useState<NewCustomerFormState>(INITIAL_FORM)
@@ -209,6 +224,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
     opts:
       | { mode: 'new'; firstName: string; source: ReferralSource | null }
       | { mode: 'returning' },
+    appointmentBarberId: string | null = null,
   ) {
     setCheckInError(null)
     setCheckInSubmitting(true)
@@ -221,6 +237,9 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
       if (opts.mode === 'new') {
         payload.first_name = opts.firstName
         payload.source = opts.source
+      }
+      if (appointmentBarberId) {
+        payload.appointment_barber_id = appointmentBarberId
       }
 
       const res = await fetch('/api/kiosk/checkin', {
@@ -247,6 +266,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
           status: 'waiting' | 'called'
           position: number
         }>
+        appointment?: { barber_id: string; barber_name: string } | null
       }
 
       setCheckInResult({
@@ -257,6 +277,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
         assignedBarber: body.assigned_barber ?? null,
         myEntryId: body.entry?.id ?? null,
         queueList: body.queue_list ?? [],
+        appointment: body.appointment ?? null,
       })
       setStep('success')
     } catch (err) {
@@ -267,16 +288,31 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
     }
   }
 
+  // Los submits de identidad ya NO disparan el checkin directo — pasan
+  // por la pregunta de cita (066) primero.
   function handleNewCustomerSubmit() {
-    performCheckIn({
-      mode: 'new',
-      firstName: newCustomerForm.firstName.trim(),
-      source: newCustomerForm.source,
-    })
+    setPendingMode('new')
+    setStep('appointment')
   }
 
   function handleReturningContinue() {
-    performCheckIn({ mode: 'returning' })
+    setPendingMode('returning')
+    setStep('appointment')
+  }
+
+  function handleAppointmentSubmit(appointmentBarberId: string | null) {
+    if (pendingMode === 'new') {
+      performCheckIn(
+        {
+          mode: 'new',
+          firstName: newCustomerForm.firstName.trim(),
+          source: newCustomerForm.source,
+        },
+        appointmentBarberId,
+      )
+    } else {
+      performCheckIn({ mode: 'returning' }, appointmentBarberId)
+    }
   }
 
   /** Reset everything and return to splash. Called by the success
@@ -290,6 +326,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
     setCheckInResult(null)
     setLookupError(null)
     setCheckInError(null)
+    setPendingMode(null)
   }
 
   return (
@@ -365,6 +402,22 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
             </ScreenContainer>
           )}
 
+          {step === 'appointment' && (
+            <ScreenContainer key="appointment" background="flat">
+              <AppointmentScreen
+                barbers={barbers}
+                onSubmit={handleAppointmentSubmit}
+                onBack={() =>
+                  setStep(pendingMode === 'new' ? 'newCustomer' : 'returningCustomer')
+                }
+                submitting={checkInSubmitting}
+                serverError={checkInError}
+                currentStep={3}
+                totalSteps={3}
+              />
+            </ScreenContainer>
+          )}
+
           {step === 'success' && checkInResult && (
             <ScreenContainer key="success" background="hero">
               <SuccessScreen
@@ -375,6 +428,7 @@ export function KioskApp({ shop, initialWaitingCount }: KioskAppProps) {
                 assignedBarber={checkInResult.assignedBarber}
                 queueList={checkInResult.queueList}
                 myEntryId={checkInResult.myEntryId}
+                appointment={checkInResult.appointment}
                 onDone={handleDone}
               />
             </ScreenContainer>

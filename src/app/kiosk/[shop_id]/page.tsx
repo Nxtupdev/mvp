@@ -87,10 +87,19 @@ export default async function KioskPage({
     .eq('shop_id', shop_id)
     .eq('status', 'waiting')
 
+  // Barberos para el selector de citas (066). TODOS — la cita puede ser
+  // con uno que aún no llegó (offline); su confirmación lo esperará.
+  const { data: barbers } = await supabase
+    .from('barbers')
+    .select('id, name, avatar')
+    .eq('shop_id', shop_id)
+    .order('name')
+
   return (
     <KioskApp
       shop={shop}
       initialWaitingCount={waitingCount ?? 0}
+      barbers={barbers ?? []}
     />
   )
 }

@@ -38,6 +38,10 @@ type Entry = {
   // Migración 063 — in_progress puesto por el sistema (el barbero nunca
   // tocó BUSY). Si lleva >40 min sin cerrar, el TV lo marca en rojo.
   auto_busy: boolean | null
+  // Migración 066 — cita: barbero que el cliente eligió en el kiosko.
+  // Pendiente mientras barber_id sea null; confirmada cuando el barbero
+  // la acogió (barber_id fijado). El TV lo muestra bajo el nombre.
+  appointment_barber_id: string | null
 }
 
 type Barber = {
@@ -299,7 +303,7 @@ export default function DisplayBoard({
       const { data } = await supabase
         .from('queue_entries')
         .select(
-          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at, eta_at, auto_busy',
+          'id, position, client_name, status, barber_id, created_at, called_at, mamacita_entry_id, arrived_at, eta_at, auto_busy, appointment_barber_id',
         )
         .eq('shop_id', shop.id)
         .in('status', ['waiting', 'called', 'in_progress'])
@@ -606,16 +610,37 @@ export default function DisplayBoard({
             waitingEntries
               .slice()
               .sort((a, b) => a.position - b.position)
-              .map((e, idx) => (
-                <QueueClientCard
-                  key={e.id}
-                  position={idx + 1}
-                  clientName={e.client_name}
-                  enCamino={e.mamacita_entry_id !== null && e.arrived_at === null}
-                  etaAt={e.eta_at}
-                  density={density}
-                />
-              ))
+              .map((e, idx) => {
+                // Cita (066): "📅 Cita · Carlos" (+ "por confirmar" si el
+                // barbero aún no la acoge). Esta línea es la que mata la
+                // discusión en el piso: explica por qué este cliente irá
+                // con SU barbero aunque otros estén antes en la lista.
+                let apptLabel: string | null = null
+                if (e.appointment_barber_id) {
+                  const abName =
+                    barbers.find(b => b.id === e.appointment_barber_id)?.name ??
+                    '—'
+                  apptLabel = interpolate(
+                    tt(
+                      e.barber_id
+                        ? 'display.appt.confirmed'
+                        : 'display.appt.pending',
+                    ),
+                    { name: abName },
+                  )
+                }
+                return (
+                  <QueueClientCard
+                    key={e.id}
+                    position={idx + 1}
+                    clientName={e.client_name}
+                    enCamino={e.mamacita_entry_id !== null && e.arrived_at === null}
+                    etaAt={e.eta_at}
+                    apptLabel={apptLabel}
+                    density={density}
+                  />
+                )
+              })
           )}
         </Column>
       </section>
@@ -721,6 +746,7 @@ function QueueClientCard({
   clientName,
   enCamino,
   etaAt,
+  apptLabel,
   density,
 }: {
   position: number
@@ -731,6 +757,8 @@ function QueueClientCard({
   // Hora estimada de llegada (ISO) para las entradas de voz. Se muestra
   // junto a "En camino" como hora local (el TV está en la tienda).
   etaAt: string | null
+  // Cita (066): "Cita · Carlos (· por confirmar)". Null = no es cita.
+  apptLabel?: string | null
   density: Density
 }) {
   const s = SIZE[density]
@@ -770,6 +798,15 @@ function QueueClientCard({
           >
             <Phone size={density === 'lg' ? 17 : density === 'md' ? 14 : 12} aria-hidden />
             {etaClock ? `~${etaClock}` : ''}
+          </span>
+        )}
+        {apptLabel && (
+          <span
+            className={`block truncate text-salvia font-bold tabular-nums ${
+              density === 'lg' ? 'text-lg' : density === 'md' ? 'text-base' : 'text-xs'
+            }`}
+          >
+            📅 {apptLabel}
           </span>
         )}
       </div>

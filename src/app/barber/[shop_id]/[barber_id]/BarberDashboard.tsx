@@ -135,6 +135,10 @@ export default function BarberDashboard({
     called_at: string
   }
   const [peerCalled, setPeerCalled] = useState<PeerCalled[]>([])
+  // Citas pendientes de MI confirmación (066).
+  type PendingAppt = { id: string; client_name: string; created_at: string }
+  const [pendingAppts, setPendingAppts] = useState<PendingAppt[]>([])
+  const [apptActing, setApptActing] = useState<string | null>(null)
   // Reloj reactivo — lo consume el PeerRoster (timers de breaks de los
   // colegas). Ya NO gatea el "Tomar yo" (063: la marca auto_busy es la
   // señal, sin ventana de tiempo client-side).
@@ -208,7 +212,7 @@ export default function BarberDashboard({
     }
 
     const fetchClients = async () => {
-      const [{ data: called }, { data: current }, { data: allCalled }] =
+      const [{ data: called }, { data: current }, { data: allCalled }, { data: appts }] =
         await Promise.all([
           supabase
             .from('queue_entries')
@@ -231,6 +235,16 @@ export default function BarberDashboard({
             .eq('shop_id', shopId)
             .eq('status', 'in_progress')
             .eq('auto_busy', true),
+          // Citas PENDIENTES conmigo (066): el cliente dijo en el kiosko
+          // que tiene cita con ESTE barbero — falta que yo la confirme.
+          supabase
+            .from('queue_entries')
+            .select('id, client_name, created_at')
+            .eq('shop_id', shopId)
+            .eq('status', 'waiting')
+            .eq('appointment_barber_id', barber.id)
+            .is('barber_id', null)
+            .order('created_at', { ascending: true }),
         ])
       setCalledClient(called)
       setCurrentClient(current)
@@ -239,6 +253,7 @@ export default function BarberDashboard({
           e => e.barber_id !== barber.id && !!e.called_at,
         ),
       )
+      setPendingAppts((appts ?? []) as PendingAppt[])
     }
 
     // Debounce: colapsa ráfagas de cambios en un refetch ~250ms tras
@@ -332,6 +347,30 @@ export default function BarberDashboard({
     if (!stuckCallFor) return null
     return peers.find(p => p.id === stuckCallFor.barber_id)?.name ?? 'el barbero'
   }, [stuckCallFor, peers])
+
+  // ── Citas: acoger / rechazar (066) ─────────────────────────────
+  async function actOnAppointment(entryId: string, action: 'accept' | 'reject') {
+    if (apptActing) return
+    setApptActing(entryId)
+    setError('')
+    try {
+      const res = await fetch(`/api/queue/${entryId}/appointment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barber_id: barber.id, action }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'No se pudo procesar la cita')
+      }
+      // Optimista: sácala de la lista ya; realtime confirma después.
+      setPendingAppts(list => list.filter(a => a.id !== entryId))
+    } catch {
+      setError('Error de red')
+    } finally {
+      setApptActing(null)
+    }
+  }
 
   // ── Claim handler ──────────────────────────────────────────────
   async function claimStuckEntry() {
@@ -485,6 +524,46 @@ export default function BarberDashboard({
           </div>
         )
       })()}
+
+      {/* Citas pendientes de MI confirmación (066) — el cliente dijo en
+          el kiosko que tiene cita conmigo. Yo soy la validación: acojo
+          o rechazo. Si no hago nada, expira a walk-in a los 10 min. */}
+      {pendingAppts.map(a => (
+        <div
+          key={a.id}
+          className="border border-salvia/40 bg-salvia/10 rounded-xl p-4 mb-6 flex items-start gap-3"
+        >
+          <span className="text-salvia text-xl leading-none mt-0.5">📅</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold leading-snug">
+              {a.client_name} dice que tiene cita contigo
+            </p>
+            <p className="text-nxtup-muted text-xs mt-0.5">
+              Si la confirmas, es tu cliente: el sistema te lo llama a ti
+              cuando te desocupes. Si no la confirmas en 10 min, pasa a la
+              cola normal.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => actOnAppointment(a.id, 'accept')}
+                disabled={apptActing !== null}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-salvia text-black text-xs font-bold tracking-tight active:scale-[0.98] disabled:opacity-50 transition-all"
+              >
+                {apptActing === a.id ? '...' : 'Es mi cita ✓'}
+              </button>
+              <button
+                type="button"
+                onClick={() => actOnAppointment(a.id, 'reject')}
+                disabled={apptActing !== null}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.03] ring-1 ring-white/[0.07] text-white text-xs font-semibold active:scale-[0.98] disabled:opacity-50 transition-all"
+              >
+                No lo conozco ✗
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
 
       {/* Banner de silla sin confirmar (auto-BUSY, 063) — solo cuando
           este barbero es el siguiente disponible Y hay una entrada que
