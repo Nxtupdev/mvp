@@ -10,9 +10,16 @@
  *
  * Incluye TODOS los barberos del shop (hasta offline — la cita puede
  * ser con uno que aún no llega; su tarjeta de confirmación le espera).
+ *
+ * Estética (pedido de Francisco): elegir barbero por la cara es un
+ * momento de venta. El grid entra en cascada (stagger, como el resto
+ * del kiosko), scrollea con bordes desvanecidos (mask-image) y sin
+ * barra visible — nada de cortes secos. Shops grandes (Fade Factory:
+ * 13 barberos) scrollean con el dedo dentro del área del grid.
  */
 
 import { useState } from 'react'
+import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import { Avatar } from '@/components/avatars'
 import { useLocale } from '@/lib/i18n'
 
@@ -20,6 +27,26 @@ export type KioskBarber = {
   id: string
   name: string
   avatar: string | null
+}
+
+const gridV: Variants = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.045 } },
+}
+
+const cellV: Variants = {
+  initial: { opacity: 0, y: 14, scale: 0.96 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+  },
+}
+
+const reducedV: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.2 } },
 }
 
 export function AppointmentScreen({
@@ -42,6 +69,7 @@ export function AppointmentScreen({
 }) {
   const { t } = useLocale()
   const [choosing, setChoosing] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 sm:px-12">
@@ -77,32 +105,40 @@ export function AppointmentScreen({
           </div>
         ) : (
           <>
-            {/* Scroll PROPIO del grid: el kiosko es viewport fijo con
-                overflow-hidden — con shops de muchos barberos (Fade
-                Factory tiene 13) el grid se desbordaba y se cortaba sin
-                forma de llegar a los de abajo. max-h + overflow-y-auto
-                lo hace scrolleable con el dedo dentro de su área. */}
-            <div className="mt-8 grid max-h-[52vh] grid-cols-3 gap-3 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-4">
+            {/* Scroll PROPIO del grid (el kiosko es viewport fijo con
+                overflow-hidden). Bordes desvanecidos vía mask-image en
+                vez de corte seco + scrollbar oculta. */}
+            <motion.div
+              initial="initial"
+              animate="animate"
+              variants={reduceMotion ? reducedV : gridV}
+              className="mt-8 grid max-h-[52vh] grid-cols-3 gap-3 overflow-y-auto overscroll-contain py-4 sm:grid-cols-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_bottom,transparent,black_20px,black_calc(100%-20px),transparent)]"
+            >
               {barbers.map(b => (
-                <button
+                <motion.button
                   key={b.id}
+                  variants={reduceMotion ? reducedV : cellV}
                   type="button"
                   disabled={submitting}
                   onClick={() => onSubmit(b.id)}
-                  className="flex flex-col items-center gap-2 rounded-2xl bg-white/[0.03] px-3 py-4 ring-1 ring-white/[0.07] transition-all hover:bg-white/[0.06] hover:ring-salvia/40 active:scale-[0.98] disabled:opacity-50"
+                  whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                  className="flex flex-col items-center gap-2.5 rounded-2xl bg-white/[0.03] px-3 py-5 ring-1 ring-white/[0.07] transition-colors hover:bg-white/[0.06] hover:ring-salvia/40 disabled:opacity-50"
                 >
-                  <Avatar avatar={b.avatar} name={b.name} size={56} />
+                  {/* Aro sutil alrededor de la foto/ícono — marco de retrato */}
+                  <span className="rounded-full ring-2 ring-white/10">
+                    <Avatar avatar={b.avatar} name={b.name} size={64} />
+                  </span>
                   <span className="max-w-full truncate text-sm font-semibold text-white sm:text-base">
                     {b.name}
                   </span>
-                </button>
+                </motion.button>
               ))}
-            </div>
+            </motion.div>
             <button
               type="button"
               disabled={submitting}
               onClick={() => setChoosing(false)}
-              className="mt-6 text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
+              className="mt-4 text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
             >
               {t('kiosk.back')}
             </button>
