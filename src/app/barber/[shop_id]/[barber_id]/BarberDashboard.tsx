@@ -288,6 +288,14 @@ export default function BarberDashboard({
       )
       .subscribe()
 
+    // Carga INICIAL al montar. Los props del server traen barbero/peers/
+    // called/current, pero NO las citas pendientes ni las sillas sin
+    // confirmar de colegas — sin este fetch, esas tarjetas solo aparecían
+    // si un evento realtime llegaba DESPUÉS de abrir el panel. Bug real:
+    // Yerson (NuevaYol, 20-ago) nunca vio la cita de Rod porque abrió su
+    // panel después del check-in y no hubo eventos en la ventana de 10 min.
+    fetchClients()
+
     return () => {
       debouncedBarberPeers.cancel()
       debouncedClients.cancel()
