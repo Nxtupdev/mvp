@@ -64,14 +64,14 @@ begin
     (v_shop, 'Afeitado Toalla', 30, 60, 30.00, true);
 
   -- 5) Barberos en distintos estados (tablero completo)
-  insert into barbers (shop_id, name, status, available_since)
-    values (v_shop, 'Carlos', 'available', now() - interval '9 min') returning id into b_carlos;
-  insert into barbers (shop_id, name, status, available_since)
-    values (v_shop, 'José',   'available', now() - interval '4 min') returning id into b_jose;
-  insert into barbers (shop_id, name, status)
-    values (v_shop, 'Miguel', 'busy') returning id into b_miguel;
-  insert into barbers (shop_id, name, status, break_started_at, break_minutes_at_start)
-    values (v_shop, 'Andrés', 'break', now() - interval '3 min', 10) returning id into b_andres;
+  insert into barbers (shop_id, name, status, available_since, avatar)
+    values (v_shop, 'Carlos', 'available', now() - interval '9 min', 'lion') returning id into b_carlos;
+  insert into barbers (shop_id, name, status, available_since, avatar)
+    values (v_shop, 'José',   'available', now() - interval '4 min', 'scissors') returning id into b_jose;
+  insert into barbers (shop_id, name, status, avatar)
+    values (v_shop, 'Miguel', 'busy', 'flame') returning id into b_miguel;
+  insert into barbers (shop_id, name, status, break_started_at, break_minutes_at_start, avatar)
+    values (v_shop, 'Andrés', 'break', now() - interval '3 min', 10, 'crown') returning id into b_andres;
 
   -- 6) Clientes — recurrentes (first_visit viejo) + nuevos-de-hoy (para el
   --    card de marketing "¿cómo nos conociste?" y el split nuevo/recurrente)
