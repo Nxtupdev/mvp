@@ -77,17 +77,22 @@ export function AppointmentScreen({
           </div>
         ) : (
           <>
-            <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {/* Scroll PROPIO del grid: el kiosko es viewport fijo con
+                overflow-hidden — con shops de muchos barberos (Fade
+                Factory tiene 13) el grid se desbordaba y se cortaba sin
+                forma de llegar a los de abajo. max-h + overflow-y-auto
+                lo hace scrolleable con el dedo dentro de su área. */}
+            <div className="mt-8 grid max-h-[52vh] grid-cols-3 gap-3 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-4">
               {barbers.map(b => (
                 <button
                   key={b.id}
                   type="button"
                   disabled={submitting}
                   onClick={() => onSubmit(b.id)}
-                  className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.03] px-4 py-6 ring-1 ring-white/[0.07] transition-all hover:bg-white/[0.06] hover:ring-salvia/40 active:scale-[0.98] disabled:opacity-50"
+                  className="flex flex-col items-center gap-2 rounded-2xl bg-white/[0.03] px-3 py-4 ring-1 ring-white/[0.07] transition-all hover:bg-white/[0.06] hover:ring-salvia/40 active:scale-[0.98] disabled:opacity-50"
                 >
-                  <Avatar avatar={b.avatar} name={b.name} size={64} />
-                  <span className="text-base font-semibold text-white sm:text-lg">
+                  <Avatar avatar={b.avatar} name={b.name} size={56} />
+                  <span className="max-w-full truncate text-sm font-semibold text-white sm:text-base">
                     {b.name}
                   </span>
                 </button>
