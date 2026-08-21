@@ -34,6 +34,7 @@ import { useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n-types'
 import { KioskHeader } from './_components/KioskHeader'
+import { createClient } from '@/lib/supabase/client'
 import { AppointmentScreen, type KioskBarber } from './_components/AppointmentScreen'
 import { NewCustomerScreen } from './_components/NewCustomerScreen'
 import { PhoneScreen } from './_components/PhoneScreen'
@@ -300,6 +301,27 @@ export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) 
     setStep('appointment')
   }
 
+  // Capa 3 anti-dedazo: el cliente vio "Cita con X" en el éxito y X no
+  // era su barbero. Cancela SU entrada (policy self-cancel, RLS 001) y
+  // lo devuelve al selector — el teléfono y la identidad se conservan.
+  async function handleCorrectAppointment() {
+    const entryId = checkInResult?.myEntryId
+    if (entryId) {
+      try {
+        await createClient()
+          .from('queue_entries')
+          .update({ status: 'cancelled' })
+          .eq('id', entryId)
+      } catch {
+        // Best-effort: si falla, el dueño/barbero lo resuelve — igual
+        // devolvemos al cliente al selector para que reintente.
+      }
+    }
+    setCheckInResult(null)
+    setCheckInError(null)
+    setStep('appointment')
+  }
+
   function handleAppointmentSubmit(appointmentBarberId: string | null) {
     if (pendingMode === 'new') {
       performCheckIn(
@@ -429,6 +451,9 @@ export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) 
                 queueList={checkInResult.queueList}
                 myEntryId={checkInResult.myEntryId}
                 appointment={checkInResult.appointment}
+                onCorrectAppointment={
+                  checkInResult.appointment ? handleCorrectAppointment : undefined
+                }
                 onDone={handleDone}
               />
             </ScreenContainer>

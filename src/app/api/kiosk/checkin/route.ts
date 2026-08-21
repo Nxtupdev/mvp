@@ -404,8 +404,60 @@ export async function POST(request: NextRequest) {
   let finalEntry = entry
 
   const matchNowIso = new Date().toISOString()
-  // Cita (066): SIN match automático — el cliente espera a SU barbero,
-  // que debe confirmar la cita desde su panel primero.
+  // ── CITA (rediseño ago-2026: SIN confirmación del barbero) ─────────
+  // Decisión de Francisco tras el caso Yerson/NuevaYol: la confirmación
+  // dependía de que el barbero mirara el teléfono — dependencia frágil.
+  // Ahora:
+  //   CASO A — el barbero elegido está LIBRE (en fila): asignación
+  //     DIRECTA e inmediata, idéntica al match de walk-in pero al
+  //     elegido: called + countdown 2 min + auto-BUSY (063). Reclamo
+  //     atómico del barbero (mismo guard anti-carrera del match).
+  //     Nota: SIN filtro de sanción a propósito — la cita es un cliente
+  //     "que lo pide por nombre", exento por regla existente (047).
+  //   CASO B — ocupado/break/offline: el cliente queda AMARRADO directo
+  //     (barber_id fijado, waiting) = "cliente pedido": su barbero lo
+  //     llama primero al liberarse; el pool lo salta. Sin expiración.
+  //   Defensa contra colados/dedazos: el barbero tiene "No es mi cita ✗"
+  //   en su panel (despina al pool) y el cliente tiene "Corregir" en la
+  //   pantalla de éxito del kiosko.
+  if (apptBarber) {
+    const { data: claimedApptBarber } = await supabase
+      .from('barbers')
+      .update({ available_since: null })
+      .eq('id', apptBarber.id)
+      .eq('status', 'available')
+      .not('available_since', 'is', null)
+      .select('id')
+      .maybeSingle()
+
+    if (claimedApptBarber) {
+      // CASO A — directo a la silla de su barbero.
+      const { data: updatedEntry } = await supabase
+        .from('queue_entries')
+        .update({
+          status: 'called',
+          barber_id: apptBarber.id,
+          called_at: new Date().toISOString(),
+        })
+        .eq('id', entry.id)
+        .select()
+        .single()
+      if (updatedEntry) {
+        finalEntry = updatedEntry
+        assignedBarber = { id: apptBarber.id, name: apptBarber.name }
+      }
+    } else {
+      // CASO B — amarre directo: espera a SU barbero.
+      const { data: pinned } = await supabase
+        .from('queue_entries')
+        .update({ barber_id: apptBarber.id })
+        .eq('id', entry.id)
+        .select()
+        .single()
+      if (pinned) finalEntry = pinned
+    }
+  }
+
   let nextBarber: { id: string; name: string; available_since: string | null } | null = null
   if (!apptBarber) {
     const primary = await supabase

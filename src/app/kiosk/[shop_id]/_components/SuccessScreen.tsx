@@ -83,9 +83,13 @@ type SuccessScreenProps = {
   /** Barbero al que se le asignó el cliente AL MOMENTO del check-in.
    *  null si no había barbero libre y el cliente quedó esperando. */
   assignedBarber: { id: string; name: string } | null
-  /** Cita (066): el cliente eligió barbero; pendiente de confirmación.
-   *  Cuando está presente, assignedBarber siempre es null. */
+  /** Cita amarrada (caso B, rediseño ago-2026): el barbero elegido está
+   *  ocupado — el cliente espera EN SU fila. Cuando el elegido estaba
+   *  libre (caso A), llega como assignedBarber normal y esto es null. */
   appointment?: { barber_id: string; barber_name: string } | null
+  /** Capa 3 anti-dedazo: cancela esta entrada y vuelve al selector de
+   *  barbero. Solo se muestra cuando appointment está presente. */
+  onCorrectAppointment?: () => void
   /** Lista de clientes actualmente en cola (waiting + called) en el
    *  orden en que serán llamados. Incluye al cliente recién registrado. */
   queueList: QueueEntry[]
@@ -159,6 +163,7 @@ export function SuccessScreen({
   etaMinutes,
   assignedBarber,
   appointment = null,
+  onCorrectAppointment,
   queueList,
   myEntryId,
   onDone,
@@ -221,15 +226,23 @@ export function SuccessScreen({
 
           {/* Cita (066): aviso de que su barbero debe confirmarla. */}
           {appointment && (
-            <motion.p
-              variants={itemV}
-              className="rounded-2xl bg-nxtup-break/10 px-6 py-4 text-center text-lg font-semibold text-nxtup-break ring-1 ring-nxtup-break/40 sm:text-xl"
-            >
-              📅{' '}
-              {interpolate(t('kiosk.success.appt'), {
-                name: appointment.barber_name,
-              })}
-            </motion.p>
+            <motion.div variants={itemV} className="flex flex-col items-center gap-3">
+              <p className="rounded-2xl bg-salvia/10 px-6 py-4 text-center text-lg font-semibold text-salvia ring-1 ring-salvia/40 sm:text-xl">
+                📅{' '}
+                {interpolate(t('kiosk.success.appt'), {
+                  name: appointment.barber_name,
+                })}
+              </p>
+              {onCorrectAppointment && (
+                <button
+                  type="button"
+                  onClick={onCorrectAppointment}
+                  className="text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
+                >
+                  {t('kiosk.success.wrongBarber')}
+                </button>
+              )}
+            </motion.div>
           )}
 
           {/* CTA principal: "Ve con X" si fue asignado, position+ETA si espera */}

@@ -5,21 +5,16 @@ import { getClientIp } from '@/lib/client-ip'
 /**
  * POST /api/queue/[entry_id]/appointment
  *
- * El barbero acoge o rechaza una cita pendiente desde su panel (066).
- * Body: { barber_id: uuid, action: 'accept' | 'reject' }
+ * Rediseño ago-2026 (sin confirmación obligatoria): las citas se asignan
+ * o amarran DIRECTO en el check-in. Este endpoint queda solo como botón
+ * de DEFENSA del barbero: "No es mi cita ✗" — despina un cliente que
+ * quedó amarrado a él por dedazo del kiosko o por un colado que inventó
+ * la cita. El cliente vuelve al pool como walk-in normal.
  *
- * La confirmación del barbero ES la validación de la cita — NXTUP no
- * tiene agenda contra la cual verificar; solo el barbero sabe si esa
- * cita existe. Mismo modelo de "auth" del panel: UUID inadivinable +
- * gate de WiFi del shop.
- *
- * accept → barber_id = appointment_barber_id (atómico). Con eso entra
- *          al flujo "cliente pedido" que YA existe: cuando ESTE barbero
- *          se libere, el sistema le llama su cita primero; los demás
- *          barberos la saltan (barber_id ≠ null).
- * reject → se limpia appointment_barber_id → walk-in normal del pool.
- *
- * Solo el barbero ELEGIDO puede accionar (nadie confirma citas ajenas).
+ * Body: { barber_id: uuid, action: 'reject' }
+ * Solo aplica a citas AMARRADAS en espera (waiting, barber_id =
+ * appointment_barber_id = este barbero). Un 'called'/'in_progress' ya no
+ * se despina por aquí (eso es el flujo normal de silla).
  */
 export async function POST(
   request: NextRequest,
@@ -34,10 +29,9 @@ export async function POST(
     return Response.json({ error: 'Body inválido' }, { status: 400 })
   }
   const barberId = body.barber_id
-  const action = body.action
-  if (!barberId || (action !== 'accept' && action !== 'reject')) {
+  if (!barberId || body.action !== 'reject') {
     return Response.json(
-      { error: 'barber_id y action (accept|reject) requeridos' },
+      { error: 'barber_id y action=reject requeridos (la confirmación ya no existe — las citas entran directo)' },
       { status: 400 },
     )
   }
@@ -53,21 +47,14 @@ export async function POST(
   if (!entry) {
     return Response.json({ error: 'Cliente no encontrado' }, { status: 404 })
   }
-  // Solo citas PENDIENTES: waiting, amarrada a un barbero, sin confirmar.
   if (
     entry.status !== 'waiting' ||
-    !entry.appointment_barber_id ||
-    entry.barber_id !== null
+    entry.appointment_barber_id !== barberId ||
+    entry.barber_id !== barberId
   ) {
     return Response.json(
-      { error: 'Esta cita ya no está pendiente' },
+      { error: 'Esta cita ya no está amarrada a ti' },
       { status: 409 },
-    )
-  }
-  if (entry.appointment_barber_id !== barberId) {
-    return Response.json(
-      { error: 'Esta cita no es contigo' },
-      { status: 403 },
     )
   }
 
@@ -90,41 +77,17 @@ export async function POST(
     }
   }
 
-  if (action === 'accept') {
-    // Atómico: solo gana si sigue pendiente (guard contra doble tap /
-    // expiración del cron en el mismo instante).
-    const { data: updated } = await supabase
-      .from('queue_entries')
-      .update({ barber_id: barberId })
-      .eq('id', entry_id)
-      .eq('status', 'waiting')
-      .is('barber_id', null)
-      .not('appointment_barber_id', 'is', null)
-      .select('id')
-      .maybeSingle()
-    if (!updated) {
-      return Response.json({ error: 'Esta cita ya no está pendiente' }, { status: 409 })
-    }
-    await supabase.from('activity_log').insert({
-      shop_id: entry.shop_id,
-      barber_id: barberId,
-      action: 'appointment_confirmed',
-      metadata: { entry_id, client_name: entry.client_name },
-    })
-    return Response.json({ ok: true, action: 'accept' })
-  }
-
-  // reject → walk-in normal (el pool lo toma como cualquier cliente).
+  // Despinar (atómico): vuelve al pool como walk-in normal.
   const { data: rejected } = await supabase
     .from('queue_entries')
-    .update({ appointment_barber_id: null })
+    .update({ barber_id: null, appointment_barber_id: null })
     .eq('id', entry_id)
     .eq('status', 'waiting')
-    .is('barber_id', null)
+    .eq('barber_id', barberId)
     .select('id')
     .maybeSingle()
   if (!rejected) {
-    return Response.json({ error: 'Esta cita ya no está pendiente' }, { status: 409 })
+    return Response.json({ error: 'Esta cita ya no está amarrada a ti' }, { status: 409 })
   }
   await supabase.from('activity_log').insert({
     shop_id: entry.shop_id,

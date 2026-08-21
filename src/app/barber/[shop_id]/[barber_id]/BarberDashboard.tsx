@@ -235,15 +235,16 @@ export default function BarberDashboard({
             .eq('shop_id', shopId)
             .eq('status', 'in_progress')
             .eq('auto_busy', true),
-          // Citas PENDIENTES conmigo (066): el cliente dijo en el kiosko
-          // que tiene cita con ESTE barbero — falta que yo la confirme.
+          // Citas AMARRADAS a mí en espera (rediseño ago-2026: entran
+          // directo, sin confirmación). La tarjeta es informativa + el
+          // botón de defensa "No es mi cita ✗" para dedazos/colados.
           supabase
             .from('queue_entries')
             .select('id, client_name, created_at')
             .eq('shop_id', shopId)
             .eq('status', 'waiting')
             .eq('appointment_barber_id', barber.id)
-            .is('barber_id', null)
+            .eq('barber_id', barber.id)
             .order('created_at', { ascending: true }),
         ])
       setCalledClient(called)
@@ -356,8 +357,8 @@ export default function BarberDashboard({
     return peers.find(p => p.id === stuckCallFor.barber_id)?.name ?? 'el barbero'
   }, [stuckCallFor, peers])
 
-  // ── Citas: acoger / rechazar (066) ─────────────────────────────
-  async function actOnAppointment(entryId: string, action: 'accept' | 'reject') {
+  // ── Citas: botón de defensa "No es mi cita" (rediseño ago-2026) ──
+  async function actOnAppointment(entryId: string, action: 'reject') {
     if (apptActing) return
     setApptActing(entryId)
     setError('')
@@ -533,9 +534,9 @@ export default function BarberDashboard({
         )
       })()}
 
-      {/* Citas pendientes de MI confirmación (066) — el cliente dijo en
-          el kiosko que tiene cita conmigo. Yo soy la validación: acojo
-          o rechazo. Si no hago nada, expira a walk-in a los 10 min. */}
+      {/* Citas amarradas a mí (rediseño ago-2026: entran directo). La
+          tarjeta INFORMA — el sistema lo llama solo cuando me desocupe.
+          El único botón es de defensa, para dedazos o colados. */}
       {pendingAppts.map(a => (
         <div
           key={a.id}
@@ -544,31 +545,20 @@ export default function BarberDashboard({
           <span className="text-salvia text-xl leading-none mt-0.5">📅</span>
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-semibold leading-snug">
-              {a.client_name} dice que tiene cita contigo
+              {a.client_name} vino a su cita contigo
             </p>
             <p className="text-nxtup-muted text-xs mt-0.5">
-              Si la confirmas, es tu cliente: el sistema te lo llama a ti
-              cuando te desocupes. Si no la confirmas en 10 min, pasa a la
-              cola normal.
+              Es tuyo: cuando te desocupes, el sistema te lo llama a ti.
+              No tienes que hacer nada.
             </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => actOnAppointment(a.id, 'accept')}
-                disabled={apptActing !== null}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-salvia text-black text-xs font-bold tracking-tight active:scale-[0.98] disabled:opacity-50 transition-all"
-              >
-                {apptActing === a.id ? '...' : 'Es mi cita ✓'}
-              </button>
-              <button
-                type="button"
-                onClick={() => actOnAppointment(a.id, 'reject')}
-                disabled={apptActing !== null}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.03] ring-1 ring-white/[0.07] text-white text-xs font-semibold active:scale-[0.98] disabled:opacity-50 transition-all"
-              >
-                No lo conozco ✗
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => actOnAppointment(a.id, 'reject')}
+              disabled={apptActing !== null}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.03] ring-1 ring-white/[0.07] text-nxtup-muted text-xs font-semibold active:scale-[0.98] disabled:opacity-50 transition-all hover:text-white"
+            >
+              {apptActing === a.id ? '...' : 'No es mi cita ✗'}
+            </button>
           </div>
         </div>
       ))}

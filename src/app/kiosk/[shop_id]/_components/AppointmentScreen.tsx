@@ -69,6 +69,9 @@ export function AppointmentScreen({
 }) {
   const { t } = useLocale()
   const [choosing, setChoosing] = useState(false)
+  // Capa 1 anti-dedazo: tocar un barbero NO envía — abre la confirmación
+  // con la foto en grande. Un roce accidental ya no amarra a nadie.
+  const [confirming, setConfirming] = useState<KioskBarber | null>(null)
   const reduceMotion = useReducedMotion()
 
   return (
@@ -81,10 +84,38 @@ export function AppointmentScreen({
           className="bg-gradient-to-br from-zinc-50 to-salvia/80 bg-clip-text font-display text-4xl tracking-tight text-transparent sm:text-6xl"
           style={{ letterSpacing: '-0.03em' }}
         >
-          {choosing ? t('kiosk.appt.pick') : t('kiosk.appt.title')}
+          {confirming
+            ? t('kiosk.appt.confirmTitle', { name: confirming.name })
+            : choosing
+              ? t('kiosk.appt.pick')
+              : t('kiosk.appt.title')}
         </h1>
 
-        {!choosing ? (
+        {confirming ? (
+          <div className="mt-10 flex flex-col items-center gap-8">
+            <span className="rounded-full ring-4 ring-salvia/30">
+              <Avatar avatar={confirming.avatar} name={confirming.name} size={144} />
+            </span>
+            <div className="flex w-full flex-col gap-4">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => onSubmit(confirming.id)}
+                className="flex h-20 items-center justify-center rounded-2xl bg-salvia text-lg font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-50 sm:h-24 sm:text-xl"
+              >
+                {submitting ? '…' : t('kiosk.appt.confirmYes')}
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setConfirming(null)}
+                className="flex h-16 items-center justify-center rounded-2xl bg-white/[0.03] text-base font-semibold text-white ring-1 ring-white/[0.07] transition-all hover:bg-white/[0.06] active:scale-[0.98] disabled:opacity-50"
+              >
+                {t('kiosk.appt.confirmNo')}
+              </button>
+            </div>
+          </div>
+        ) : !choosing ? (
           <div className="mt-10 flex flex-col gap-4">
             <button
               type="button"
@@ -120,7 +151,7 @@ export function AppointmentScreen({
                   variants={reduceMotion ? reducedV : cellV}
                   type="button"
                   disabled={submitting}
-                  onClick={() => onSubmit(b.id)}
+                  onClick={() => setConfirming(b)}
                   whileTap={reduceMotion ? undefined : { scale: 0.96 }}
                   className="flex flex-col items-center gap-2.5 rounded-2xl bg-white/[0.03] px-3 py-5 ring-1 ring-white/[0.07] transition-colors hover:bg-white/[0.06] hover:ring-salvia/40 disabled:opacity-50"
                 >
