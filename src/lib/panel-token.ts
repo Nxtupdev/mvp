@@ -35,6 +35,37 @@ export async function validatePanelToken(
 }
 
 /**
+ * Como validatePanelToken, pero devuelve también la etiqueta del token
+ * (068 — acceso de encargado). Las rutas del Centro de Mando la usan
+ * para firmar el activity_log con quién hizo la acción ("Luis").
+ * Lee la tabla directo con el admin client (mismas condiciones que la
+ * función SQL validate_panel_token, incluido expires_at null = permanente).
+ */
+export async function getPanelTokenInfo(
+  request: NextRequest,
+): Promise<{ shopId: string; label: string | null } | null> {
+  const token = request.headers.get('x-panel-token')
+  if (!token) return null
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('shop_control_tokens')
+    .select('shop_id, label, expires_at')
+    .eq('token', token)
+    .is('revoked_at', null)
+    .maybeSingle()
+  if (error) {
+    console.error('[panel-token] info lookup failed', error)
+    return null
+  }
+  if (!data) return null
+  if (data.expires_at !== null && new Date(data.expires_at) <= new Date()) {
+    return null
+  }
+  return { shopId: data.shop_id, label: data.label ?? null }
+}
+
+/**
  * Server-side helper para validar un token directamente por valor (no
  * desde un header). Usado por la página /panel/[shop_id] que recibe el
  * token vía query param `?t=...`.

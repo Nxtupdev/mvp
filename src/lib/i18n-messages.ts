@@ -458,6 +458,23 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.logo.removing': 'Eliminando...',
     'settings.logo.remove': 'Eliminar',
     'settings.logo.removeConfirm': 'Eliminar logo del shop?',
+    // Acceso de encargado (068)
+    'settings.access.heading': 'Acceso de encargado',
+    'settings.access.blurb':
+      'Comparte el Centro de Mando con una persona de confianza. El link abre SOLO el Centro de Mando de tu shop — sin configuración, estadísticas ni facturación. Es permanente hasta que lo revoques, y sus acciones quedan firmadas con su nombre en el feed de actividad.',
+    'settings.access.nameLabel': 'Nombre de la persona',
+    'settings.access.namePlaceholder': 'Ej: Luis',
+    'settings.access.create': 'Crear acceso',
+    'settings.access.creating': 'Creando...',
+    'settings.access.empty': 'Nadie tiene acceso de encargado todavía.',
+    'settings.access.since': 'desde',
+    'settings.access.copy': 'Copiar link',
+    'settings.access.copied': 'Copiado ✓',
+    'settings.access.revoke': 'Revocar',
+    'settings.access.revokeConfirm':
+      'Revocar el acceso de {name}? Su link dejará de funcionar al instante.',
+    'settings.access.errorCreate': 'No se pudo crear el acceso',
+    'settings.access.errorRevoke': 'No se pudo revocar el acceso',
     // Account
     'settings.account.heading': 'Cuenta',
     'settings.account.email': 'Email',
@@ -1023,6 +1040,22 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.logo.remove': 'Remove',
     'settings.logo.removeConfirm': 'Remove shop logo?',
     // Account
+    'settings.access.heading': 'Manager access',
+    'settings.access.blurb':
+      'Share the Command Center with someone you trust. The link opens ONLY your shop’s Command Center — no settings, stats or billing. It lasts until you revoke it, and their actions are signed with their name in the activity feed.',
+    'settings.access.nameLabel': 'Person’s name',
+    'settings.access.namePlaceholder': 'E.g.: Luis',
+    'settings.access.create': 'Create access',
+    'settings.access.creating': 'Creating...',
+    'settings.access.empty': 'Nobody has manager access yet.',
+    'settings.access.since': 'since',
+    'settings.access.copy': 'Copy link',
+    'settings.access.copied': 'Copied ✓',
+    'settings.access.revoke': 'Revoke',
+    'settings.access.revokeConfirm':
+      'Revoke {name}’s access? Their link will stop working immediately.',
+    'settings.access.errorCreate': 'Could not create the access',
+    'settings.access.errorRevoke': 'Could not revoke the access',
     'settings.account.heading': 'Account',
     'settings.account.email': 'Email',
     // Anti-cheat

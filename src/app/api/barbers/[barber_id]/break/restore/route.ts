@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { validatePanelToken } from '@/lib/panel-token'
+import { getPanelTokenInfo } from '@/lib/panel-token'
 
 /**
  * Owner-only: devolver un break al barbero (decrementa el contador
@@ -43,9 +43,10 @@ export async function POST(
 
   // ── Auth path 1: panel token (Centro de Mando temporal) ─────
   const panelTokenHeader = request.headers.get('x-panel-token')
-  const panelTokenShopId = panelTokenHeader
-    ? await validatePanelToken(request)
+  const panelTokenInfo = panelTokenHeader
+    ? await getPanelTokenInfo(request)
     : null
+  const panelTokenShopId = panelTokenInfo?.shopId ?? null
   if (panelTokenHeader && !panelTokenShopId) {
     return Response.json(
       { error: 'Token de panel inválido o expirado' },
@@ -209,6 +210,8 @@ export async function POST(
       new_count: newCount,
       restored_by: restoredBy,
       was_on_break: wasOnBreak,
+      // 068: firma del acceso de encargado (null si fue el dueño).
+      ...(panelTokenInfo?.label ? { actor_label: panelTokenInfo.label } : {}),
     },
   })
 

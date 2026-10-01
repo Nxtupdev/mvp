@@ -11,6 +11,7 @@ import {
   type WeekSchedule,
 } from '@/lib/business-hours'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor'
+import ManagerAccessSection from './ManagerAccess'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
 
@@ -610,6 +611,10 @@ export default function ShopSettings({
       <hr className="border-nxtup-line my-10" />
 
       <LogoSection shop={shop} onUpdated={(s) => { setShop(s); router.refresh() }} />
+
+      <hr className="border-nxtup-line my-10" />
+
+      <ManagerAccessSection shopId={shop.id} />
 
       <hr className="border-nxtup-line my-10" />
 

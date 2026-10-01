@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { validatePanelToken } from '@/lib/panel-token'
+import { getPanelTokenInfo } from '@/lib/panel-token'
 
 /**
  * Owner-only: mover un barbero un slot arriba o abajo en la FIFO.
@@ -66,9 +66,10 @@ export async function POST(
   // Panel token (Centro de Mando temporal — migración 043). Si está
   // presente y es válido, autoriza esta request sin cookie de dueño.
   const panelTokenHeader = request.headers.get('x-panel-token')
-  const panelTokenShopId = panelTokenHeader
-    ? await validatePanelToken(request)
+  const panelTokenInfo = panelTokenHeader
+    ? await getPanelTokenInfo(request)
     : null
+  const panelTokenShopId = panelTokenInfo?.shopId ?? null
   if (panelTokenHeader && !panelTokenShopId) {
     return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
   }
@@ -116,6 +117,8 @@ export async function POST(
   const { data, error } = await supabase.rpc('move_barber_fifo', {
     p_barber_id: barber_id,
     p_direction: body.direction,
+    // 068: firma del acceso de encargado en el activity_log de la RPC.
+    p_actor_label: panelTokenInfo?.label ?? null,
   })
 
   if (error) {

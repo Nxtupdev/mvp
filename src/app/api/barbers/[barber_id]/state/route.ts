@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getClientIp } from '@/lib/client-ip'
 import { buildBarberOrder } from '@/lib/queue-order'
-import { validatePanelToken } from '@/lib/panel-token'
+import { getPanelTokenInfo } from '@/lib/panel-token'
 import { notifyMamacita } from '@/lib/mamacita'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
@@ -41,9 +41,10 @@ export async function PATCH(
   // ruta sigue funcionando exactamente igual que antes — owner cookie o
   // device token.
   const panelTokenHeader = request.headers.get('x-panel-token')
-  const panelTokenShopId = panelTokenHeader
-    ? await validatePanelToken(request)
+  const panelTokenInfo = panelTokenHeader
+    ? await getPanelTokenInfo(request)
     : null
+  const panelTokenShopId = panelTokenInfo?.shopId ?? null
   const isPanelTokenRequest = Boolean(panelTokenShopId)
   if (panelTokenHeader && !isPanelTokenRequest) {
     return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
@@ -804,7 +805,12 @@ export async function PATCH(
       action: l.action,
       from_status: l.from_status ?? null,
       to_status: l.to_status ?? null,
-      metadata: l.metadata ?? {},
+      // 068: cambios hechos desde un acceso de encargado quedan firmados
+      // con la etiqueta del token para resolver disputas de autoría.
+      metadata: {
+        ...(l.metadata ?? {}),
+        ...(panelTokenInfo?.label ? { actor_label: panelTokenInfo.label } : {}),
+      },
     }))
     const { error: logError } = await adminLogger.from('activity_log').insert(rows)
     if (logError) {

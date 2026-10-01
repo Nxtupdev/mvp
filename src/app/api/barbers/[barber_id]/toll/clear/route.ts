@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { validatePanelToken } from '@/lib/panel-token'
+import { getPanelTokenInfo } from '@/lib/panel-token'
 
 /**
  * Owner-only: levantar la sanción de un barbero antes de que expire.
@@ -44,9 +44,10 @@ export async function POST(
   // presente y es válido, autoriza esta request sin necesidad de cookie
   // de dueño. Usamos admin client (bypass RLS) gated por el token.
   const panelTokenHeader = request.headers.get('x-panel-token')
-  const panelTokenShopId = panelTokenHeader
-    ? await validatePanelToken(request)
+  const panelTokenInfo = panelTokenHeader
+    ? await getPanelTokenInfo(request)
     : null
+  const panelTokenShopId = panelTokenInfo?.shopId ?? null
   if (panelTokenHeader && !panelTokenShopId) {
     return Response.json({ error: 'Token de panel inválido o expirado' }, { status: 401 })
   }
@@ -105,6 +106,8 @@ export async function POST(
   const { data, error } = await supabase.rpc('clear_sanction', {
     p_barber_id: barber_id,
     p_cleared_by: clearedBy,
+    // 068: firma del acceso de encargado en el activity_log de la RPC.
+    p_actor_label: panelTokenInfo?.label ?? null,
   })
 
   if (error) {
