@@ -610,6 +610,12 @@ export default async function StatsPage({
         <div>
           <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.stats')}</h1>
           <p className="text-nxtup-muted text-sm">{meta.heading}</p>
+          <Link
+            href="/dashboard/history"
+            className="text-nxtup-muted hover:text-white text-xs underline underline-offset-4"
+          >
+            {t('stats.linkHistory')}
+          </Link>
         </div>
         <PrintButton />
       </div>
