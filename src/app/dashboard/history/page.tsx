@@ -227,6 +227,22 @@ export default async function HistoryPage({
       ? t(PRESET_LABEL_KEYS[resolved.key])
       : `${resolved.fromYmd} – ${resolved.toYmd}`
 
+  // Chips de resumen (estilo del historial de dealer, en nuestra paleta).
+  // Derivados de las MISMAS filas de la tabla, así los números siempre
+  // cuadran con lo que el dueño ve abajo — con MAX_ROWS alcanzado son
+  // los conteos de lo mostrado, y el aviso de truncado lo aclara.
+  const summary = {
+    total: entries.length,
+    done: entries.filter(e => e.status === 'done').length,
+    cancelled: entries.filter(e => e.status === 'cancelled').length,
+    active: entries.filter(
+      e => e.status === 'waiting' || e.status === 'called' || e.status === 'in_progress',
+    ).length,
+    appts: entries.filter(e => e.appointment_barber_id !== null).length,
+    voice: entries.filter(e => e.mamacita_entry_id !== null && e.appointment_barber_id === null).length,
+  }
+  const walkins = summary.total - summary.appts - summary.voice
+
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
       {/* Header SOLO para impresión — mismo patrón que stats. */}
@@ -340,12 +356,41 @@ export default async function HistoryPage({
         </p>
       ) : (
         <>
-          <p className="text-nxtup-muted text-xs mb-3 tabular-nums">
-            {entries.length === 1
-              ? t('history.count.one')
-              : t('history.count.many', { count: entries.length })}
-            {entries.length === MAX_ROWS && ` · ${t('history.truncated', { max: MAX_ROWS })}`}
-          </p>
+          <div className="border border-nxtup-line rounded-2xl px-4 py-3 mb-4 print:border-zinc-300">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm tabular-nums">
+              <span className="text-nxtup-muted text-[10px] uppercase tracking-widest font-bold print:text-zinc-500">
+                {rangeLabel}
+              </span>
+              <span className="text-white font-bold print:text-zinc-900">
+                {summary.total === 1
+                  ? t('history.summary.clients.one')
+                  : t('history.summary.clients.many', { count: summary.total })}
+              </span>
+              <span className="text-nxtup-active font-semibold print:text-zinc-900">
+                {t('history.summary.done', { count: summary.done })}
+              </span>
+              <span className="text-nxtup-busy font-semibold print:text-zinc-700">
+                {t('history.summary.cancelled', { count: summary.cancelled })}
+              </span>
+              {summary.active > 0 && (
+                <span className="text-nxtup-muted print:text-zinc-700">
+                  {t('history.summary.active', { count: summary.active })}
+                </span>
+              )}
+            </div>
+            <p className="text-nxtup-dim text-xs mt-1.5 tabular-nums print:text-zinc-500">
+              {t('history.summary.breakdown', {
+                walkins,
+                appts: summary.appts,
+                voice: summary.voice,
+              })}
+            </p>
+          </div>
+          {entries.length === MAX_ROWS && (
+            <p className="text-nxtup-muted text-xs mb-3 tabular-nums print:text-zinc-500">
+              {t('history.truncated', { max: MAX_ROWS })}
+            </p>
+          )}
           <div className="overflow-x-auto border border-nxtup-line rounded-2xl print:border-zinc-300">
             <table className="w-full text-sm">
               <thead>
