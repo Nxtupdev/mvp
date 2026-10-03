@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { chunk } from '@/lib/paginate'
 import { shopDateStart, shopDayStart } from '@/lib/shop-time'
 import { getServerI18n } from '@/lib/i18n-server'
 import PrintButton from '../stats/PrintButton'
@@ -176,12 +177,20 @@ export default async function HistoryPage({
   )
   const clientById = new Map<string, ClientRow>()
   if (clientIds.length > 0) {
-    const { data: clientsData } = await supabase
-      .from('clients')
-      .select('id, first_name, last_name, phone_number')
-      .in('id', clientIds)
-    for (const c of (clientsData ?? []) as ClientRow[]) {
-      clientById.set(c.id, c)
+    // chunk (#12): hasta 500 ids distintos (MAX_ROWS) — en trozos de
+    // 200 para no armar una URL de ~18KB que un proxy puede rechazar.
+    const results = await Promise.all(
+      chunk(clientIds).map(ids =>
+        supabase
+          .from('clients')
+          .select('id, first_name, last_name, phone_number')
+          .in('id', ids),
+      ),
+    )
+    for (const { data: clientsData } of results) {
+      for (const c of (clientsData ?? []) as ClientRow[]) {
+        clientById.set(c.id, c)
+      }
     }
   }
 

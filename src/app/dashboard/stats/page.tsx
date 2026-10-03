@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAllRows, chunk } from '@/lib/paginate'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import { shopDateStart, shopDayStart } from '@/lib/shop-time'
 import { getServerI18n } from '@/lib/i18n-server'
@@ -403,66 +404,83 @@ export default async function StatsPage({
   //
   // currentEnd es null para presets ("hasta ahora") y Date para custom
   // (start del día siguiente a `to`). Cuando es Date agregamos `.lt()`.
-  let currentQuery = supabase
-    .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id, appointment_barber_id')
-    .eq('shop_id', shop.id)
-    .gte('created_at', currentStart.toISOString())
-  if (currentEnd) {
-    currentQuery = currentQuery.lt('created_at', currentEnd.toISOString())
-  }
+  //
+  // Paginación (#12 del port): PostgREST corta cada respuesta en 1.000
+  // filas SIN avisar — un rango de 90 días de un shop activo pasa de
+  // eso y las stats salían recortadas como si fueran completas.
+  // fetchAllRows recorre por páginas; cada builder devuelve una
+  // consulta NUEVA (los builders de supabase-js mutan al encadenar)
+  // con orden determinista e id de desempate.
+  const ENTRY_COLS =
+    'id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id, appointment_barber_id'
 
-  const previousQuery = supabase
-    .from('queue_entries')
-    .select('id, barber_id, status, created_at, called_at, completed_at, client_id, arrived_at, mamacita_entry_id, appointment_barber_id')
-    .eq('shop_id', shop.id)
-    .gte('created_at', previousStart.toISOString())
-    .lt('created_at', previousEnd.toISOString())
-
-  let clientsCurrentQuery = supabase
-    .from('clients')
-    .select('id, first_visit_at, referral_source')
-    .eq('shop_id', shop.id)
-    .gte('first_visit_at', currentStart.toISOString())
-  if (currentEnd) {
-    clientsCurrentQuery = clientsCurrentQuery.lt(
-      'first_visit_at',
-      currentEnd.toISOString(),
-    )
-  }
-
-  const [
-    { data: currentEntries },
-    { data: previousEntries },
-    { data: barbers },
-    { data: clientsCurrent },
-    { data: clientsPrevious },
-  ] = await Promise.all([
-    currentQuery,
-    previousQuery,
-    supabase
-      .from('barbers')
-      .select('id, name, avatar')
+  const buildCurrentEntries = () => {
+    let q = supabase
+      .from('queue_entries')
+      .select(ENTRY_COLS)
       .eq('shop_id', shop.id)
-      .order('name'),
-    clientsCurrentQuery,
+      .gte('created_at', currentStart.toISOString())
+    if (currentEnd) q = q.lt('created_at', currentEnd.toISOString())
+    return q.order('created_at').order('id')
+  }
+
+  const buildPreviousEntries = () =>
+    supabase
+      .from('queue_entries')
+      .select(ENTRY_COLS)
+      .eq('shop_id', shop.id)
+      .gte('created_at', previousStart.toISOString())
+      .lt('created_at', previousEnd.toISOString())
+      .order('created_at')
+      .order('id')
+
+  const buildClientsCurrent = () => {
+    let q = supabase
+      .from('clients')
+      .select('id, first_visit_at, referral_source')
+      .eq('shop_id', shop.id)
+      .gte('first_visit_at', currentStart.toISOString())
+    if (currentEnd) q = q.lt('first_visit_at', currentEnd.toISOString())
+    return q.order('first_visit_at').order('id')
+  }
+
+  const buildClientsPrevious = () =>
     supabase
       .from('clients')
       .select('id, first_visit_at, referral_source')
       .eq('shop_id', shop.id)
       .gte('first_visit_at', previousStart.toISOString())
-      .lt('first_visit_at', previousEnd.toISOString()),
+      .lt('first_visit_at', previousEnd.toISOString())
+      .order('first_visit_at')
+      .order('id')
+
+  const [
+    currentEntriesAll,
+    previousEntriesAll,
+    { data: barbers },
+    clientsCurrentAll,
+    clientsPreviousAll,
+  ] = await Promise.all([
+    fetchAllRows('stats entries rango actual', buildCurrentEntries),
+    fetchAllRows('stats entries rango previo', buildPreviousEntries),
+    supabase
+      .from('barbers')
+      .select('id, name, avatar')
+      .eq('shop_id', shop.id)
+      .order('name'),
+    fetchAllRows('stats clients rango actual', buildClientsCurrent),
+    fetchAllRows('stats clients rango previo', buildClientsPrevious),
   ])
 
-  const current = (currentEntries ?? []) as Entry[]
-  const previous = (previousEntries ?? []) as Entry[]
+  const current = currentEntriesAll as Entry[]
+  const previous = previousEntriesAll as Entry[]
   const allBarbers: Barber[] = (barbers ?? []).map(b => ({
     id: b.id,
     name: b.name,
     avatar: isRenderableAvatar(b.avatar) ? b.avatar : null,
   }))
-  const newClientsCurrent = (clientsCurrent ?? []) as ClientRow[]
-  const newClientsPrevious = (clientsPrevious ?? []) as ClientRow[]
+  const newClientsCurrent = clientsCurrentAll as ClientRow[]
+  const newClientsPrevious = clientsPreviousAll as ClientRow[]
 
   // ── Cards ─────────────────────────────────────────────────────
   // "Clientes de hoy" cuenta solo a los que LLEGARON, no a los que
@@ -520,15 +538,20 @@ export default async function StatsPage({
 
   const clientFirstVisitMap = new Map<string, string>()
   if (allClientIds.size > 0) {
-    const { data: clientsLookup } = await supabase
-      .from('clients')
-      .select('id, first_visit_at')
-      .in('id', Array.from(allClientIds))
-    for (const c of (clientsLookup ?? []) as Array<{
-      id: string
-      first_visit_at: string | null
-    }>) {
-      if (c.first_visit_at) clientFirstVisitMap.set(c.id, c.first_visit_at)
+    // chunk (#12): un .in() con cientos de ids arma URLs enormes y
+    // además topa el corte de 1.000 filas — trozos de 200 en paralelo.
+    const results = await Promise.all(
+      chunk(Array.from(allClientIds)).map(ids =>
+        supabase.from('clients').select('id, first_visit_at').in('id', ids),
+      ),
+    )
+    for (const { data: clientsLookup } of results) {
+      for (const c of (clientsLookup ?? []) as Array<{
+        id: string
+        first_visit_at: string | null
+      }>) {
+        if (c.first_visit_at) clientFirstVisitMap.set(c.id, c.first_visit_at)
+      }
     }
   }
 
