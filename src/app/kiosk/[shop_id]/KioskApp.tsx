@@ -29,7 +29,7 @@
  */
 
 import { AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useLocale } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n-types'
@@ -140,6 +140,29 @@ async function readServerError(res: Response, fallback: string): Promise<string>
 export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) {
   const { locale, setLocale } = useLocale()
   const [step, setStep] = useState<Step>('splash')
+
+  // Recarga de seguridad, como la del TV: las tablets del kiosko viven
+  // semanas sirviendo el mismo bundle y cada deploy llegaba "cuando
+  // alguien reabriera la app" (reporte real: la foto del barbero no
+  // salía en Fade Factory porque el kiosko corría un build de días
+  // atrás). Cada minuto: si la página lleva >4h cargada Y el cliente
+  // está en el splash (ocioso), recarga limpia. JAMÁS a mitad de un
+  // check-in — por eso se chequea el paso, no solo el tiempo.
+  const loadedAtRef = useRef(Date.now())
+  const stepRef = useRef(step)
+  stepRef.current = step
+  useEffect(() => {
+    const KIOSK_RELOAD_MS = 4 * 60 * 60 * 1000
+    const id = window.setInterval(() => {
+      if (
+        stepRef.current === 'splash' &&
+        Date.now() - loadedAtRef.current > KIOSK_RELOAD_MS
+      ) {
+        window.location.reload()
+      }
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
   // Modo del checkin pendiente mientras el cliente responde la pregunta
   // de cita (066) — el submit de nuevo/recurrente ya pasó, el checkin
   // real se dispara al salir de la pantalla de cita.
