@@ -435,7 +435,21 @@ export default async function HistoryPage({
                         {clientName}
                       </td>
                       <td className="px-3 py-2.5 text-nxtup-muted whitespace-nowrap tabular-nums">
-                        {client?.phone_number ?? '—'}
+                        {client?.phone_number ? (
+                          // tel: — un toque y el teléfono del dueño marca.
+                          // Los números viven en 10 dígitos US (formato
+                          // del kiosko); +1 para que marque bien desde
+                          // cualquier red. En el PDF impreso sale como
+                          // texto plano normal.
+                          <a
+                            href={`tel:+1${client.phone_number.replace(/\D/g, '')}`}
+                            className="underline decoration-nxtup-dim underline-offset-4 hover:text-white print:no-underline print:text-zinc-700"
+                          >
+                            {client.phone_number}
+                          </a>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-white print:text-zinc-900 max-w-[140px] truncate">
                         {(e.barber_id && barberName.get(e.barber_id)) || '—'}
