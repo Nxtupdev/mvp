@@ -533,9 +533,29 @@ export default function DashboardLive({
                                 breakMinutesAtStart={b.break_minutes_at_start}
                               />
                             ) : (
-                              <span className="text-nxtup-muted text-xs uppercase tracking-widest">
-                                {t(BARBER_KEY[b.status])}
-                              </span>
+                              // Busy de dos especies (confusión real del
+                              // dueño de Fade): con cliente DE LA COLA →
+                              // "Ocupado · Mario"; sin cliente = se marcó
+                              // Busy por su cuenta (cita externa) → queda
+                              // "Ocupado" a secas, y la ausencia del
+                              // nombre es la señal.
+                              (() => {
+                                const c =
+                                  b.status === 'busy'
+                                    ? inProgress.find(e => e.barber_id === b.id)
+                                    : undefined
+                                return (
+                                  <span className="text-nxtup-muted text-xs uppercase tracking-widest truncate max-w-[140px]">
+                                    {t(BARBER_KEY[b.status])}
+                                    {c && (
+                                      <span className="text-white normal-case tracking-normal">
+                                        {' · '}
+                                        {c.client_name}
+                                      </span>
+                                    )}
+                                  </span>
+                                )
+                              })()
                             )}
                           </li>
                         )
