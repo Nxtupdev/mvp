@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
 import { subscribeShopChanges } from '@/lib/realtime'
 import { useLocale } from '@/lib/i18n'
-import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
@@ -217,35 +216,30 @@ export default function DashboardLive({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-6xl w-full mx-auto">
-      {/* Status hero */}
-      <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-8 mb-8 border-b border-nxtup-line">
-        <div className="flex items-center gap-5">
-          {shop.logo_url && (
-            <ShopLogo url={shop.logo_url} name={shop.name} size={64} />
-          )}
-          <div>
-            <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-2 font-bold">
-              {shop.name}
-            </p>
-            <h2
-              className={`text-4xl font-black tracking-tight ${
-                shop.is_open ? 'text-nxtup-active' : 'text-nxtup-busy'
-              }`}
-            >
-              {shop.is_open ? t('dash.shop.open') : t('dash.shop.closed')}
-            </h2>
-            <p className="text-nxtup-muted text-sm mt-1">
-              {t('dash.shop.inQueueCount', { count: entries.length })} ·{' '}
-              {t('dash.shop.activeBarbers', {
-                count: barbers.filter(b => b.status !== 'offline').length,
-              })}
-            </p>
-          </div>
-        </div>
-        {/* El botón de abrir/cerrar se mudó a Configuración (port del
-            dealer): con el horario semanal la tienda se maneja sola y
-            el interruptor es respaldo — el dashboard queda limpio,
-            solo estado. */}
+      {/* Línea de estado compacta (port del dealer, pedido de Francisco
+          oct-2026): el hero con logo + letrero gigante se fue — el logo
+          del shop vive en el TV y el kiosko, que es donde vende. El
+          botón de abrir/cerrar vive en Configuración desde hoy mismo. */}
+      <section className="flex items-center gap-2 pb-6 mb-8 border-b border-nxtup-line text-sm">
+        <span
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+            shop.is_open ? 'bg-nxtup-active' : 'bg-nxtup-busy'
+          }`}
+          aria-hidden
+        />
+        <span
+          className={`font-bold uppercase tracking-widest ${
+            shop.is_open ? 'text-nxtup-active' : 'text-nxtup-busy'
+          }`}
+        >
+          {shop.is_open ? t('dash.shop.open') : t('dash.shop.closed')}
+        </span>
+        <span className="text-nxtup-muted">
+          · {t('dash.shop.inQueueCount', { count: entries.length })} ·{' '}
+          {t('dash.shop.activeBarbers', {
+            count: barbers.filter(b => b.status !== 'offline').length,
+          })}
+        </span>
       </section>
 
       <div className="grid lg:grid-cols-3 gap-8">
