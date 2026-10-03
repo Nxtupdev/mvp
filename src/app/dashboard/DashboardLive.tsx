@@ -21,6 +21,13 @@ type Entry = {
   status: 'waiting' | 'called' | 'in_progress'
   barber_id: string | null
   created_at: string
+  // Reserva por voz (Mamacita): si mamacita_entry_id != null y
+  // arrived_at == null, el cliente llamó y viene EN CAMINO — no está
+  // parado en la barbería. Mostrarlo como "Esperando" confundía al
+  // dueño (reporte de Fade Factory, oct-2026).
+  mamacita_entry_id: string | null
+  arrived_at: string | null
+  eta_at: string | null
 }
 
 type Barber = {
@@ -120,7 +127,7 @@ export default function DashboardLive({
       const [{ data: e }, { data: b }, { data: s }] = await Promise.all([
         supabase
           .from('queue_entries')
-          .select('id, position, client_name, status, barber_id, created_at')
+          .select('id, position, client_name, status, barber_id, created_at, mamacita_entry_id, arrived_at, eta_at')
           .eq('shop_id', shop.id)
           .in('status', ['waiting', 'called', 'in_progress'])
           .order('position', { ascending: true }),
@@ -286,11 +293,24 @@ export default function DashboardLive({
                         {barber.name}
                       </span>
                     )}
-                    <span
-                      className={`text-xs font-bold uppercase tracking-widest ${STATUS_COLOR[entry.status]}`}
-                    >
-                      {t(STATUS_KEY[entry.status])}
-                    </span>
+                    {entry.status === 'waiting' &&
+                    entry.mamacita_entry_id !== null &&
+                    entry.arrived_at === null ? (
+                      // Reserva por voz que aún no llega: "En camino"
+                      // (+ ~hora prometida) en ámbar, no "Esperando".
+                      <span className="text-xs font-bold uppercase tracking-widest text-nxtup-break tabular-nums">
+                        {t('status.entry.onTheWay')}
+                        {entry.eta_at &&
+                          !Number.isNaN(Date.parse(entry.eta_at)) &&
+                          ` · ~${new Date(entry.eta_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-xs font-bold uppercase tracking-widest ${STATUS_COLOR[entry.status]}`}
+                      >
+                        {t(STATUS_KEY[entry.status])}
+                      </span>
+                    )}
                   </li>
                 )
               })}

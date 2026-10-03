@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   const [{ data: entries }, { data: barbers }] = await Promise.all([
     supabase
       .from('queue_entries')
-      .select('id, position, client_name, status, barber_id, created_at')
+      .select('id, position, client_name, status, barber_id, created_at, mamacita_entry_id, arrived_at, eta_at')
       .eq('shop_id', shop.id)
       .in('status', ['waiting', 'called', 'in_progress'])
       .order('position', { ascending: true }),

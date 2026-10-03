@@ -261,6 +261,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'status.entry.waiting': 'Esperando',
     'status.entry.called': 'Llamado',
     'status.entry.inProgress': 'En silla',
+    'status.entry.onTheWay': 'En camino',
 
     // Botones / labels comunes
     'common.copy': 'Copiar',
@@ -904,6 +905,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'status.entry.waiting': 'Waiting',
     'status.entry.called': 'Called',
     'status.entry.inProgress': 'In chair',
+    'status.entry.onTheWay': 'On the way',
 
     'common.copy': 'Copy',
     'common.copied': 'Copied',
