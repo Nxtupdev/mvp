@@ -55,6 +55,7 @@
 import { motion, useReducedMotion, type Variants } from 'framer-motion'
 import { useEffect } from 'react'
 
+import { Avatar } from '@/components/avatars'
 import { useLocale } from '@/lib/i18n'
 import { QueueStatBlock } from './QueueStatBlock'
 import { SuccessCheckmark } from './SuccessCheckmark'
@@ -81,12 +82,13 @@ type SuccessScreenProps = {
   /** Estimated wait window in minutes. */
   etaMinutes: { min: number; max: number }
   /** Barbero al que se le asignó el cliente AL MOMENTO del check-in.
-   *  null si no había barbero libre y el cliente quedó esperando. */
-  assignedBarber: { id: string; name: string } | null
+   *  null si no había barbero libre y el cliente quedó esperando.
+   *  avatar: foto/ícono para que el cliente reconozca a quién buscar. */
+  assignedBarber: { id: string; name: string; avatar?: string | null } | null
   /** Cita amarrada (caso B, rediseño ago-2026): el barbero elegido está
    *  ocupado — el cliente espera EN SU fila. Cuando el elegido estaba
    *  libre (caso A), llega como assignedBarber normal y esto es null. */
-  appointment?: { barber_id: string; barber_name: string } | null
+  appointment?: { barber_id: string; barber_name: string; avatar?: string | null } | null
   /** Capa 3 anti-dedazo: cancela esta entrada y vuelve al selector de
    *  barbero. Solo se muestra cuando appointment está presente. */
   onCorrectAppointment?: () => void
@@ -226,7 +228,16 @@ export function SuccessScreen({
 
           {/* Cita (066): aviso de que su barbero debe confirmarla. */}
           {appointment && (
-            <motion.div variants={itemV} className="flex flex-col items-center gap-3">
+            <motion.div variants={itemV} className="flex flex-col items-center gap-4">
+              {/* La cara de su barbero — el cliente sabe a quién espera
+                  aunque nunca lo haya visto (mismo marco que el selector). */}
+              <span className="rounded-full ring-4 ring-salvia/30">
+                <Avatar
+                  avatar={appointment.avatar ?? null}
+                  name={appointment.barber_name}
+                  size={112}
+                />
+              </span>
               <p className="rounded-2xl bg-salvia/10 px-6 py-4 text-center text-lg font-semibold text-salvia ring-1 ring-salvia/40 sm:text-xl">
                 📅{' '}
                 {interpolate(t('kiosk.success.appt'), {
@@ -253,11 +264,21 @@ export function SuccessScreen({
             >
               <div
                 className="
+                  flex flex-col items-center
                   rounded-3xl border border-salvia/30
                   bg-salvia/10 px-8 py-8 sm:px-12 sm:py-10
                   shadow-[0_0_60px_rgba(126,215,174,0.20)]
                 "
               >
+                {/* La cara del barbero asignado — "ve con Carlos" funciona
+                    mejor cuando el cliente sabe cómo luce Carlos. */}
+                <span className="mb-5 rounded-full ring-4 ring-salvia/30">
+                  <Avatar
+                    avatar={assignedBarber.avatar ?? null}
+                    name={assignedBarber.name}
+                    size={128}
+                  />
+                </span>
                 <p
                   className="
                     text-3xl font-medium text-salvia-light

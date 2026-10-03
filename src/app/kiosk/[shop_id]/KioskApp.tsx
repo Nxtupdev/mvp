@@ -447,10 +447,28 @@ export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) 
                 isReturning={checkInResult.isReturning}
                 queuePosition={checkInResult.queuePosition}
                 etaMinutes={checkInResult.etaMinutes}
-                assignedBarber={checkInResult.assignedBarber}
+                assignedBarber={
+                  checkInResult.assignedBarber
+                    ? {
+                        ...checkInResult.assignedBarber,
+                        avatar:
+                          barbers.find(b => b.id === checkInResult.assignedBarber?.id)
+                            ?.avatar ?? null,
+                      }
+                    : null
+                }
                 queueList={checkInResult.queueList}
                 myEntryId={checkInResult.myEntryId}
-                appointment={checkInResult.appointment}
+                appointment={
+                  checkInResult.appointment
+                    ? {
+                        ...checkInResult.appointment,
+                        avatar:
+                          barbers.find(b => b.id === checkInResult.appointment?.barber_id)
+                            ?.avatar ?? null,
+                      }
+                    : null
+                }
                 onCorrectAppointment={
                   checkInResult.appointment ? handleCorrectAppointment : undefined
                 }
