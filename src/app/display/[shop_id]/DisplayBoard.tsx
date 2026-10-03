@@ -115,7 +115,13 @@ const SIZE: Record<
     name: string
     sub: string
     num: string
-    rowPad: string
+    // Altura FIJA de fila (no padding): cada columna es su propia
+    // <table> y con alturas automáticas una fila de dos líneas (nombre
+    // + teléfono/cita/pill) crecía distinto a una de una línea — las
+    // separadoras de las tres tablas quedaban desalineadas y la línea
+    // no "continuaba" a través de la pantalla (foto real de NuevaYol,
+    // oct-2026). Con altura uniforme, las líneas cruzan parejas.
+    row: string
     pill: string
     timer: string
   }
@@ -127,7 +133,7 @@ const SIZE: Record<
     name: 'text-3xl',
     sub: 'text-base',
     num: 'text-3xl',
-    rowPad: 'py-4',
+    row: 'h-[88px]',
     pill: 'text-base',
     timer: 'text-3xl',
   },
@@ -138,7 +144,7 @@ const SIZE: Record<
     name: 'text-2xl',
     sub: 'text-sm',
     num: 'text-2xl',
-    rowPad: 'py-3',
+    row: 'h-[68px]',
     pill: 'text-sm',
     timer: 'text-2xl',
   },
@@ -149,7 +155,7 @@ const SIZE: Record<
     name: 'text-lg',
     sub: 'text-xs',
     num: 'text-lg',
-    rowPad: 'py-2',
+    row: 'h-[54px]',
     pill: 'text-xs',
     timer: 'text-xl',
   },
@@ -815,11 +821,11 @@ function ActiveRow({
     sanctionedUntil.getTime() > clockNow.getTime()
   const sanctionEndTime = isLate && sanctionedUntil ? formatClock(sanctionedUntil) : null
   return (
-    <tr>
-      <td className={`${CELL} ${s.rowPad} ${s.num} font-black tabular-nums ${isLate ? 'text-orange-400' : 'text-salvia'}`}>
+    <tr className={s.row}>
+      <td className={`${CELL} ${s.num} font-black tabular-nums ${isLate ? 'text-orange-400' : 'text-salvia'}`}>
         {position}
       </td>
-      <td className={`${CELL} ${NAME_CELL} ${s.rowPad}`}>
+      <td className={`${CELL} ${NAME_CELL}`}>
         <span className="flex items-center gap-3 min-w-0">
           <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
           <span className="min-w-0">
@@ -832,7 +838,7 @@ function ActiveRow({
           </span>
         </span>
       </td>
-      <td className={`${CELL} ${s.rowPad} ${s.cell} text-right text-nxtup-muted tabular-nums`}>
+      <td className={`${CELL} ${s.cell} text-right text-nxtup-muted tabular-nums`}>
         {barber.available_since ? formatClock(new Date(barber.available_since)) : '—'}
       </td>
     </tr>
@@ -854,11 +860,11 @@ function ActiveCalledRow({
 }) {
   const s = SIZE[density]
   return (
-    <tr className="bg-nxtup-active/5">
-      <td className={`${CELL} ${s.rowPad} ${s.num} font-black text-nxtup-active`} aria-hidden>
+    <tr className={`bg-nxtup-active/5 ${s.row}`}>
+      <td className={`${CELL} ${s.num} font-black text-nxtup-active`} aria-hidden>
         →
       </td>
-      <td className={`${CELL} ${NAME_CELL} ${s.rowPad}`}>
+      <td className={`${CELL} ${NAME_CELL}`}>
         <span className="flex items-center gap-3 min-w-0">
           <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
           <span className="min-w-0">
@@ -871,7 +877,7 @@ function ActiveCalledRow({
           </span>
         </span>
       </td>
-      <td className={`${CELL} ${s.rowPad} text-right`}>
+      <td className={`${CELL} text-right`}>
         {calledAt && <CalledCountdown calledAt={calledAt} size={s.timer} />}
       </td>
     </tr>
@@ -935,21 +941,21 @@ function BusyRow({
 }) {
   const s = SIZE[density]
   return (
-    <tr>
-      <td className={`${CELL} ${NAME_CELL} ${s.rowPad}`}>
+    <tr className={s.row}>
+      <td className={`${CELL} ${NAME_CELL}`}>
         <span className="flex items-center gap-3 min-w-0">
           <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
           <span className={`text-white font-bold truncate ${s.name}`}>{barber.name}</span>
         </span>
       </td>
-      <td className={`${CELL} ${s.rowPad}`}>
+      <td className={`${CELL}`}>
         <span className={`block text-white truncate max-w-[12ch] ${s.cell}`}>{clientName ?? '—'}</span>
         {staleLabel && (
           <span className={`block text-nxtup-busy font-bold truncate max-w-[24ch] ${s.sub}`}>{staleLabel}</span>
         )}
       </td>
       <td
-        className={`${CELL} ${s.rowPad} ${s.cell} text-right tabular-nums ${
+        className={`${CELL} ${s.cell} text-right tabular-nums ${
           staleLabel ? 'text-nxtup-busy font-black' : 'text-nxtup-muted'
         }`}
       >
@@ -996,14 +1002,14 @@ function BreakRow({
   const showHeld = shop.keep_position_on_break && heldPosition !== undefined && !overGrace
 
   return (
-    <tr>
-      <td className={`${CELL} ${NAME_CELL} ${s.rowPad}`}>
+    <tr className={s.row}>
+      <td className={`${CELL} ${NAME_CELL}`}>
         <span className="flex items-center gap-3 min-w-0">
           <Avatar avatar={barber.avatar} name={barber.name} size={s.avatar} />
           <span className={`text-white font-bold truncate ${s.name}`}>{barber.name}</span>
         </span>
       </td>
-      <td className={`${CELL} ${s.rowPad}`}>
+      <td className={`${CELL}`}>
         <Pill tone="break" size={s.pill}>
           {tt('display.status.break')}
         </Pill>
@@ -1018,7 +1024,7 @@ function BreakRow({
         ) : null}
       </td>
       <td
-        className={`${CELL} ${s.rowPad} ${s.timer} text-right font-black tabular-nums ${timerColor}`}
+        className={`${CELL} ${s.timer} text-right font-black tabular-nums ${timerColor}`}
         aria-label={`Break: ${formatted}`}
       >
         {formatted}
@@ -1054,25 +1060,32 @@ function QueueRow({
   const s = SIZE[density]
   const etaClock = enCamino ? formatEtaClock(etaAt) : null
   return (
-    <tr>
-      <td className={`${CELL} ${s.rowPad} ${s.num} font-black tabular-nums text-salvia`}>
+    <tr className={s.row}>
+      <td className={`${CELL} ${s.num} font-black tabular-nums text-salvia`}>
         {position}
       </td>
-      <td className={`${CELL} ${NAME_CELL} ${s.rowPad}`}>
+      <td className={`${CELL} ${NAME_CELL}`}>
         <span className={`block text-white font-bold truncate ${s.name}`}>{clientName}</span>
-        {enCamino ? (
-          <span
-            className={`inline-flex items-center gap-2 text-nxtup-break font-bold uppercase tracking-[0.12em] tabular-nums ${s.pill}`}
-          >
-            <Phone size={density === 'lg' ? 20 : density === 'md' ? 17 : 14} aria-hidden />
-            {etaClock ? `~${etaClock}` : tt('display.status.onTheWay')}
-          </span>
-        ) : apptLabel ? (
+        {apptLabel && (
           <span className={`block text-salvia truncate ${s.sub}`}>📅 {apptLabel}</span>
-        ) : null}
+        )}
       </td>
-      <td className={`${CELL} ${s.rowPad} ${s.cell} text-right text-nxtup-muted tabular-nums`}>
-        {enCamino || minutes == null ? '—' : interpolate(tt('display.min'), { n: minutes })}
+      {/* En camino (voz): el teléfono + la ~hora van en la celda de
+          Espera — ese espacio estaba desperdiciado en un guion y la
+          sublínea bajo el nombre hacía la fila más alta que las de las
+          otras columnas (pedido de Francisco, foto NuevaYol oct-2026).
+          Sin hora prometida, el ícono solo: la columna ya dice "espera". */}
+      <td className={`${CELL} ${s.cell} text-right tabular-nums ${enCamino ? 'text-nxtup-break font-bold' : 'text-nxtup-muted'}`}>
+        {enCamino ? (
+          <span className="inline-flex items-center justify-end gap-2">
+            <Phone size={density === 'lg' ? 20 : density === 'md' ? 17 : 14} aria-hidden />
+            {etaClock ? `~${etaClock}` : ''}
+          </span>
+        ) : minutes == null ? (
+          '—'
+        ) : (
+          interpolate(tt('display.min'), { n: minutes })
+        )}
       </td>
     </tr>
   )
