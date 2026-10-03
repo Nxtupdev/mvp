@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import { useLocale } from '@/lib/i18n'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
@@ -150,24 +151,10 @@ export default function DashboardLive({
     // un refetch ~250ms después del último evento, no 2-3 seguidos.
     const debouncedRefresh = debounce(refresh, 250)
 
-    const channel = supabase
-      .channel(`dashboard-${shop.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'queue_entries', filter: `shop_id=eq.${shop.id}` },
-        debouncedRefresh,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shop.id}` },
-        debouncedRefresh,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'shops', filter: `id=eq.${shop.id}` },
-        debouncedRefresh,
-      )
-      .subscribe()
+    // Broadcast (070): cualquier señal del shop → refresh (debounced).
+    const channel = subscribeShopChanges(supabase, shop.id, change => {
+      if (change.table !== 'activity_log') debouncedRefresh()
+    })
 
     return () => {
       debouncedRefresh.cancel()

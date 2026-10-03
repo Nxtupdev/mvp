@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useLocale } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import {
   Avatar,
   AvatarPicker,
@@ -89,14 +90,10 @@ export default function BarberManager({
     // el último evento.
     const debouncedRefetch = debounce(refetch, 250)
 
-    const channel = supabase
-      .channel(`barbers-mgr-${shopId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shopId}` },
-        debouncedRefetch,
-      )
-      .subscribe()
+    // Broadcast (070): solo interesan cambios de barberos.
+    const channel = subscribeShopChanges(supabase, shopId, change => {
+      if (change.table === 'barbers') debouncedRefetch()
+    })
     return () => {
       debouncedRefetch.cancel()
       supabase.removeChannel(channel)

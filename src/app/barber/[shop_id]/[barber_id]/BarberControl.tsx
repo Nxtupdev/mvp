@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import { isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
@@ -105,39 +106,17 @@ export default function BarberControl({
     const debouncedPeers = debounce(fetchPeers, 250)
     const debouncedClients = debounce(fetchClients, 250)
 
-    const channel = supabase
-      .channel(`barber-standalone-${barber.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'barbers',
-          filter: `id=eq.${barber.id}`,
-        },
-        debouncedBarber,
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'barbers',
-          filter: `shop_id=eq.${shopId}`,
-        },
-        debouncedPeers,
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'queue_entries',
-          filter: `barber_id=eq.${barber.id}`,
-        },
-        debouncedClients,
-      )
-      .subscribe()
+    // Broadcast (070): señal sin PII por el canal shop:<id>. Los filtros
+    // finos de antes (mi barbero, mi cola) se vuelven refetch por tabla —
+    // los fetches son maybeSingle/listas cortas y están debounced.
+    const channel = subscribeShopChanges(supabase, shopId, change => {
+      if (change.table === 'barbers') {
+        debouncedBarber()
+        debouncedPeers()
+      } else if (change.table === 'queue_entries') {
+        debouncedClients()
+      }
+    })
 
     return () => {
       debouncedBarber.cancel()

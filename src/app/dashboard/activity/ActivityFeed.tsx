@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import { useLocale } from '@/lib/i18n'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 
@@ -155,29 +157,34 @@ export default function ActivityFeed({
     }
   }, [range, shop.id])
 
-  // Realtime: prepend new events as they happen.
+  // Realtime (broadcast 070): la señal ya no trae la fila (es señal sin
+  // PII), así que en vez de prepender el payload, refetch silencioso del
+  // rango visible con el acceso del dueño.
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel(`activity-${shop.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'activity_log',
-          filter: `shop_id=eq.${shop.id}`,
-        },
-        payload => {
-          const row = payload.new as Event
-          setEvents(curr => [row, ...curr].slice(0, 500))
-        },
-      )
-      .subscribe()
+    const refetch = debounce(() => {
+      const since = computeSince(range)
+      supabase
+        .from('activity_log')
+        .select(
+          'id, barber_id, action, from_status, to_status, metadata, created_at',
+        )
+        .eq('shop_id', shop.id)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(500)
+        .then(({ data }) => {
+          if (data) setEvents(data as Event[])
+        })
+    }, 400)
+    const channel = subscribeShopChanges(supabase, shop.id, change => {
+      if (change.table === 'activity_log') refetch()
+    })
     return () => {
+      refetch.cancel()
       supabase.removeChannel(channel)
     }
-  }, [shop.id])
+  }, [range, shop.id])
 
   const filtered = events.filter(e => {
     if (barberFilter !== 'all' && e.barber_id !== barberFilter) return false

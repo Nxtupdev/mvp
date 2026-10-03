@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import { useLocale } from '@/lib/i18n'
 import {
   Avatar,
@@ -181,29 +182,13 @@ export default function ControlPanel({
     const debouncedBarbers = debounce(fetchBarbers, 250)
     const debouncedEntries = debounce(fetchEntries, 250)
 
-    const channel = supabase
-      .channel(`control-panel-${shop.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'barbers',
-          filter: `shop_id=eq.${shop.id}`,
-        },
-        debouncedBarbers,
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'queue_entries',
-          filter: `shop_id=eq.${shop.id}`,
-        },
-        debouncedEntries,
-      )
-      .subscribe()
+    // Broadcast (070): señal sin PII por el canal shop:<id> → refetch.
+    // Funciona igual con cookie de dueño que con panel-token (el canal
+    // es escuchable con la anon key; los fetches llevan su propio auth).
+    const channel = subscribeShopChanges(supabase, shop.id, change => {
+      if (change.table === 'barbers') debouncedBarbers()
+      else if (change.table === 'queue_entries') debouncedEntries()
+    })
 
     return () => {
       debouncedBarbers.cancel()

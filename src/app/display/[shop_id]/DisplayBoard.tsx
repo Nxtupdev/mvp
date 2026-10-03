@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import Logo from '@/components/Logo'
 import ShopLogo from '@/components/ShopLogo'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
@@ -349,29 +350,23 @@ export default function DisplayBoard({
     const debouncedBarbers = debounce(fetchBarbers, 250)
     const debouncedShop = debounce(fetchShop, 250)
 
-    const channel = supabase
-      .channel(`display-${shop.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'queue_entries', filter: `shop_id=eq.${shop.id}` },
-        debouncedEntries,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'barbers', filter: `shop_id=eq.${shop.id}` },
-        debouncedBarbers,
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'shops', filter: `id=eq.${shop.id}` },
-        debouncedShop,
-      )
-      .subscribe(status => {
+    // Broadcast (070): la señal llega por el canal shop:<id> sin datos
+    // personales; cada tabla dispara su refetch con el acceso propio.
+    const channel = subscribeShopChanges(
+      supabase,
+      shop.id,
+      change => {
+        if (change.table === 'queue_entries') debouncedEntries()
+        else if (change.table === 'barbers') debouncedBarbers()
+        else if (change.table === 'shops') debouncedShop()
+      },
+      status => {
         // 'SUBSCRIBED' is the healthy state. Anything else means we lost
         // the connection (network blip, server restart) and the data on
         // screen may be stale until reconnect.
         setConnected(status === 'SUBSCRIBED')
-      })
+      },
+    )
 
     return () => {
       debouncedEntries.cancel()

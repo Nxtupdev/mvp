@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
+import { subscribeShopChanges } from '@/lib/realtime'
 import ShopLogo from '@/components/ShopLogo'
 import {
   Avatar,
@@ -265,29 +266,11 @@ export default function BarberDashboard({
     }, 250)
     const debouncedClients = debounce(fetchClients, 250)
 
-    const channel = supabase
-      .channel(`barber-dashboard-${barber.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'barbers',
-          filter: `shop_id=eq.${shopId}`,
-        },
-        debouncedBarberPeers,
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'queue_entries',
-          filter: `shop_id=eq.${shopId}`,
-        },
-        debouncedClients,
-      )
-      .subscribe()
+    // Broadcast (070): señal sin PII por el canal shop:<id> → refetch.
+    const channel = subscribeShopChanges(supabase, shopId, change => {
+      if (change.table === 'barbers') debouncedBarberPeers()
+      else if (change.table === 'queue_entries') debouncedClients()
+    })
 
     // Carga INICIAL al montar. Los props del server traen barbero/peers/
     // called/current, pero NO las citas pendientes ni las sillas sin
