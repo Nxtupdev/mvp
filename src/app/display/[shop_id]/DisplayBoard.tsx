@@ -717,7 +717,7 @@ function Column({
     // que su contenido. El título queda fijo arriba; la tabla scrollea
     // si la lista no cabe.
     <div className="bg-nxtup-bg flex flex-col md:min-h-0 md:overflow-hidden">
-      <div className="flex items-center justify-between px-6 pt-6 pb-3 flex-shrink-0">
+      <div className="flex items-center justify-between px-3 md:px-6 pt-4 md:pt-6 pb-3 flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className={`w-3.5 h-3.5 rounded-full ${dot[tone]}`} aria-hidden />
           <h2 className={`uppercase tracking-[0.14em] text-2xl font-black ${text[tone]}`}>
@@ -744,7 +744,7 @@ function Column({
                 {headers.map((h, i) => (
                   <th
                     key={i}
-                    className={`${s.th} ${h.width ?? ''} ${h.align === 'right' ? 'text-right' : 'text-left'} text-nxtup-dim font-bold uppercase tracking-[0.22em] px-3 first:pl-6 last:pr-6 pb-2.5 border-b border-nxtup-line whitespace-nowrap`}
+                    className={`${s.th} ${h.width ?? ''} ${h.align === 'right' ? 'text-right' : 'text-left'} text-nxtup-dim font-bold uppercase tracking-[0.22em] px-2 md:px-3 first:pl-3 last:pr-3 md:first:pl-6 md:last:pr-6 pb-2.5 border-b border-nxtup-line whitespace-nowrap`}
                   >
                     {h.label}
                   </th>
@@ -759,7 +759,7 @@ function Column({
   )
 }
 
-const CELL = 'px-3 first:pl-6 last:pr-6 border-b border-nxtup-line align-middle whitespace-nowrap'
+const CELL = 'px-2 md:px-3 first:pl-3 last:pr-3 md:first:pl-6 md:last:pr-6 border-b border-nxtup-line align-middle whitespace-nowrap'
 // La celda del nombre absorbe el ancho sobrante y trunca (max-w-0 es el
 // truco para que una celda de tabla con layout auto pueda encogerse).
 const NAME_CELL = 'w-full max-w-0'
@@ -959,9 +959,9 @@ function BusyRow({
         </span>
       </td>
       <td className={`${CELL}`}>
-        <span className={`block text-white truncate max-w-[12ch] ${s.cell}`}>{clientName ?? '—'}</span>
+        <span className={`block text-white truncate max-w-[9ch] md:max-w-[12ch] ${s.cell}`}>{clientName ?? '—'}</span>
         {staleLabel && (
-          <span className={`block text-nxtup-busy font-bold truncate max-w-[24ch] ${s.sub}`}>{staleLabel}</span>
+          <span className={`block text-nxtup-busy font-bold truncate max-w-[14ch] md:max-w-[24ch] ${s.sub}`}>{staleLabel}</span>
         )}
       </td>
       <td
