@@ -97,9 +97,11 @@ export default async function BarberPage({
       // full roster section ("Turnos de barberos"). Filters per-status
       // happen in the UI.
       .order('name'),
+    // select('id') y no '*': con los grants por columna de la 069, un '*'
+    // anónimo expande a columnas revocadas (client_phone) y el count falla.
     supabase
       .from('queue_entries')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('barber_id', barber_id)
       .eq('status', 'done')
       .gte('completed_at', sinceMidnight.toISOString()),

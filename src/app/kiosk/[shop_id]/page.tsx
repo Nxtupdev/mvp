@@ -81,9 +81,11 @@ export default async function KioskPage({
   // (We used to also fetch the services catalog, but Frank cut service
   // capture from the kiosk to make check-in feel instant. The DB table
   // still exists for future use.)
+  // select('id') y no '*': con los grants por columna de la 069, un '*'
+  // anónimo expande a columnas revocadas (client_phone) y el count falla.
   const { count: waitingCount } = await supabase
     .from('queue_entries')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('shop_id', shop_id)
     .eq('status', 'waiting')
 
