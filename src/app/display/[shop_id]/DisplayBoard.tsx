@@ -480,29 +480,34 @@ export default function DisplayBoard({
   return (
     // Margen de seguridad: muchos televisores recortan el 2-5 % del
     // borde (overscan) y se llevaban la columna del tiempo.
-    <main className="h-dvh flex flex-col cursor-none select-none overflow-hidden px-[2.5%] py-[1%]">
+    // En TV (md+): viewport fijo sin scroll. En TELÉFONO: los barberos
+    // comparten este link por WhatsApp y lo abren en el celular — tres
+    // columnas en 375px era papilla ilegible (reporte real de Fade
+    // Factory, oct-2026). En angosto las columnas se apilan y la página
+    // scrollea normal.
+    <main className="min-h-dvh md:h-dvh flex flex-col md:cursor-none select-none md:overflow-hidden px-[2.5%] py-[1%]">
       {/* Cabecera: logo + shop a la izquierda, reloj + fecha a la derecha */}
-      <header className="flex items-center justify-between px-6 py-5 border-b border-nxtup-line gap-8">
-        <div className="flex items-center gap-5 min-w-0">
+      <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-5 border-b border-nxtup-line gap-4 md:gap-8">
+        <div className="flex items-center gap-3 md:gap-5 min-w-0">
           {shop.logo_url ? (
-            <ShopLogo url={shop.logo_url} name={shop.name} size={56} />
+            <ShopLogo url={shop.logo_url} name={shop.name} size={44} />
           ) : (
             <Logo className="h-10 w-auto" tone="dark" />
           )}
           <div className="min-w-0">
-            <span className="text-white font-display text-3xl truncate block leading-tight">
+            <span className="text-white font-display text-xl md:text-3xl truncate block leading-tight">
               {shop.name}
             </span>
-            <span className="text-nxtup-muted text-xs font-bold uppercase tracking-[0.28em]">
+            <span className="text-nxtup-muted text-[10px] md:text-xs font-bold uppercase tracking-[0.28em] whitespace-nowrap">
               {tt('display.subtitle')}
             </span>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-white font-black text-4xl tabular-nums leading-none">
+          <p className="text-white font-black text-2xl md:text-4xl tabular-nums leading-none">
             {now ? formatClock(now) : ''}
           </p>
-          <p className="text-nxtup-muted text-sm font-semibold mt-1.5">
+          <p className="text-nxtup-muted text-xs md:text-sm font-semibold mt-1.5">
             {now ? formatDate(now, tvLocale) : ''}
           </p>
         </div>
@@ -513,7 +518,7 @@ export default function DisplayBoard({
           contenedor; con min-h-0 la columna scrollea si no cabe.
           Disponibles no lleva cliente, así que cede ancho a Ocupados y
           En cola (cliente + tiempo). */}
-      <section className="flex-1 grid grid-cols-[0.9fr_1.05fr_1.05fr] gap-px bg-nxtup-line min-h-0">
+      <section className="flex-1 grid grid-cols-1 md:grid-cols-[0.9fr_1.05fr_1.05fr] gap-px bg-nxtup-line min-h-0">
         {/* ── Columna 1: Disponibles ── */}
         <Column
           title={tt('display.col.available')}
@@ -711,7 +716,7 @@ function Column({
     // min-h-0 + overflow-hidden permite que la columna sea más chica
     // que su contenido. El título queda fijo arriba; la tabla scrollea
     // si la lista no cabe.
-    <div className="bg-nxtup-bg flex flex-col min-h-0 overflow-hidden">
+    <div className="bg-nxtup-bg flex flex-col md:min-h-0 md:overflow-hidden">
       <div className="flex items-center justify-between px-6 pt-6 pb-3 flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className={`w-3.5 h-3.5 rounded-full ${dot[tone]}`} aria-hidden />
@@ -732,7 +737,7 @@ function Column({
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="md:flex-1 md:overflow-y-auto md:min-h-0">
           <table className="w-full border-collapse">
             <thead>
               <tr>
@@ -838,8 +843,13 @@ function ActiveRow({
           </span>
         </span>
       </td>
+      {/* Gated por clockNow: formatear la hora en el SERVIDOR usa la
+          zona del server (UTC) y el cliente la re-pinta local → error
+          de hidratación #418 (visto en Fade Factory). SSR pinta '—'. */}
       <td className={`${CELL} ${s.cell} text-right text-nxtup-muted tabular-nums`}>
-        {barber.available_since ? formatClock(new Date(barber.available_since)) : '—'}
+        {clockNow && barber.available_since
+          ? formatClock(new Date(barber.available_since))
+          : '—'}
       </td>
     </tr>
   )
@@ -1058,7 +1068,11 @@ function QueueRow({
   tt: Translate
 }) {
   const s = SIZE[density]
-  const etaClock = enCamino ? formatEtaClock(etaAt) : null
+  // Gated por el reloj del cliente: formatear la ~hora en el servidor
+  // usa la zona del server (UTC) → error de hidratación #418. El SSR
+  // pinta solo el ícono; la hora aparece al hidratar.
+  const clientNow = useClock()
+  const etaClock = enCamino && clientNow ? formatEtaClock(etaAt) : null
   return (
     <tr className={s.row}>
       <td className={`${CELL} ${s.num} font-black tabular-nums text-salvia`}>
