@@ -124,6 +124,11 @@ const SIZE: Record<
     row: string
     pill: string
     timer: string
+    // Titulo y conteo de columna: base (movil apilado) queda grande;
+    // estos solo ajustan md+ (TV con 3 columnas lado a lado), donde
+    // DISPONIBLES + un conteo de dos digitos chocaban en 720p.
+    colTitle: string
+    colCount: string
   }
 > = {
   lg: {
@@ -134,6 +139,8 @@ const SIZE: Record<
     sub: 'text-base',
     num: 'text-3xl',
     row: 'h-[88px]',
+    colTitle: 'md:text-2xl',
+    colCount: 'md:text-3xl',
     pill: 'text-base',
     timer: 'text-3xl',
   },
@@ -145,6 +152,8 @@ const SIZE: Record<
     sub: 'text-sm',
     num: 'text-2xl',
     row: 'h-[68px]',
+    colTitle: 'md:text-xl',
+    colCount: 'md:text-2xl',
     pill: 'text-sm',
     timer: 'text-2xl',
   },
@@ -156,6 +165,8 @@ const SIZE: Record<
     sub: 'text-xs',
     num: 'text-lg',
     row: 'h-[54px]',
+    colTitle: 'md:text-lg',
+    colCount: 'md:text-xl',
     pill: 'text-xs',
     timer: 'text-xl',
   },
@@ -518,7 +529,7 @@ export default function DisplayBoard({
           contenedor; con min-h-0 la columna scrollea si no cabe.
           Disponibles no lleva cliente, así que cede ancho a Ocupados y
           En cola (cliente + tiempo). */}
-      <section className="flex-1 grid grid-cols-1 md:grid-cols-[0.9fr_1.05fr_1.05fr] gap-px bg-nxtup-line min-h-0">
+      <section className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_1.05fr_0.95fr] gap-px bg-nxtup-line min-h-0">
         {/* ── Columna 1: Disponibles ── */}
         <Column
           title={tt('display.col.available')}
@@ -720,11 +731,11 @@ function Column({
       <div className="flex items-center justify-between px-3 md:px-6 pt-4 md:pt-6 pb-3 flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className={`w-3.5 h-3.5 rounded-full ${dot[tone]}`} aria-hidden />
-          <h2 className={`uppercase tracking-[0.14em] text-2xl font-black ${text[tone]}`}>
+          <h2 className={`uppercase tracking-[0.14em] text-2xl ${s.colTitle} font-black whitespace-nowrap ${text[tone]}`}>
             {title}
           </h2>
         </div>
-        <span className={`text-3xl font-black tabular-nums ${text[tone]}`}>{count}</span>
+        <span className={`text-3xl ${s.colCount} font-black tabular-nums ${text[tone]}`}>{count}</span>
       </div>
       {count === 0 ? (
         <div className="flex-1 grid place-items-center text-center px-10 pb-16">
