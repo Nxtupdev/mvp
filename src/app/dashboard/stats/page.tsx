@@ -7,6 +7,7 @@ import { shopDateStart, shopDayStart } from '@/lib/shop-time'
 import { getServerI18n } from '@/lib/i18n-server'
 import type { Locale } from '@/lib/i18n-types'
 import PrintButton from './PrintButton'
+import FloorTabs from '../FloorTabs'
 
 // Firma del helper t() bindeado a un locale (ver i18n-server.makeServerT).
 // Se pasa a los helpers module-level que renderizan texto para que
@@ -598,6 +599,7 @@ export default async function StatsPage({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
+      <FloorTabs />
       {/* Header SOLO para impresión — branding del shop al imprimir el
           PDF. Trae el logo (si existe), el nombre del shop, el rango
           de fechas del reporte y la marca de tiempo de generación.
@@ -633,12 +635,6 @@ export default async function StatsPage({
         <div>
           <h1 className="text-3xl font-black tracking-tight mb-2">{t('dash.heading.stats')}</h1>
           <p className="text-nxtup-muted text-sm">{meta.heading}</p>
-          <Link
-            href="/dashboard/history"
-            className="text-nxtup-muted hover:text-white text-xs underline underline-offset-4"
-          >
-            {t('stats.linkHistory')}
-          </Link>
         </div>
         <PrintButton />
       </div>

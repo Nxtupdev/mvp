@@ -24,7 +24,6 @@ import { useLocale } from '@/lib/i18n'
 // desktop para que quepan abajo del ícono en pantallas chicas.
 const TAB_DEFS = [
   { href: '/dashboard', labelKey: 'dash.nav.short.live', Icon: LiveIcon },
-  { href: '/dashboard/stats', labelKey: 'dash.nav.short.stats', Icon: StatsIcon },
   { href: '/dashboard/barbers', labelKey: 'dash.nav.short.barbers', Icon: BarbersIcon },
   { href: '/dashboard/activity', labelKey: 'dash.nav.short.activity', Icon: ActivityIcon },
   { href: '/dashboard/settings', labelKey: 'dash.nav.short.settings', Icon: SettingsIcon },

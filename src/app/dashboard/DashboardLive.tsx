@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
 import { subscribeShopChanges } from '@/lib/realtime'
 import { useLocale } from '@/lib/i18n'
+import FloorTabs from './FloorTabs'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
 import {
   buildBarberOrder,
@@ -216,6 +217,7 @@ export default function DashboardLive({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-6xl w-full mx-auto">
+      <FloorTabs />
       {/* Línea de estado compacta (port del dealer, pedido de Francisco
           oct-2026): el hero con logo + letrero gigante se fue — el logo
           del shop vive en el TV y el kiosko, que es donde vende. El

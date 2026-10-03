@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { chunk } from '@/lib/paginate'
+import FloorTabs from '../FloorTabs'
 import { shopDateStart, shopDayStart } from '@/lib/shop-time'
 import { getServerI18n } from '@/lib/i18n-server'
 import PrintButton from '../stats/PrintButton'
@@ -254,6 +255,7 @@ export default async function HistoryPage({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
+      <FloorTabs />
       {/* Header SOLO para impresión — mismo patrón que stats. */}
       <header className="hidden print:flex items-center gap-6 mb-8 pb-6 border-b border-zinc-300">
         {shop.logo_url && (

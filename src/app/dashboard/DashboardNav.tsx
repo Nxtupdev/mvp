@@ -11,8 +11,6 @@ export default function DashboardNav() {
 
   const tabs: { href: string; label: string }[] = [
     { href: '/dashboard', label: t('dash.nav.live') },
-    { href: '/dashboard/stats', label: t('dash.nav.stats') },
-    { href: '/dashboard/history', label: t('dash.nav.history') },
     { href: '/dashboard/barbers', label: t('dash.nav.barbers') },
     { href: '/dashboard/activity', label: t('dash.nav.activity') },
     { href: '/dashboard/settings', label: t('dash.nav.settings') },
