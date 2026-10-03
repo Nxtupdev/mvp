@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
 import { subscribeShopChanges } from '@/lib/realtime'
+import { useNow } from '@/lib/client-hooks'
 import { useLocale } from '@/lib/i18n'
 import FloorTabs from './FloorTabs'
 import { Avatar, isRenderableAvatar } from '@/components/avatars'
@@ -61,6 +62,19 @@ type Shop = {
   logo_url: string | null
 }
 
+// Tráfico por hora (port del Today's Pulse del dealer, oct-2026):
+// check-ins de HOY por hora local, llegados de verdad (una reserva de
+// voz que no ha llegado no es tráfico todavía). Ventana fija 8a–10p —
+// el horario real de las barberías piloto.
+type TodayEntry = {
+  id: string
+  created_at: string
+  mamacita_entry_id: string | null
+  arrived_at: string | null
+}
+const HOUR_START = 8
+const HOUR_END = 22
+
 const STATUS_KEY: Record<Entry['status'], string> = {
   waiting: 'status.entry.waiting',
   called: 'status.entry.called',
@@ -104,6 +118,12 @@ export default function DashboardLive({
   const [shop, setShop] = useState(initialShop)
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
+  const [todayEntries, setTodayEntries] = useState<TodayEntry[]>([])
+  // Hora actual para resaltar la barra — null en SSR (el server corre
+  // en otra zona; pintar su hora causaba el desajuste de hidratación
+  // que ya nos mordió en el TV).
+  const nowMs = useNow(60_000)
+  const nowHour = nowMs == null ? null : new Date(nowMs).getHours()
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState<'checkin' | 'display' | null>(null)
   // Tick de 30s para checks de sanción (migración 047). Necesario porque
@@ -123,7 +143,11 @@ export default function DashboardLive({
     const supabase = createClient()
 
     const refresh = async () => {
-      const [{ data: e }, { data: b }, { data: s }] = await Promise.all([
+      // Medianoche local del dispositivo: el teléfono del dueño vive en
+      // la zona del shop (mismo criterio que usa el dealer).
+      const midnight = new Date()
+      midnight.setHours(0, 0, 0, 0)
+      const [{ data: e }, { data: b }, { data: s }, { data: today }] = await Promise.all([
         supabase
           .from('queue_entries')
           .select('id, position, client_name, status, barber_id, created_at, mamacita_entry_id, arrived_at, eta_at')
@@ -140,8 +164,15 @@ export default function DashboardLive({
           .select('id, name, is_open, max_queue_size, logo_url')
           .eq('id', shop.id)
           .single(),
+        supabase
+          .from('queue_entries')
+          .select('id, created_at, mamacita_entry_id, arrived_at')
+          .eq('shop_id', shop.id)
+          .gte('created_at', midnight.toISOString())
+          .limit(1000),
       ])
       if (e) setEntries(e as Entry[])
+      if (today) setTodayEntries(today as TodayEntry[])
       if (b)
         setBarbers(
           (b as unknown[]).map(r => {
@@ -161,6 +192,10 @@ export default function DashboardLive({
     const channel = subscribeShopChanges(supabase, shop.id, change => {
       if (change.table !== 'activity_log') debouncedRefresh()
     })
+
+    // Carga inicial: el server no manda los check-ins de hoy (solo los
+    // activos), así que el gráfico de tráfico necesita este fetch.
+    refresh()
 
     return () => {
       debouncedRefresh.cancel()
@@ -206,6 +241,23 @@ export default function DashboardLive({
     () => entries.filter(e => e.status === 'waiting' && isVoicePending(e)),
     [entries],
   )
+  // Tráfico de hoy: llegados (sin voz-en-camino), por hora local.
+  const byHour = useMemo(() => {
+    const counts = new Map<number, number>()
+    let total = 0
+    for (const e of todayEntries) {
+      if (e.mamacita_entry_id !== null && e.arrived_at === null) continue
+      const h = new Date(e.created_at).getHours()
+      counts.set(h, (counts.get(h) ?? 0) + 1)
+      total++
+    }
+    const hours: { hour: number; count: number }[] = []
+    for (let h = HOUR_START; h <= HOUR_END; h++) {
+      hours.push({ hour: h, count: counts.get(h) ?? 0 })
+    }
+    return { hours, total }
+  }, [todayEntries])
+
   const barberOrder = useMemo(() => buildBarberOrder(barbers), [barbers])
   const heldPositions = useMemo(() => buildHeldPositions(barbers), [barbers])
   const orderedBarbers = useMemo(
@@ -315,6 +367,48 @@ export default function DashboardLive({
                 dueño es cuántos vienen en camino por Julie (voz). */}
             <Stat label={t('dash.stat.onTheWay')} value={onTheWay.length} />
             <Stat label={t('dash.stat.inProgress')} value={inProgress.length} />
+          </div>
+
+          {/* Tráfico por hora (port dealer) — hora actual en salvia. */}
+          <div className="mt-4 rounded-2xl border border-nxtup-line p-5">
+            <div className="flex items-baseline justify-between mb-4">
+              <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.25em] font-bold">
+                {t('dash.traffic.title')}
+              </p>
+              <p className="text-nxtup-muted text-[11px] tabular-nums">
+                <span className="text-white font-semibold">{byHour.total}</span>{' '}
+                {byHour.total === 1 ? t('dash.traffic.one') : t('dash.traffic.many')}
+              </p>
+            </div>
+            <div className="flex items-end gap-1.5 h-32">
+              {byHour.hours.map(({ hour, count }) => {
+                const isNow = nowHour === hour
+                const heightPct = (count / Math.max(1, ...byHour.hours.map(x => x.count))) * 100
+                return (
+                  <div key={hour} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                    <span className="text-[10px] tabular-nums text-nxtup-muted h-3">
+                      {count > 0 ? count : ''}
+                    </span>
+                    <div className="w-full flex-1 flex items-end">
+                      <div
+                        className={`w-full rounded-t-md transition-all ${
+                          isNow ? 'bg-salvia' : count > 0 ? 'bg-salvia/40' : 'bg-white/[0.04]'
+                        }`}
+                        style={{ height: `${Math.max(heightPct, count > 0 ? 8 : 2)}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`text-[9px] tabular-nums ${
+                        isNow ? 'text-salvia-light font-bold' : 'text-nxtup-dim'
+                      }`}
+                    >
+                      {hour % 12 === 0 ? 12 : hour % 12}
+                      {hour >= 12 ? 'p' : 'a'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </section>
 

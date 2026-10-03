@@ -184,6 +184,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.nav.live': 'En vivo',
     // Tabs del Floor (port dealer, oct-2026)
     'dash.floor.live': 'En vivo',
+    'dash.traffic.title': 'Tráfico por hora',
+    'dash.traffic.one': 'cliente hoy',
+    'dash.traffic.many': 'clientes hoy',
     'dash.floor.stats': 'Stats',
     'dash.floor.clients': 'Clientes',
     'dash.nav.stats': 'Estadísticas',
@@ -848,6 +851,9 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'dash.nav.live': 'Live',
     'dash.floor.live': 'Live',
+    'dash.traffic.title': 'Traffic by hour',
+    'dash.traffic.one': 'client today',
+    'dash.traffic.many': 'clients today',
     'dash.floor.stats': 'Stats',
     'dash.floor.clients': 'Clients',
     'dash.nav.stats': 'Stats',
