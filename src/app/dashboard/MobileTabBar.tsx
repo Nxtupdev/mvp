@@ -41,7 +41,9 @@ export default function MobileTabBar() {
       // last row of pixels isn't hidden under it.
       className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-nxtup-bg/95 backdrop-blur-md border-t border-nxtup-line pb-[env(safe-area-inset-bottom)]"
     >
-      <ul className="grid grid-cols-5">
+      {/* grid-cols debe coincidir con TAB_DEFS.length (Tailwind no
+          acepta clases dinámicas) — Stats se mudó a los tabs del Floor. */}
+      <ul className="grid grid-cols-4">
         {TAB_DEFS.map(({ href, labelKey, Icon }) => {
           const active =
             href === '/dashboard' ? pathname === href : pathname.startsWith(href)
