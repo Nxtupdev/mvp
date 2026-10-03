@@ -122,8 +122,8 @@ export default function DashboardLive({
   // Hora actual para resaltar la barra — null en SSR (el server corre
   // en otra zona; pintar su hora causaba el desajuste de hidratación
   // que ya nos mordió en el TV).
-  const nowMs = useNow(60_000)
-  const nowHour = nowMs == null ? null : new Date(nowMs).getHours()
+  const trafficNowMs = useNow(60_000)
+  const nowHour = trafficNowMs == null ? null : new Date(trafficNowMs).getHours()
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState<'checkin' | 'display' | null>(null)
   // Tick de 30s para checks de sanción (migración 047). Necesario porque
