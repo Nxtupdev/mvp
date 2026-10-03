@@ -396,6 +396,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     // ── Dashboard live (pantalla principal del dueño) ──────────
     'dash.stat.waiting': 'Esperando',
     'dash.stat.called': 'Llamados',
+    'dash.stat.onTheWay': 'En camino',
     'dash.stat.inProgress': 'En silla',
     'dash.barbers.addFirst': '+ Agregar primer barbero',
     'dash.barber.positionAria': 'Posición {n}',
@@ -1034,6 +1035,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     // ── Dashboard live ─────────────────────────────────────────
     'dash.stat.waiting': 'Waiting',
     'dash.stat.called': 'Called',
+    'dash.stat.onTheWay': 'On the way',
     'dash.stat.inProgress': 'In chair',
     'dash.barbers.addFirst': '+ Add first barber',
     'dash.barber.positionAria': 'Position {n}',

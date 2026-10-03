@@ -194,15 +194,34 @@ export default function DashboardLive({
     setTimeout(() => setCopied(null), 1500)
   }
 
+  // Reserva por voz que aún no llega: NO cuenta como "esperando" ni
+  // puede ser el próximo (el pool la salta hasta su check-in). Antes
+  // inflaba la tarjeta Esperando y podía resaltarse como siguiente.
+  const isVoicePending = (e: Entry) =>
+    e.mamacita_entry_id !== null && e.arrived_at === null
   const upNext = useMemo(
     () =>
       entries.find(e => e.status === 'called') ??
-      entries.find(e => e.status === 'waiting') ??
+      entries.find(e => e.status === 'waiting' && !isVoicePending(e)) ??
       null,
     [entries],
   )
   const inProgress = useMemo(() => entries.filter(e => e.status === 'in_progress'), [entries])
-  const waiting = useMemo(() => entries.filter(e => e.status === 'waiting'), [entries])
+  // "Esperando" = presentes sin silla todavía: waiting llegados + los
+  // llamados (los 30s caminando a la silla siguen siendo espera).
+  const waiting = useMemo(
+    () =>
+      entries.filter(
+        e =>
+          (e.status === 'waiting' && !isVoicePending(e)) ||
+          e.status === 'called',
+      ),
+    [entries],
+  )
+  const onTheWay = useMemo(
+    () => entries.filter(e => e.status === 'waiting' && isVoicePending(e)),
+    [entries],
+  )
   const barberOrder = useMemo(() => buildBarberOrder(barbers), [barbers])
   const heldPositions = useMemo(() => buildHeldPositions(barbers), [barbers])
   const orderedBarbers = useMemo(
@@ -319,7 +338,9 @@ export default function DashboardLive({
 
           <div className="grid grid-cols-3 gap-2 mt-4">
             <Stat label={t('dash.stat.waiting')} value={waiting.length} />
-            <Stat label={t('dash.stat.called')} value={entries.filter(e => e.status === 'called').length} />
+            {/* "Llamados" vivía en 0 (ventana de ~30s); lo útil para el
+                dueño es cuántos vienen en camino por Julie (voz). */}
+            <Stat label={t('dash.stat.onTheWay')} value={onTheWay.length} />
             <Stat label={t('dash.stat.inProgress')} value={inProgress.length} />
           </div>
         </section>
