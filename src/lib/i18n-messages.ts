@@ -518,6 +518,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.logo.remove': 'Eliminar',
     'settings.logo.removeConfirm': 'Eliminar logo del shop?',
     // Acceso de encargado (068)
+    // Estado abierta/cerrada (port dealer, oct-2026)
+    'settings.open.heading': 'Estado de la barbería',
+    'settings.open.isOpen': 'La barbería está abierta',
+    'settings.open.isClosed': 'La barbería está cerrada',
+    'settings.open.blurbAuto':
+      'Abre y cierra sola con tu horario semanal. Usa el botón para forzarlo ahora mismo — tu cambio manda hasta el próximo cambio de horario.',
+    'settings.open.blurbManual':
+      'Apertura manual. Configura el horario semanal arriba y la barbería se maneja sola.',
+    'settings.open.open': 'Abrir la barbería',
+    'settings.open.close': 'Cerrar la barbería',
+    'settings.open.error': 'No se pudo cambiar el estado',
     'settings.access.heading': 'Acceso de encargado',
     'settings.access.blurb':
       'Comparte el Centro de Mando con una persona de confianza. El link abre SOLO el Centro de Mando de tu shop — sin configuración, estadísticas ni facturación. Es permanente hasta que lo revoques, y sus acciones quedan firmadas con su nombre en el feed de actividad.',
@@ -1157,6 +1168,16 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.logo.remove': 'Remove',
     'settings.logo.removeConfirm': 'Remove shop logo?',
     // Account
+    'settings.open.heading': 'Shop status',
+    'settings.open.isOpen': 'The shop is open',
+    'settings.open.isClosed': 'The shop is closed',
+    'settings.open.blurbAuto':
+      'Opens and closes by your weekly hours. Use the button to override right now — your change holds until the next schedule edge.',
+    'settings.open.blurbManual':
+      'Manual open and close. Set your weekly hours above and the shop handles it by itself.',
+    'settings.open.open': 'Open the shop',
+    'settings.open.close': 'Close the shop',
+    'settings.open.error': 'Could not update the status',
     'settings.access.heading': 'Manager access',
     'settings.access.blurb':
       'Share the Command Center with someone you trust. The link opens ONLY your shop’s Command Center — no settings, stats or billing. It lasts until you revoke it, and their actions are signed with their name in the activity feed.',

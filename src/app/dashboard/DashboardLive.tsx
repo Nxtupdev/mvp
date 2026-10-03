@@ -104,7 +104,6 @@ export default function DashboardLive({
   const [shop, setShop] = useState(initialShop)
   const [entries, setEntries] = useState<Entry[]>(initialEntries)
   const [barbers, setBarbers] = useState<Barber[]>(initialBarbers)
-  const [toggleLoading, setToggleLoading] = useState(false)
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState<'checkin' | 'display' | null>(null)
   // Tick de 30s para checks de sanción (migración 047). Necesario porque
@@ -168,21 +167,6 @@ export default function DashboardLive({
       supabase.removeChannel(channel)
     }
   }, [shop.id])
-
-  async function toggleOpen() {
-    if (toggleLoading) return
-    setToggleLoading(true)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('shops')
-      .update({ is_open: !shop.is_open })
-      .eq('id', shop.id)
-      .select('id, name, is_open, max_queue_size, logo_url')
-      .single()
-    if (data) setShop(data as Shop)
-    if (error) console.error(error)
-    setToggleLoading(false)
-  }
 
   const checkinUrl = origin ? `${origin}/kiosk/${shop.id}` : ''
   const displayUrl = origin ? `${origin}/display/${shop.id}` : ''
@@ -258,17 +242,10 @@ export default function DashboardLive({
             </p>
           </div>
         </div>
-        <button
-          onClick={toggleOpen}
-          disabled={toggleLoading}
-          className="self-start sm:self-auto px-5 py-3 bg-nxtup-line border border-nxtup-dim hover:border-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
-        >
-          {toggleLoading
-            ? '...'
-            : shop.is_open
-              ? t('dash.shop.closeShop')
-              : t('dash.shop.openShop')}
-        </button>
+        {/* El botón de abrir/cerrar se mudó a Configuración (port del
+            dealer): con el horario semanal la tienda se maneja sola y
+            el interruptor es respaldo — el dashboard queda limpio,
+            solo estado. */}
       </section>
 
       <div className="grid lg:grid-cols-3 gap-8">

@@ -12,6 +12,7 @@ import {
 } from '@/lib/business-hours'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor'
 import ManagerAccessSection from './ManagerAccess'
+import ShopOpenSection from './ShopOpenSection'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
 
@@ -599,6 +600,14 @@ export default function ShopSettings({
           )}
         </div>
       </form>
+
+      <hr className="border-nxtup-line my-10" />
+
+      <ShopOpenSection
+        shopId={shop.id}
+        initialOpen={shop.is_open}
+        hasHours={hasAnyOpenDay(schedule)}
+      />
 
       <hr className="border-nxtup-line my-10" />
 
