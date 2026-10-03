@@ -51,6 +51,14 @@ export const viewport: Viewport = {
   // first paint on iPhone shows a desktop-zoomed layout.
   width: "device-width",
   initialScale: 1,
+  // "La app flota" (reporte de Francisco, oct-2026): sin estos tres,
+  // el teléfono deja pellizcar zoom y panear lateral y la PWA se
+  // siente página suelta, no app. maximumScale+userScalable matan el
+  // zoom (los tamaños de letra ya son grandes a propósito);
+  // viewportFit cover pega el shell a los bordes en iPhones con notch.
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

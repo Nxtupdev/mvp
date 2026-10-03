@@ -272,3 +272,14 @@ html, body {
     break-inside: avoid;
   }
 }
+
+/* ── Anclaje de app (oct-2026) ─────────────────────────────────
+   La PWA "flotaba": cualquier hijo más ancho que el viewport (una
+   URL larga, una tabla) dejaba panear la página entera hacia los
+   lados y se veía cortada (reporte real con foto). El eje X queda
+   clavado; el eje Y queda LIBRE a propósito — el pull-to-refresh
+   es la forma en que los dueños recogen builds nuevos. */
+html,
+body {
+  overflow-x: hidden;
+}
