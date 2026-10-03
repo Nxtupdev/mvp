@@ -226,8 +226,12 @@ export function SuccessScreen({
             {welcomeText}
           </motion.h1>
 
-          {/* Cita (066): aviso de que su barbero debe confirmarla. */}
-          {appointment && (
+          {/* Cita caso B (amarre): el barbero elegido está ocupado — banner
+              "estás en su fila". SOLO cuando no hubo asignación inmediata:
+              en caso A la API también devuelve appointment, y pintar ambos
+              bloques da mensajes contradictorios ("te llama cuando se
+              desocupe" + "te está esperando ahora"). */}
+          {appointment && !assignedBarber && (
             <motion.div variants={itemV} className="flex flex-col items-center gap-4">
               {/* La cara de su barbero — el cliente sabe a quién espera
                   aunque nunca lo haya visto (mismo marco que el selector). */}
@@ -294,6 +298,17 @@ export function SuccessScreen({
                   {t('kiosk.success.goWithSub')}
                 </p>
               </div>
+              {/* Cita caso A: el anti-dedazo aplica igual (más, incluso —
+                  lo están llamando ya). */}
+              {appointment && onCorrectAppointment && (
+                <button
+                  type="button"
+                  onClick={onCorrectAppointment}
+                  className="text-sm text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
+                >
+                  {t('kiosk.success.wrongBarber')}
+                </button>
+              )}
             </motion.div>
           ) : (
             <motion.div
