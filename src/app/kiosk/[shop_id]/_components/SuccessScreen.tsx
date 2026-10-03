@@ -199,18 +199,21 @@ export function SuccessScreen({
   const showQueueAside = queueList.length > 0
 
   return (
-    <div className="flex flex-1 flex-col lg:flex-row gap-6 lg:gap-10 px-6 py-12 sm:px-12">
+    // overflow-y-auto: con la foto del barbero (ago-2026) la columna puede
+    // exceder el viewport fijo del kiosko en tablets horizontales — sin
+    // esto, el botón Listo queda inalcanzable bajo el borde.
+    <div className="flex flex-1 flex-col lg:flex-row gap-6 lg:gap-10 px-6 py-8 sm:px-12 overflow-y-auto">
       {/* Main column — checkmark, welcome, primary CTA, button */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 sm:gap-10">
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 sm:gap-8">
         {/* Checkmark animates on its own (self-contained) */}
-        <SuccessCheckmark size={96} />
+        <SuccessCheckmark size={80} />
 
         {/* Stagger container — todo debajo del checkmark */}
         <motion.div
           initial="initial"
           animate="animate"
           variants={containerV}
-          className="flex w-full max-w-2xl flex-col items-center gap-8 sm:gap-10"
+          className="flex w-full max-w-2xl flex-col items-center gap-6 sm:gap-8"
         >
           {/* Bienvenida personalizada */}
           <motion.h1
@@ -270,17 +273,17 @@ export function SuccessScreen({
                 className="
                   flex flex-col items-center
                   rounded-3xl border border-salvia/30
-                  bg-salvia/10 px-8 py-8 sm:px-12 sm:py-10
+                  bg-salvia/10 px-8 py-6 sm:px-12 sm:py-8
                   shadow-[0_0_60px_rgba(126,215,174,0.20)]
                 "
               >
                 {/* La cara del barbero asignado — "ve con Carlos" funciona
                     mejor cuando el cliente sabe cómo luce Carlos. */}
-                <span className="mb-5 rounded-full ring-4 ring-salvia/30">
+                <span className="mb-4 rounded-full ring-4 ring-salvia/30">
                   <Avatar
                     avatar={assignedBarber.avatar ?? null}
                     name={assignedBarber.name}
-                    size={128}
+                    size={112}
                   />
                 </span>
                 <p
