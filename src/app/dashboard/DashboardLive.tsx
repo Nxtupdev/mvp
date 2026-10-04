@@ -623,7 +623,12 @@ function ShareRow({
       <p className="text-nxtup-muted text-xs uppercase tracking-widest mb-1">{label}</p>
       <p className="text-nxtup-dim text-xs mb-3 leading-relaxed">{hint}</p>
       <div className="flex items-center gap-2">
-        <code className="flex-1 text-xs text-nxtup-muted bg-nxtup-bg border border-nxtup-line rounded-md px-3 py-2 truncate font-mono">
+        {/* min-w-0: sin esto un hijo flex no encoge por debajo de su
+            contenido y el truncate nunca actúa — esta URL larga era la
+            que fijaba el ancho mínimo de TODO el grid del Live (628px
+            en un teléfono de 375: la página entera "flotaba", y con el
+            candado de overflow pasó a cortarse). */}
+        <code className="flex-1 min-w-0 text-xs text-nxtup-muted bg-nxtup-bg border border-nxtup-line rounded-md px-3 py-2 truncate font-mono">
           {url || '...'}
         </code>
         <button
