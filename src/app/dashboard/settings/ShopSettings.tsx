@@ -13,6 +13,7 @@ import {
 import WeeklyScheduleEditor from './WeeklyScheduleEditor'
 import ManagerAccessSection from './ManagerAccess'
 import ShopOpenSection from './ShopOpenSection'
+import { cleanLogoEdges } from '@/lib/logo-clean'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
 
@@ -676,7 +677,7 @@ function LogoSection({
     return () => URL.revokeObjectURL(url)
   }, [pendingFile])
 
-  function pickFile(file: File | null | undefined) {
+  async function pickFile(file: File | null | undefined) {
     if (!file) return
     if (!ALLOWED_TYPES.includes(file.type)) {
       setError(t('settings.logo.errorFormat'))
@@ -687,7 +688,11 @@ function LogoSection({
       return
     }
     setError('')
-    setPendingFile(file)
+    // Transparencia solo-en-bordes (lib/logo-clean): borra el fondo
+    // plano conectado al exterior sin tocar el interior del dibujo.
+    // La vista previa de abajo muestra el resultado YA limpio — el
+    // dueño confirma viendo lo que va a quedar en el TV/kiosko.
+    setPendingFile(await cleanLogoEdges(file))
   }
 
   async function handleUpload() {
