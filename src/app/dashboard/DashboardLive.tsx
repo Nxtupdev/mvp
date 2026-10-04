@@ -296,7 +296,12 @@ export default function DashboardLive({
         </span>
       </section>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      {/* grid-cols-1 EXPLÍCITO: `grid` sin columnas definidas dimensiona
+          la pista por max-content del hijo más ancho (la fila más larga
+          de la cola = ~626px) y en un teléfono de 375 todo el Live
+          quedaba cortado por la derecha. Con grid-cols-1 la pista es
+          minmax(0,1fr) y los hijos truncan dentro del viewport. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Queue */}
         <section className="lg:col-span-2">
           <div className="flex items-baseline justify-between mb-4">
