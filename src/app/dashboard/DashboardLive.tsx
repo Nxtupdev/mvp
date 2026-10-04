@@ -304,6 +304,47 @@ export default function DashboardLive({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Queue */}
         <section className="lg:col-span-2">
+          {/* Tráfico por hora (port dealer) — hora actual en salvia. */}
+          <div className="mb-8 rounded-2xl border border-nxtup-line p-5">
+            <div className="flex items-baseline justify-between mb-4">
+              <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.25em] font-bold">
+                {t('dash.traffic.title')}
+              </p>
+              <p className="text-nxtup-muted text-[11px] tabular-nums">
+                <span className="text-white font-semibold">{byHour.total}</span>{' '}
+                {byHour.total === 1 ? t('dash.traffic.one') : t('dash.traffic.many')}
+              </p>
+            </div>
+            <div className="flex items-end gap-1.5 h-32">
+              {byHour.hours.map(({ hour, count }) => {
+                const isNow = nowHour === hour
+                const heightPct = (count / Math.max(1, ...byHour.hours.map(x => x.count))) * 100
+                return (
+                  <div key={hour} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                    <span className="text-[10px] tabular-nums text-nxtup-muted h-3">
+                      {count > 0 ? count : ''}
+                    </span>
+                    <div className="w-full flex-1 flex items-end">
+                      <div
+                        className={`w-full rounded-t-md transition-all ${
+                          isNow ? 'bg-salvia' : count > 0 ? 'bg-salvia/40' : 'bg-white/[0.04]'
+                        }`}
+                        style={{ height: `${Math.max(heightPct, count > 0 ? 8 : 2)}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`text-[9px] tabular-nums ${
+                        isNow ? 'text-salvia-light font-bold' : 'text-nxtup-dim'
+                      }`}
+                    >
+                      {hour % 12 === 0 ? 12 : hour % 12}
+                      {hour >= 12 ? 'p' : 'a'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
           <div className="flex items-baseline justify-between mb-4">
             <h3 className="text-nxtup-muted text-xs uppercase tracking-[0.3em] font-bold">
               {t('dash.shop.liveQueue')}
@@ -374,47 +415,6 @@ export default function DashboardLive({
             <Stat label={t('dash.stat.inProgress')} value={inProgress.length} />
           </div>
 
-          {/* Tráfico por hora (port dealer) — hora actual en salvia. */}
-          <div className="mt-4 rounded-2xl border border-nxtup-line p-5">
-            <div className="flex items-baseline justify-between mb-4">
-              <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.25em] font-bold">
-                {t('dash.traffic.title')}
-              </p>
-              <p className="text-nxtup-muted text-[11px] tabular-nums">
-                <span className="text-white font-semibold">{byHour.total}</span>{' '}
-                {byHour.total === 1 ? t('dash.traffic.one') : t('dash.traffic.many')}
-              </p>
-            </div>
-            <div className="flex items-end gap-1.5 h-32">
-              {byHour.hours.map(({ hour, count }) => {
-                const isNow = nowHour === hour
-                const heightPct = (count / Math.max(1, ...byHour.hours.map(x => x.count))) * 100
-                return (
-                  <div key={hour} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                    <span className="text-[10px] tabular-nums text-nxtup-muted h-3">
-                      {count > 0 ? count : ''}
-                    </span>
-                    <div className="w-full flex-1 flex items-end">
-                      <div
-                        className={`w-full rounded-t-md transition-all ${
-                          isNow ? 'bg-salvia' : count > 0 ? 'bg-salvia/40' : 'bg-white/[0.04]'
-                        }`}
-                        style={{ height: `${Math.max(heightPct, count > 0 ? 8 : 2)}%` }}
-                      />
-                    </div>
-                    <span
-                      className={`text-[9px] tabular-nums ${
-                        isNow ? 'text-salvia-light font-bold' : 'text-nxtup-dim'
-                      }`}
-                    >
-                      {hour % 12 === 0 ? 12 : hour % 12}
-                      {hour >= 12 ? 'p' : 'a'}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
         </section>
 
         {/* Right column */}
