@@ -28,6 +28,21 @@ export function isSubscriptionActive(status: string | null | undefined): boolean
   return !!status && ACTIVE_STATUSES.has(status)
 }
 
+// ── billing_mode (migración 073, port del dealer) ───────────────────
+// Quién manda sobre el acceso del shop:
+//   'stripe'   → el webhook (lo normal: paga por checkout).
+//   'contract' → facturado por fuera (acuerdo directo); activo sin Stripe.
+//   'comp'     → cortesía de los socios; activo sin Stripe.
+export type BillingMode = 'stripe' | 'contract' | 'comp'
+
+export function hasActiveAccess(
+  mode: BillingMode | null | undefined,
+  status: string | null | undefined,
+): boolean {
+  if (mode === 'contract' || mode === 'comp') return true
+  return isSubscriptionActive(status)
+}
+
 /**
  * Fin del período actual, robusto a la versión del API: Stripe movió
  * `current_period_end` del objeto subscription al ITEM en API 2025+.

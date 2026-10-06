@@ -72,6 +72,10 @@ export async function POST(request: Request) {
   const origin = request.headers.get('origin') ?? new URL(request.url).origin
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
+    // ACH primero (port del dealer): 0.8% con tope de $5 por cobro vs
+    // 2.9%+30¢ de tarjeta — en $50/mes es la diferencia entre ~$0.40
+    // y ~$1.75 de comisión. La tarjeta queda como segunda opción.
+    payment_method_types: ['us_bank_account', 'card'],
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,

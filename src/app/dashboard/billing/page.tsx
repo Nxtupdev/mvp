@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isSubscriptionActive } from '@/lib/billing'
+import { hasActiveAccess, type BillingMode } from '@/lib/billing'
 import BillingActions from './BillingActions'
 
 export const metadata = { title: 'Suscripción — NXTUP' }
@@ -35,13 +35,16 @@ export default async function BillingPage() {
   // (migración 061 sin correr), la query falla y cae a "sin suscripción".
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('status, plan, current_period_end, cancel_at_period_end, trial_end')
+    .select('status, plan, current_period_end, cancel_at_period_end, trial_end, billing_mode')
     .eq('shop_id', shop.id)
     .maybeSingle()
 
   const status = (sub?.status as string | undefined) ?? 'none'
-  const active = isSubscriptionActive(status)
-  const hasBilling = status !== 'none'
+  // contract/comp (073): activo sin Stripe — facturación directa o
+  // cortesía de socios. Sin botón de pago en esos modos.
+  const mode = ((sub as { billing_mode?: BillingMode } | null)?.billing_mode ?? 'stripe') as BillingMode
+  const active = hasActiveAccess(mode, status)
+  const hasBilling = mode !== 'stripe' || status !== 'none'
   const periodEndRaw = sub?.current_period_end as string | null | undefined
   const periodEnd = periodEndRaw ? new Date(periodEndRaw) : null
 
