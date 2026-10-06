@@ -29,6 +29,7 @@ const MAX_AGE_SECONDS: Record<string, number> = {
   'nxtup-break-expired-offline': 5 * 60, // cada 1 min
   'nxtup-business-hours': 5 * 60, // cada 1 min
   'nxtup-expire-voice-no-shows': 5 * 60, // cada 1 min
+  'nxtup-auto-complete-stale-cuts': 20 * 60, // cada 5 min (072)
   // nxtup-auto-offline-idle NO se vigila: desactivado a propósito (046).
   // nxtup-reset-daily-breaks NO existe: lo absorbió el nightly-reset (013).
   'nxtup-demo-reseed': 45 * 60, // cada 30 min
