@@ -27,6 +27,33 @@ export type ShopAccess = {
 
 const FAIL_OPEN: ShopAccess = { allowed: true, reason: 'unknown', trialEndsAt: null }
 
+/**
+ * Clasificador PURO de la regla de acceso — la única copia de la
+ * lógica. getShopAccess la aplica a un shop (puerta de cobro) y
+ * /admin/revenue a todos en batch; si la regla cambia, cambia aquí.
+ */
+export function evaluateAccess(
+  sub: { status?: string | null; billing_mode?: BillingMode | null } | null,
+  trialEndsAt: string | null | undefined,
+  nowMs: number = Date.now(),
+): ShopAccess {
+  const mode = sub?.billing_mode ?? 'stripe'
+  const status = sub?.status ?? null
+  if (hasActiveAccess(mode, status) || status === 'past_due') {
+    return { allowed: true, reason: 'subscription', trialEndsAt: null }
+  }
+
+  if (!trialEndsAt) return FAIL_OPEN
+
+  const endMs = Date.parse(trialEndsAt)
+  if (Number.isNaN(endMs)) return FAIL_OPEN
+
+  if (endMs > nowMs) {
+    return { allowed: true, reason: 'trial', trialEndsAt }
+  }
+  return { allowed: false, reason: 'blocked', trialEndsAt }
+}
+
 export async function getShopAccess(shopId: string): Promise<ShopAccess> {
   try {
     const supabase = createAdminClient()
@@ -43,26 +70,10 @@ export async function getShopAccess(shopId: string): Promise<ShopAccess> {
         .maybeSingle(),
     ])
 
-    const sub = subRes.data as
-      | { status?: string | null; billing_mode?: BillingMode | null }
-      | null
-    const mode = sub?.billing_mode ?? 'stripe'
-    const status = sub?.status ?? null
-    if (hasActiveAccess(mode, status) || status === 'past_due') {
-      return { allowed: true, reason: 'subscription', trialEndsAt: null }
-    }
-
-    const trialEndsAt =
-      (shopRes.data as { trial_ends_at?: string | null } | null)?.trial_ends_at ?? null
-    if (!trialEndsAt) return FAIL_OPEN
-
-    const endMs = Date.parse(trialEndsAt)
-    if (Number.isNaN(endMs)) return FAIL_OPEN
-
-    if (endMs > Date.now()) {
-      return { allowed: true, reason: 'trial', trialEndsAt }
-    }
-    return { allowed: false, reason: 'blocked', trialEndsAt }
+    return evaluateAccess(
+      subRes.data as { status?: string | null; billing_mode?: BillingMode | null } | null,
+      (shopRes.data as { trial_ends_at?: string | null } | null)?.trial_ends_at,
+    )
   } catch (err) {
     console.error('[billing-access] fail-open por error', err)
     return FAIL_OPEN
