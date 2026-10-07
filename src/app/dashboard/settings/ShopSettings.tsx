@@ -612,6 +612,25 @@ export default function ShopSettings({
 
       <hr className="border-nxtup-line my-10" />
 
+      {/* Acceso a Suscripción: la barra móvil no tiene el tab (solo el
+          nav de escritorio) y los dueños pagan desde el teléfono. */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold">
+          {t('settings.billing.heading')}
+        </h2>
+        <Link
+          href="/dashboard/billing"
+          className="flex items-center justify-between border border-nxtup-line rounded-xl px-4 py-4 hover:border-nxtup-dim transition-colors"
+        >
+          <span className="text-white text-sm font-semibold">
+            {t('settings.billing.manage')}
+          </span>
+          <span className="text-nxtup-muted" aria-hidden>→</span>
+        </Link>
+      </section>
+
+      <hr className="border-nxtup-line my-10" />
+
       <AntiCheatSection
         shop={shop}
         currentIp={currentIp}

@@ -527,6 +527,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.logo.removeConfirm': 'Eliminar logo del shop?',
     // Acceso de encargado (068)
     // Estado abierta/cerrada (port dealer, oct-2026)
+    'settings.billing.heading': 'Suscripción',
+    'settings.billing.manage': 'Ver mi suscripción y pagos',
     'settings.open.heading': 'Estado de la barbería',
     'settings.open.isOpen': 'La barbería está abierta',
     'settings.open.isClosed': 'La barbería está cerrada',
@@ -1183,6 +1185,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.logo.remove': 'Remove',
     'settings.logo.removeConfirm': 'Remove shop logo?',
     // Account
+    'settings.billing.heading': 'Subscription',
+    'settings.billing.manage': 'View my subscription and payments',
     'settings.open.heading': 'Shop status',
     'settings.open.isOpen': 'The shop is open',
     'settings.open.isClosed': 'The shop is closed',
