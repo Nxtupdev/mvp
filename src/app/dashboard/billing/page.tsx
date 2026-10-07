@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
+import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { hasActiveAccess, type BillingMode } from '@/lib/billing'
+import { hasActiveAccess, priceIdForPlan, type BillingMode } from '@/lib/billing'
+import { getStripe } from '@/lib/stripe'
 import BillingActions from './BillingActions'
 
 export const metadata = { title: 'Suscripción — NXTUP' }
@@ -70,6 +72,26 @@ export default async function BillingPage() {
         timeZone: shop.timezone ?? 'America/New_York',
       })
 
+  // Precio del Queue leído de Stripe (del price live configurado por
+  // env): si mañana cambian el precio en Stripe, la card se actualiza
+  // sola — nunca queda un número viejo pintado en el código. Si Stripe
+  // no responde, la card sale sin el número y el checkout lo muestra.
+  let priceLabel: string | null = null
+  if (!hasBilling) {
+    try {
+      const priceId = priceIdForPlan('pro')
+      if (priceId) {
+        const price = await getStripe().prices.retrieve(priceId)
+        if (typeof price.unit_amount === 'number') {
+          const amount = price.unit_amount / 100
+          priceLabel = `$${Number.isInteger(amount) ? amount : amount.toFixed(2)}`
+        }
+      }
+    } catch (err) {
+      console.error('[billing] no se pudo leer el precio de Stripe', err)
+    }
+  }
+
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-2xl w-full mx-auto">
       <h1 className="text-3xl font-black tracking-tight mb-2">Suscripción</h1>
@@ -121,7 +143,66 @@ export default async function BillingPage() {
         )}
       </section>
 
-      <BillingActions mode={hasBilling ? 'manage' : 'subscribe'} />
+      {hasBilling ? (
+        <BillingActions mode="manage" />
+      ) : (
+        <section className="grid gap-4 sm:grid-cols-2 items-start">
+          {/* NXTUP Queue — el producto que se vende hoy */}
+          <div className="border border-nxtup-active/40 rounded-2xl p-6 flex flex-col gap-4">
+            <div>
+              <p className="text-nxtup-active text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
+                NXTUP Queue
+              </p>
+              {priceLabel && (
+                <p className="text-4xl font-black tracking-tight">
+                  {priceLabel}
+                  <span className="text-base font-bold text-nxtup-muted">
+                    {' '}
+                    /mes
+                  </span>
+                </p>
+              )}
+              <p className="text-nxtup-muted text-sm mt-1">
+                El sistema de turnos completo de tu barbería.
+              </p>
+            </div>
+            <ul className="text-sm text-nxtup-muted space-y-1.5">
+              {[
+                'Kiosko de check-in',
+                'TV en vivo',
+                'Cola y paneles de barberos',
+                'Stats e historial',
+              ].map(f => (
+                <li key={f} className="flex items-center gap-2">
+                  <Check size={14} className="text-nxtup-active shrink-0" aria-hidden />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <BillingActions mode="subscribe" label="Activar NXTUP Queue" />
+            <p className="text-nxtup-dim text-xs">
+              Cancela cuando quieras · paga con banco o tarjeta
+            </p>
+          </div>
+
+          {/* Julie — teaser del addon de voz. Cuando lance, esta card se
+              enciende con su precio y su botón. */}
+          <div className="border border-nxtup-line rounded-2xl p-6 opacity-60 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
+                Julie · Addon
+              </p>
+              <span className="text-[10px] uppercase tracking-wider font-bold border border-nxtup-line rounded-full px-2.5 py-1 text-nxtup-muted whitespace-nowrap">
+                Próximamente
+              </span>
+            </div>
+            <p className="text-sm text-nxtup-muted">
+              Recepcionista con IA: contesta el teléfono de tu barbería y
+              anota a los clientes en tu cola.
+            </p>
+          </div>
+        </section>
+      )}
     </main>
   )
 }

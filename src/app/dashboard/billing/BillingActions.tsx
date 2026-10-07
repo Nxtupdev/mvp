@@ -10,8 +10,10 @@ import { CreditCard, Settings } from 'lucide-react'
  */
 export default function BillingActions({
   mode,
+  label,
 }: {
   mode: 'subscribe' | 'manage'
+  label?: string
 }) {
   const [loading, setLoading] = useState(false)
 
@@ -56,10 +58,10 @@ export default function BillingActions({
       type="button"
       onClick={() => go('/api/billing/checkout')}
       disabled={loading}
-      className="inline-flex items-center gap-2 rounded-lg bg-nxtup-active text-black px-5 py-2.5 text-sm font-bold uppercase tracking-wider hover:brightness-110 transition disabled:opacity-50"
+      className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-nxtup-active text-black px-5 py-3 text-sm font-bold uppercase tracking-wider hover:brightness-110 transition disabled:opacity-50"
     >
       <CreditCard size={16} aria-hidden />
-      {loading ? 'Abriendo…' : 'Suscribirse'}
+      {loading ? 'Abriendo…' : label ?? 'Suscribirse'}
     </button>
   )
 }

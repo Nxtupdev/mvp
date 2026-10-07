@@ -85,7 +85,7 @@ export default async function DashboardLayout({
             href="/dashboard/billing"
             className="font-bold underline underline-offset-2"
           >
-            Suscribirse
+            Activar NXTUP Queue
           </Link>
         </div>
       )}
