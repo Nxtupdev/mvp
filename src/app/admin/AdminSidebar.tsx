@@ -147,6 +147,10 @@ export default function AdminSidebar({
   const pathname = usePathname()
   const { t } = useLocale()
   const visibleNav = NAV.filter(item => isAdmin || !item.adminOnly)
+  // Destinos de la tab bar inferior móvil — los 4 principales. Los
+  // demás (hoy placeholders) quedan en el drawer de la hamburguesa.
+  const TAB_HREFS = ['/admin', '/admin/shops', '/admin/revenue', '/admin/panel-tokens']
+  const tabNav = visibleNav.filter(item => TAB_HREFS.includes(item.href))
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Cerrar el drawer cuando la ruta cambia. Sin esto, al tocar un nav
@@ -176,7 +180,10 @@ export default function AdminSidebar({
           Solo visible en móvil (lg:hidden). Sticky para que se quede
           arriba al scrollear el contenido. El botón hamburguesa abre
           el drawer que tiene el mismo contenido del sidebar desktop. */}
-      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-nxtup-bg/95 backdrop-blur-md border-b border-nxtup-line">
+      {/* pt con safe-area: abierto desde el PWA (status bar translúcida)
+          el sticky se pega al tope del viewport y sin esto quedaría
+          debajo del reloj del iPhone. En navegador el inset es 0. */}
+      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-nxtup-bg/95 backdrop-blur-md border-b border-nxtup-line">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -213,7 +220,7 @@ export default function AdminSidebar({
             aria-hidden
           />
           <aside
-            className="lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-nxtup-bg border-r border-nxtup-line z-50 flex flex-col animate-slide-in"
+            className="lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-nxtup-bg border-r border-nxtup-line z-50 flex flex-col animate-slide-in pt-[env(safe-area-inset-top)]"
             role="dialog"
             aria-label={t('admin.menuNav')}
           >
@@ -247,6 +254,50 @@ export default function AdminSidebar({
           t={t}
         />
       </aside>
+
+      {/* ───────── Tab bar inferior móvil ─────────
+          El mismo patrón de app del dashboard de dueños (MobileTabBar):
+          los 4 destinos principales siempre a un toque. Lo secundario
+          (Stats/Equipo/Actividad/Salir/idioma) vive en el drawer de la
+          hamburguesa. Socios ven 3 tabs (Tokens es adminOnly). */}
+      <nav
+        aria-label={t('admin.menuNav')}
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-nxtup-bg/95 backdrop-blur-md border-t border-nxtup-line pb-[env(safe-area-inset-bottom)]"
+      >
+        <ul className={`grid ${tabNav.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          {tabNav.map(item => {
+            const active =
+              item.href === '/admin'
+                ? pathname === '/admin'
+                : pathname.startsWith(item.href)
+            const label =
+              item.href === '/admin/panel-tokens'
+                ? t('admin.nav.short.tokens')
+                : t(item.labelKey)
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-[10px] font-semibold tracking-wide transition-colors ${
+                    active ? 'text-nxtup-active' : 'text-nxtup-muted hover:text-white'
+                  }`}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width={22}
+                    height={22}
+                    aria-hidden
+                  >
+                    {item.icon}
+                  </svg>
+                  <span className="truncate w-full text-center">{label}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
     </>
   )
 }

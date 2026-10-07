@@ -393,6 +393,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'admin.nav.team': 'Equipo',
     'admin.nav.activity': 'Actividad',
     'admin.nav.panelTokens': 'Tokens de panel',
+    // Label corta para la tab bar inferior móvil (la larga no cabe).
+    'admin.nav.short.tokens': 'Tokens',
     'admin.welcome': 'Bienvenido',
     'admin.exit': 'Salir',
     'admin.title.admin': 'Admin',
@@ -1052,6 +1054,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'admin.nav.team': 'Team',
     'admin.nav.activity': 'Activity',
     'admin.nav.panelTokens': 'Panel Tokens',
+    'admin.nav.short.tokens': 'Tokens',
     'admin.welcome': 'Welcome',
     'admin.exit': 'Sign out',
     'admin.title.admin': 'Admin',

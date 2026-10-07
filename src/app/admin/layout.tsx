@@ -73,14 +73,19 @@ export default async function AdminLayout({
   const titleLabel = metadata.title?.trim() ?? ''
 
   return (
-    <div className="min-h-screen bg-nxtup-bg text-white flex">
+    // OJO: sin `flex` en este wrapper. El sidebar desktop es fixed y el
+    // top bar móvil es sticky — con flex horizontal, el top bar se
+    // convertía en una COLUMNA izquierda en móvil y aplastaba el
+    // contenido a la derecha (reporte de Francisco, oct-2026).
+    // pb-20 en móvil deja espacio para la tab bar inferior fija.
+    <div className="min-h-screen bg-nxtup-bg text-white">
       <AdminSidebar
         displayName={displayName}
         isAdmin={isAdmin}
         roleLabel={roleLabel}
         titleLabel={titleLabel}
       />
-      <div className="flex-1 min-w-0 lg:ml-64">{children}</div>
+      <div className="min-w-0 lg:ml-64 pb-20 lg:pb-0">{children}</div>
     </div>
   )
 }
