@@ -52,7 +52,11 @@ export default async function DashboardLayout({
     : null
 
   return (
-    <div className="min-h-screen flex flex-col">
+    // pt-safe: el PWA usa status bar black-translucent + viewportFit
+    // cover, así que el contenido se dibuja DEBAJO del reloj/notch del
+    // iPhone — el primer elemento (banner de billing o header) quedaba
+    // solapado. En navegador normal el inset es 0 y no cambia nada.
+    <div className="min-h-screen flex flex-col pt-[env(safe-area-inset-top)]">
       {/* PWA install banner — auto-hides once installed or when the
           browser doesn't support PWA install. Sits above the header
           so it's the first thing iPhone owners see on the dashboard.
