@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getShopAccess } from '@/lib/billing-access'
 import { verifyMamacitaBearer } from '@/lib/mamacita'
 
 /**
@@ -50,6 +51,21 @@ export async function GET(request: NextRequest) {
 
   if (!shop) {
     return Response.json({ error: 'Barbería no encontrada' }, { status: 404 })
+  }
+
+  // ── Puerta de cobro (074): shop bloqueado = "cerrado" para Julie.
+  // Mismo shape de respuesta — el flujo conversacional de "están
+  // cerrados" ya existe del lado de Mamacita, sin cambios allá.
+  const access = await getShopAccess(shopId)
+  if (!access.allowed) {
+    return Response.json({
+      shop_id: shopId,
+      is_open: false,
+      professionals_available: 0,
+      professionals_busy: 0,
+      queue_waiting: 0,
+      estimated_wait_minutes: 0,
+    })
   }
 
   const [{ data: barbers }, { count: queueWaiting }] = await Promise.all([

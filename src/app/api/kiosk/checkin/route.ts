@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getShopAccess } from '@/lib/billing-access'
 
 /**
  * Kiosk check-in v2 — combined upsert-client + create-queue-entry.
@@ -138,6 +139,18 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!shop) return Response.json({ error: 'Barbería no encontrada' }, { status: 404 })
+
+  // ── Puerta de cobro (074): sin suscripción ni prueba vigente, no
+  // entran clientes NUEVOS. La página del kiosko ya muestra la pantalla
+  // de pausa; este 402 es el respaldo server-side (fail-open adentro).
+  const access = await getShopAccess(shop_id)
+  if (!access.allowed) {
+    return Response.json(
+      { error: 'El check-in está pausado · pregunta en el mostrador' },
+      { status: 402 },
+    )
+  }
+
   if (!shop.is_open) {
     return Response.json({ error: 'La barbería está cerrada' }, { status: 409 })
   }

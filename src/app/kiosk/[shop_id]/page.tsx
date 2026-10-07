@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { getShopAccess } from '@/lib/billing-access'
 import { notFound } from 'next/navigation'
 import { KioskApp } from './KioskApp'
 
@@ -76,6 +77,35 @@ export default async function KioskPage({
     .single()
 
   if (!shop) notFound()
+
+  // ── Puerta de cobro (074): sin suscripción ni prueba vigente, el
+  // kiosko no toma clientes nuevos. Pantalla estática bilingüe (sin
+  // selector de idioma — no hay flujo que seguir). El 402 del API de
+  // check-in respalda esto para quien tenga la app vieja cacheada.
+  const access = await getShopAccess(shop_id)
+  if (!access.allowed) {
+    return (
+      <main className="min-h-dvh bg-[#0A0A0B] text-zinc-50 flex flex-col items-center justify-center px-8 text-center gap-6">
+        {shop.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={shop.logo_url}
+            alt={`${shop.name} logo`}
+            className="h-20 w-20 object-contain opacity-90"
+          />
+        ) : null}
+        <h1 className="text-3xl font-black tracking-tight">{shop.name}</h1>
+        <div className="space-y-2">
+          <p className="text-xl font-bold">El check-in digital está pausado</p>
+          <p className="text-zinc-400">Pregunta en el mostrador para tomar tu turno.</p>
+        </div>
+        <div className="space-y-1 pt-5 border-t border-zinc-800 w-full max-w-sm">
+          <p className="text-sm text-zinc-400">Digital check-in is paused.</p>
+          <p className="text-sm text-zinc-500">Ask at the front desk to get in line.</p>
+        </div>
+      </main>
+    )
+  }
 
   // Just the count of people waiting — used by the persistent header.
   // (We used to also fetch the services catalog, but Frank cut service

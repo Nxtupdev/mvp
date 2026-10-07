@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getShopAccess } from '@/lib/billing-access'
 import { verifyMamacitaSignature } from '@/lib/mamacita'
 
 /**
@@ -102,6 +103,15 @@ export async function POST(request: NextRequest) {
     .eq('id', shop_id)
     .maybeSingle()
   if (!shop) return Response.json({ error: 'Barbería no encontrada' }, { status: 404 })
+
+  // ── Puerta de cobro (074): shop sin suscripción ni prueba vigente no
+  // recibe reservas de voz. Consistente con /availability, que en ese
+  // estado reporta is_open=false — Julie normalmente ni llega aquí.
+  const access = await getShopAccess(shop_id)
+  if (!access.allowed) {
+    return Response.json({ error: 'Suscripción requerida' }, { status: 402 })
+  }
+
   if (!shop.is_open) {
     return Response.json({ error: 'La barbería está cerrada' }, { status: 409 })
   }

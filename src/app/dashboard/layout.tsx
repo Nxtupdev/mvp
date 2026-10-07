@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
 import { createClient } from '@/lib/supabase/server'
+import { getShopAccess } from '@/lib/billing-access'
 import { canAccessAdminRoutes } from '@/lib/admin-auth'
 import { InstallButton } from '@/components/InstallButton'
 import DashboardNav from './DashboardNav'
@@ -26,7 +27,7 @@ export default async function DashboardLayout({
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name')
+    .select('id, name, timezone')
     .eq('owner_id', user.id)
     .maybeSingle()
 
@@ -38,6 +39,18 @@ export default async function DashboardLayout({
     redirect('/onboarding')
   }
 
+  // Puerta de cobro (074): el banner avisa en TODO el dashboard. En
+  // prueba → cuenta regresiva ámbar; bloqueado → aviso rojo. Con
+  // suscripción activa (o comp/contract, como el demo) no hay banner.
+  const access = await getShopAccess(shop.id)
+  const trialEndLabel = access.trialEndsAt
+    ? new Date(access.trialEndsAt).toLocaleDateString('es', {
+        day: 'numeric',
+        month: 'long',
+        timeZone: shop.timezone ?? 'America/New_York',
+      })
+    : null
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* PWA install banner — auto-hides once installed or when the
@@ -47,6 +60,35 @@ export default async function DashboardLayout({
       <div className="print:hidden">
         <InstallButton variant="banner" />
       </div>
+
+      {!access.allowed && (
+        <div className="print:hidden bg-nxtup-busy/15 border-b border-nxtup-busy/30 px-4 sm:px-6 py-2.5 text-sm">
+          <span className="font-bold text-nxtup-busy">El check-in está pausado.</span>{' '}
+          <span className="text-nxtup-muted">
+            Se necesita una suscripción activa; tu cola actual sigue funcionando.
+          </span>{' '}
+          <Link
+            href="/dashboard/billing"
+            className="font-bold underline underline-offset-2"
+          >
+            Reactivar
+          </Link>
+        </div>
+      )}
+      {access.allowed && access.reason === 'trial' && trialEndLabel && (
+        <div className="print:hidden bg-nxtup-break/15 border-b border-nxtup-break/30 px-4 sm:px-6 py-2.5 text-sm">
+          <span className="text-nxtup-muted">
+            Tu periodo de prueba termina el{' '}
+            <span className="font-bold text-nxtup-break">{trialEndLabel}</span>.
+          </span>{' '}
+          <Link
+            href="/dashboard/billing"
+            className="font-bold underline underline-offset-2"
+          >
+            Suscribirse
+          </Link>
+        </div>
+      )}
 
       <header className="print:hidden flex items-center justify-between px-4 sm:px-6 py-4 border-b border-nxtup-line gap-4">
         <Link href="/dashboard" className="flex items-center gap-3 sm:gap-4 min-w-0">
