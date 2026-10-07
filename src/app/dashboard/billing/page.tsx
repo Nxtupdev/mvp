@@ -1,25 +1,29 @@
 import { redirect } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getServerI18n } from '@/lib/i18n-server'
 import { hasActiveAccess, priceIdForPlan, type BillingMode } from '@/lib/billing'
 import { getStripe } from '@/lib/stripe'
 import BillingActions from './BillingActions'
 
 export const metadata = { title: 'Suscripción — NXTUP' }
 
-const STATUS_LABEL: Record<string, string> = {
-  none: 'Sin suscripción',
-  trialing: 'En prueba',
-  active: 'Activa',
-  past_due: 'Pago pendiente',
-  unpaid: 'Sin pagar',
-  canceled: 'Cancelada',
-  incomplete: 'Incompleta',
-  incomplete_expired: 'Expirada',
-  paused: 'Pausada',
-}
+// Estados de Stripe con label traducido (billing.status.*). Uno fuera
+// de esta lista se muestra crudo — mejor feo que inventado.
+const KNOWN_STATUSES = new Set([
+  'none',
+  'trialing',
+  'active',
+  'past_due',
+  'unpaid',
+  'canceled',
+  'incomplete',
+  'incomplete_expired',
+  'paused',
+])
 
 export default async function BillingPage() {
+  const { locale, t } = await getServerI18n()
   const supabase = await createClient()
   const {
     data: { user },
@@ -66,7 +70,7 @@ export default async function BillingPage() {
   const trialActive = !hasBilling && !Number.isNaN(trialEndMs) && trialEndMs > Date.now()
   const trialEndLabel = Number.isNaN(trialEndMs)
     ? null
-    : new Date(trialEndMs).toLocaleDateString('es', {
+    : new Date(trialEndMs).toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         timeZone: shop.timezone ?? 'America/New_York',
@@ -94,13 +98,13 @@ export default async function BillingPage() {
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-2xl w-full mx-auto">
-      <h1 className="text-3xl font-black tracking-tight mb-2">Suscripción</h1>
+      <h1 className="text-3xl font-black tracking-tight mb-2">{t('billing.title')}</h1>
       <p className="text-nxtup-muted text-sm mb-8">{shop.name}</p>
 
       <section className="border border-nxtup-line rounded-2xl p-6 mb-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
-            Estado
+            {t('billing.state')}
           </span>
           <span
             className={`text-sm font-bold ${
@@ -111,34 +115,35 @@ export default async function BillingPage() {
                   : 'text-nxtup-muted'
             }`}
           >
-            {trialActive ? 'En prueba' : STATUS_LABEL[status] ?? status}
+            {trialActive
+              ? t('billing.trialBadge')
+              : KNOWN_STATUSES.has(status)
+                ? t(`billing.status.${status}`)
+                : status}
           </span>
         </div>
         {periodEnd ? (
           <p className="text-nxtup-muted text-sm">
-            {sub?.cancel_at_period_end ? 'Termina el ' : 'Se renueva el '}
-            {periodEnd.toLocaleDateString('es', {
-              day: '2-digit',
-              month: 'long',
-              year: 'numeric',
+            {t(sub?.cancel_at_period_end ? 'billing.endsOn' : 'billing.renewsOn', {
+              date: periodEnd.toLocaleDateString(locale, {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              }),
             })}
           </p>
         ) : (
           !hasBilling &&
-          (trialActive ? (
+          (trialActive && trialEndLabel ? (
             <p className="text-nxtup-muted text-sm">
-              Tu periodo de prueba termina el {trialEndLabel}. Suscríbete antes
-              para que el check-in no se interrumpa.
+              {t('billing.trialUntil', { date: trialEndLabel })}
             </p>
           ) : trialEndLabel ? (
             <p className="text-nxtup-muted text-sm">
-              Tu periodo de prueba terminó el {trialEndLabel}. El check-in está
-              pausado hasta que te suscribas.
+              {t('billing.trialEnded', { date: trialEndLabel })}
             </p>
           ) : (
-            <p className="text-nxtup-dim text-sm">
-              Aún no tienes una suscripción activa.
-            </p>
+            <p className="text-nxtup-dim text-sm">{t('billing.noSub')}</p>
           ))
         )}
       </section>
@@ -158,31 +163,24 @@ export default async function BillingPage() {
                   {priceLabel}
                   <span className="text-base font-bold text-nxtup-muted">
                     {' '}
-                    /mes
+                    {t('billing.queue.perMonth')}
                   </span>
                 </p>
               )}
               <p className="text-nxtup-muted text-sm mt-1">
-                El sistema de turnos completo de tu barbería.
+                {t('billing.queue.tagline')}
               </p>
             </div>
             <ul className="text-sm text-nxtup-muted space-y-1.5">
-              {[
-                'Kiosko de check-in',
-                'TV en vivo',
-                'Cola y paneles de barberos',
-                'Stats e historial',
-              ].map(f => (
-                <li key={f} className="flex items-center gap-2">
+              {(['f1', 'f2', 'f3', 'f4'] as const).map(k => (
+                <li key={k} className="flex items-center gap-2">
                   <Check size={14} className="text-nxtup-active shrink-0" aria-hidden />
-                  {f}
+                  {t(`billing.queue.${k}`)}
                 </li>
               ))}
             </ul>
-            <BillingActions mode="subscribe" label="Activar NXTUP Queue" />
-            <p className="text-nxtup-dim text-xs">
-              Cancela cuando quieras · paga con banco o tarjeta
-            </p>
+            <BillingActions mode="subscribe" />
+            <p className="text-nxtup-dim text-xs">{t('billing.queue.note')}</p>
           </div>
 
           {/* Julie — teaser del addon de voz. Cuando lance, esta card se
@@ -190,16 +188,13 @@ export default async function BillingPage() {
           <div className="border border-nxtup-line rounded-2xl p-6 opacity-60 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
-                Julie · Addon
+                {t('billing.julie.label')}
               </p>
               <span className="text-[10px] uppercase tracking-wider font-bold border border-nxtup-line rounded-full px-2.5 py-1 text-nxtup-muted whitespace-nowrap">
-                Próximamente
+                {t('billing.julie.badge')}
               </span>
             </div>
-            <p className="text-sm text-nxtup-muted">
-              Recepcionista con IA: contesta el teléfono de tu barbería y
-              anota a los clientes en tu cola.
-            </p>
+            <p className="text-sm text-nxtup-muted">{t('billing.julie.desc')}</p>
           </div>
         </section>
       )}

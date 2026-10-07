@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
 import { createClient } from '@/lib/supabase/server'
+import { getServerI18n } from '@/lib/i18n-server'
 import { getShopAccess } from '@/lib/billing-access'
 import { canAccessAdminRoutes } from '@/lib/admin-auth'
 import { InstallButton } from '@/components/InstallButton'
@@ -42,9 +43,10 @@ export default async function DashboardLayout({
   // Puerta de cobro (074): el banner avisa en TODO el dashboard. En
   // prueba → cuenta regresiva ámbar; bloqueado → aviso rojo. Con
   // suscripción activa (o comp/contract, como el demo) no hay banner.
+  const { locale, t } = await getServerI18n()
   const access = await getShopAccess(shop.id)
   const trialEndLabel = access.trialEndsAt
-    ? new Date(access.trialEndsAt).toLocaleDateString('es', {
+    ? new Date(access.trialEndsAt).toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         timeZone: shop.timezone ?? 'America/New_York',
@@ -67,29 +69,29 @@ export default async function DashboardLayout({
 
       {!access.allowed && (
         <div className="print:hidden bg-nxtup-busy/15 border-b border-nxtup-busy/30 px-4 sm:px-6 py-2.5 text-sm">
-          <span className="font-bold text-nxtup-busy">El check-in está pausado.</span>{' '}
-          <span className="text-nxtup-muted">
-            Se necesita una suscripción activa; tu cola actual sigue funcionando.
+          <span className="font-bold text-nxtup-busy">
+            {t('billing.banner.blockedTitle')}
           </span>{' '}
+          <span className="text-nxtup-muted">{t('billing.banner.blockedBody')}</span>{' '}
           <Link
             href="/dashboard/billing"
             className="font-bold underline underline-offset-2"
           >
-            Reactivar
+            {t('billing.banner.reactivate')}
           </Link>
         </div>
       )}
       {access.allowed && access.reason === 'trial' && trialEndLabel && (
         <div className="print:hidden bg-nxtup-break/15 border-b border-nxtup-break/30 px-4 sm:px-6 py-2.5 text-sm">
           <span className="text-nxtup-muted">
-            Tu periodo de prueba termina el{' '}
+            {t('billing.banner.trialPre')}{' '}
             <span className="font-bold text-nxtup-break">{trialEndLabel}</span>.
           </span>{' '}
           <Link
             href="/dashboard/billing"
             className="font-bold underline underline-offset-2"
           >
-            Activar NXTUP Queue
+            {t('billing.queue.cta')}
           </Link>
         </div>
       )}

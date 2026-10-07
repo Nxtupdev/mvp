@@ -2,20 +2,20 @@
 
 import { useState } from 'react'
 import { CreditCard, Settings } from 'lucide-react'
+import { useLocale } from '@/lib/i18n'
 
 /**
  * Botones de billing. `subscribe` → Stripe Checkout; `manage` → Billing
  * Portal. Ambos POST-ean a su endpoint, que devuelve una { url } de Stripe
- * a la que redirigimos.
+ * a la que redirigimos. Labels bilingües vía billing.* del catálogo.
  */
 export default function BillingActions({
   mode,
-  label,
 }: {
   mode: 'subscribe' | 'manage'
-  label?: string
 }) {
   const [loading, setLoading] = useState(false)
+  const { t } = useLocale()
 
   async function go(endpoint: string) {
     if (loading) return
@@ -28,12 +28,12 @@ export default function BillingActions({
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j.url) {
-        window.alert(j.error ?? 'No se pudo continuar. Intenta de nuevo.')
+        window.alert(j.error ?? t('billing.error'))
         return
       }
       window.location.href = j.url as string
     } catch {
-      window.alert('No se pudo continuar. Intenta de nuevo.')
+      window.alert(t('billing.error'))
     } finally {
       setLoading(false)
     }
@@ -48,7 +48,7 @@ export default function BillingActions({
         className="inline-flex items-center gap-2 rounded-lg border border-nxtup-line px-5 py-2.5 text-sm font-bold hover:border-white transition-colors disabled:opacity-50"
       >
         <Settings size={16} aria-hidden />
-        {loading ? 'Abriendo…' : 'Gestionar suscripción'}
+        {loading ? t('billing.opening') : t('billing.manage')}
       </button>
     )
   }
@@ -61,7 +61,7 @@ export default function BillingActions({
       className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-nxtup-active text-black px-5 py-3 text-sm font-bold uppercase tracking-wider hover:brightness-110 transition disabled:opacity-50"
     >
       <CreditCard size={16} aria-hidden />
-      {loading ? 'Abriendo…' : label ?? 'Suscribirse'}
+      {loading ? t('billing.opening') : t('billing.queue.cta')}
     </button>
   )
 }
