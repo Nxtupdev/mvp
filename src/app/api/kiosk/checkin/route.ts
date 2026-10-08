@@ -20,7 +20,7 @@ import { getShopAccess } from '@/lib/billing-access'
  * What it preserves from the legacy endpoint:
  *   * Shop open/closed check
  *   * Queue-size cap (shop.max_queue_size)
- *   * Phone-based daily rate limit (3 check-ins per day per shop)
+ *   * Phone-based daily rate limit (6 check-ins per day per shop)
  *   * Immediate barber match if a free, on-time barber is waiting
  *   * Toll-aware: barbers paying late toll are skipped for auto-match
  *
@@ -207,9 +207,15 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ── Daily rate limit per phone per shop (3 max) ─────────────
+  // ── Daily rate limit per phone per shop (6 max) ─────────────
   // Re-implemented against the new client_id linkage. Falls back
   // to phone match for any legacy entries pre-migration 032.
+  //
+  // 6 y no 3 (caso real, oct-2026): un papá con 3 hijos registra 4
+  // turnos con su teléfono — el grupo legítimo más grande es una
+  // familia. El límite existe contra el flood del endpoint público
+  // (un número llenando la cola de 20), no contra familias; 6 cubre
+  // a la familia y sigue dejando el flood fuera de alcance.
   //
   // EXCEPCIÓN (presencia de voz): si este teléfono tiene una reserva de VOZ
   // pendiente (Mamacita: mamacita_entry_id no null, arrived_at null, waiting),
@@ -237,9 +243,9 @@ export async function POST(request: NextRequest) {
       .eq('client_phone', phone)
       .gte('created_at', todayStart.toISOString())
 
-    if (todayCount !== null && todayCount >= 3) {
+    if (todayCount !== null && todayCount >= 6) {
       return Response.json(
-        { error: 'Máximo 3 check-ins por día en esta barbería' },
+        { error: 'Máximo 6 check-ins por día en esta barbería' },
         { status: 429 },
       )
     }
