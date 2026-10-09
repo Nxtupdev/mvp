@@ -54,6 +54,35 @@ export function evaluateAccess(
   return { allowed: false, reason: 'blocked', trialEndsAt }
 }
 
+/**
+ * Candado de la "pizarra" (decisión de Francisco, 8-oct-2026): muchos
+ * dueños son barberos, y con la puerta de cobro cerrada podrían seguir
+ * usando los botones del panel como tablero de turnos gratis (clientes
+ * sin registrar, FIFO arbitrado por el sistema). Regla: bloqueado por
+ * cobro Y piso ya drenado (cero clientes activos) → los cambios de
+ * estado del barbero se rechazan. Mientras queden clientes de antes
+ * del bloqueo, los botones siguen vivos para terminarlos — el cobro
+ * jamás congela un piso con gente adentro. Fail-open ante errores.
+ */
+export async function floorIsPaused(shopId: string): Promise<boolean> {
+  try {
+    const access = await getShopAccess(shopId)
+    if (access.allowed) return false
+
+    const supabase = createAdminClient()
+    const { count, error } = await supabase
+      .from('queue_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('shop_id', shopId)
+      .in('status', ['waiting', 'called', 'in_progress'])
+    if (error) return false
+    return (count ?? 0) === 0
+  } catch (err) {
+    console.error('[billing-access] floorIsPaused fail-open', err)
+    return false
+  }
+}
+
 export async function getShopAccess(shopId: string): Promise<ShopAccess> {
   try {
     const supabase = createAdminClient()

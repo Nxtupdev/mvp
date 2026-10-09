@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { floorIsPaused } from '@/lib/billing-access'
 import { getClientIp } from '@/lib/client-ip'
 import { buildBarberOrder } from '@/lib/queue-order'
 import { getPanelTokenInfo } from '@/lib/panel-token'
@@ -74,6 +75,19 @@ export async function PATCH(
     .single()
 
   if (!barber) return Response.json({ error: 'Barbero no encontrado' }, { status: 404 })
+
+  // ── Candado de pizarra (puerta de cobro 074) ────────────────
+  // Shop bloqueado por cobro Y sin clientes activos → el panel queda
+  // en solo-lectura (el mensaje sale tal cual en el panel del barbero).
+  // Con clientes de antes del bloqueo, los botones siguen funcionando
+  // para drenar el piso. Aplica a TODOS los callers de esta ruta
+  // (panel, device, Centro de Mando, dueño) — un solo chokepoint.
+  if (await floorIsPaused(barber.shop_id)) {
+    return Response.json(
+      { error: 'Barbería pausada por suscripción · habla con el dueño' },
+      { status: 423 },
+    )
+  }
 
   // ── Scope-limit del panel token al shop del barbero ─────────
   // Un token del shop A NO puede cambiar barberos del shop B aunque
