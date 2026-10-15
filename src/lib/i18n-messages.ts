@@ -85,6 +85,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     // ── Landing footer ─────────────────────────────────────────
     'footer.console': 'Consola',
+    'footer.terms': 'Términos',
+    'footer.privacy': 'Privacidad',
 
     // ── Visuals (SVG inline copy) ──────────────────────────────
     'visual.client.next': 'Eres el siguiente',
@@ -806,6 +808,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     // ── Landing footer ─────────────────────────────────────────
     'footer.console': 'Console',
+    'footer.terms': 'Terms',
+    'footer.privacy': 'Privacy',
 
     // ── Visuals (SVG inline copy) ──────────────────────────────
     'visual.client.next': "You're up next",

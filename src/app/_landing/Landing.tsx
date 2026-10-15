@@ -590,6 +590,12 @@ function Footer() {
           >
             {t('footer.console')}
           </Link>
+          <Link href="/terms" className="hover:text-nxtup-fg transition-colors">
+            {t('footer.terms')}
+          </Link>
+          <Link href="/privacy" className="hover:text-nxtup-fg transition-colors">
+            {t('footer.privacy')}
+          </Link>
         </div>
       </div>
     </footer>
