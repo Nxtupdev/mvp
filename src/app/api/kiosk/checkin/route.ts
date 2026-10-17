@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getShopAccess } from '@/lib/billing-access'
+import { notifyCheckinConfirmed } from '@/lib/notify'
 
 /**
  * Kiosk check-in v2 — combined upsert-client + create-queue-entry.
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
   // ── Shop existence + open/cap gates ─────────────────────────
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, is_open, max_queue_size')
+    .select('id, name, is_open, max_queue_size')
     .eq('id', shop_id)
     .single()
 
@@ -560,6 +561,22 @@ export async function POST(request: NextRequest) {
     : (queueCount ?? 0) + 1 // includes their own freshly-inserted row
   const positionsAhead = assignedBarber ? 0 : queueCount ?? 0
   const etaMinutes = estimateEta(positionsAhead)
+
+  // Confirmación al cliente por SMS/WhatsApp (mejor esfuerzo, apagado sin
+  // NOTIFY_CHANNEL). Solo cuando queda ESPERANDO: con match inmediato el
+  // cliente está parado frente a la pantalla de éxito caminando a la
+  // silla — un "eres el #1, espera 0 min" sería ruido pagado.
+  if (!assignedBarber) {
+    await notifyCheckinConfirmed({
+      phone,
+      lang,
+      name: displayName,
+      shopName: shop.name,
+      position: queuePosition,
+      etaMin: etaMinutes.min,
+      etaMax: etaMinutes.max,
+    })
+  }
 
   // ── Lista pública de clientes en cola ───────────────────────
   // Devolvemos los nombres (solo primer nombre — eso es lo que se

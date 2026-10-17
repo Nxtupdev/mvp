@@ -6,6 +6,7 @@ import { getClientIp } from '@/lib/client-ip'
 import { buildBarberOrder } from '@/lib/queue-order'
 import { getPanelTokenInfo } from '@/lib/panel-token'
 import { notifyMamacita } from '@/lib/mamacita'
+import { notifyBarberReady } from '@/lib/notify'
 
 const VALID = ['available', 'busy', 'break', 'offline'] as const
 type Status = (typeof VALID)[number]
@@ -588,6 +589,14 @@ export async function PATCH(
             queue_position: next.position,
             entry_id: next.id,
           },
+        })
+
+        // Avisar al cliente que su barbero lo espera (SMS/WhatsApp, mejor
+        // esfuerzo — apagado sin NOTIFY_CHANNEL; nunca rompe la transición).
+        await notifyBarberReady({
+          entryId: next.id,
+          barberName: barber.name,
+          shopId: barber.shop_id,
         })
       }
       // Si NO ganamos (otro barbero lo tomó primero), el barbero queda
