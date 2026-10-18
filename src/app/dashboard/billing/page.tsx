@@ -67,6 +67,12 @@ export default async function BillingPage() {
   const mode = ((sub as { billing_mode?: BillingMode } | null)?.billing_mode ?? 'stripe') as BillingMode
   const active = hasActiveAccess(mode, status)
   const hasBilling = mode !== 'stripe' || status !== 'none'
+  // Reactivación (18-oct, caso Prueba Barber): una suscripción MUERTA
+  // (canceled/unpaid/incomplete/paused) dejaba la página sin camino de
+  // vuelta — solo "Gestionar", sin botón de suscribirse. Con billing
+  // por Stripe y sin acceso activo, las cards de producto se muestran
+  // SIEMPRE (reactivar = un checkout nuevo).
+  const canSubscribe = mode === 'stripe' && !active
   const periodEndRaw = sub?.current_period_end as string | null | undefined
   const periodEnd = periodEndRaw ? new Date(periodEndRaw) : null
 
@@ -106,7 +112,7 @@ export default async function BillingPage() {
   // sola — nunca queda un número viejo pintado en el código. Si Stripe
   // no responde, la card sale sin el número y el checkout lo muestra.
   let priceLabel: string | null = null
-  if (!hasBilling) {
+  if (canSubscribe) {
     try {
       const priceId = priceIdForPlan('pro')
       if (priceId) {
@@ -188,13 +194,15 @@ export default async function BillingPage() {
         )}
       </section>
 
-      {hasBilling ? (
+      {hasBilling && (
         <>
           <BillingActions mode="manage" />
 
-          {/* Add-on Julie (076) — solo en billing por Stripe: comp y
-              contract se acuerdan con los socios, no con un botón. */}
+          {/* Add-on Julie (076) — solo con suscripción Stripe ACTIVA:
+              comp y contract se acuerdan con los socios, y una
+              suscripción muerta primero se reactiva (cards de abajo). */}
           {mode === 'stripe' &&
+            active &&
             (julieActive ? (
               <section className="border border-nxtup-active/40 rounded-2xl p-6 mt-6 flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-2">
@@ -254,8 +262,10 @@ export default async function BillingPage() {
               </section>
             ) : null)}
         </>
-      ) : (
-        <section className="grid gap-4 sm:grid-cols-2 items-start">
+      )}
+
+      {canSubscribe && (
+        <section className={`grid gap-4 sm:grid-cols-2 items-start ${hasBilling ? 'mt-6' : ''}`}>
           {/* NXTUP Queue — el producto que se vende hoy */}
           <div className="border border-nxtup-active/40 rounded-2xl p-6 flex flex-col gap-4">
             <div>

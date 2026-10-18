@@ -70,8 +70,8 @@ export async function POST(request: Request) {
   }
 
   const origin = request.headers.get('origin') ?? new URL(request.url).origin
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
+  const sessionParams = {
+    mode: 'subscription' as const,
     // ACH primero (port del dealer): 0.8% con tope de $5 por cobro vs
     // 2.9%+30¢ de tarjeta — en $50/mes es la diferencia entre ~$0.40
     // y ~$1.75 de comisión. La tarjeta queda como segunda opción.
@@ -83,7 +83,35 @@ export async function POST(request: Request) {
     cancel_url: `${origin}/dashboard/billing?canceled=1`,
     metadata: { shop_id: shop.id, plan },
     subscription_data: { metadata: { shop_id: shop.id, plan } },
-  })
+  }
+
+  let session
+  try {
+    session = await stripe.checkout.sessions.create(sessionParams)
+  } catch (err) {
+    // Customer guardado de OTRO modo de Stripe (test vs live) — pasa en
+    // shops que probaron el ciclo en test antes del switch (caso Prueba
+    // Barber, 18-oct): el id viejo no existe en live y el checkout
+    // moría. Auto-reparo: customer fresco, upsert y un reintento.
+    const e = err as { code?: string; param?: string }
+    if (e?.code !== 'resource_missing' || e?.param !== 'customer') throw err
+
+    const customer = await stripe.customers.create({
+      email: user.email ?? undefined,
+      name: shop.name,
+      metadata: { shop_id: shop.id, owner_id: user.id },
+    })
+    customerId = customer.id
+    await admin.from('subscriptions').upsert({
+      shop_id: shop.id,
+      stripe_customer_id: customerId,
+      updated_at: new Date().toISOString(),
+    })
+    session = await stripe.checkout.sessions.create({
+      ...sessionParams,
+      customer: customerId,
+    })
+  }
 
   return Response.json({ url: session.url })
 }
