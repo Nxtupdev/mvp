@@ -1,3 +1,4 @@
+import type Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
@@ -70,8 +71,8 @@ export async function POST(request: Request) {
   }
 
   const origin = request.headers.get('origin') ?? new URL(request.url).origin
-  const sessionParams = {
-    mode: 'subscription' as const,
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
+    mode: 'subscription',
     // ACH primero (port del dealer): 0.8% con tope de $5 por cobro vs
     // 2.9%+30¢ de tarjeta — en $50/mes es la diferencia entre ~$0.40
     // y ~$1.75 de comisión. La tarjeta queda como segunda opción.
