@@ -497,6 +497,23 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.port.sending': 'Enviando…',
     'julieNum.port.infoNote':
       'El porte tarda varios días y tu línea sigue funcionando mientras tanto. Te escribiremos por WhatsApp para pedirte los documentos de tu carrier.',
+    'julieNum.fwdTitle': 'Mantén tu número (desvío)',
+    'julieNum.fwdDesc':
+      'Tus clientes siguen marcando tu número de siempre; las llamadas se desvían a Julie.',
+    'julieNum.fwd.currentLabel': 'Tu número de siempre (el que marcan tus clientes)',
+    'julieNum.fwd.cta': 'Usar el {number} con desvío',
+    'julieNum.fwd.needCurrent': 'Escribe tu número de siempre para continuar.',
+    'julieNum.fwd.pendingTitle': 'Configura el desvío',
+    'julieNum.fwd.verifyIntro':
+      'Cuando tengas el desvío configurado, haz una llamada de prueba a tu número de siempre y toca Verificar:',
+    'julieNum.fwd.verifyCta': 'Verificar desvío',
+    'julieNum.fwd.verifying': 'Verificando…',
+    'julieNum.fwd.notVerified':
+      'Aún no vemos tu llamada de prueba. Haz la llamada a tu número de siempre y vuelve a verificar.',
+    'julieNum.fwd.calleridWarn':
+      'El desvío funciona, pero tu operador no pasa el número del cliente que llama. Julie contesta igual, pero las confirmaciones por mensaje y el reconocimiento de clientes repetidos se ven afectados. Considera un desvío condicional o revisa la configuración con tu operador.',
+    'julieNum.fwd.doneDesc':
+      'Desvío confirmado: tus clientes marcan tu número de siempre y Julie contesta. No publiques este número nuevo; es interno del desvío.',
     'julieNum.doneTitle': 'Número activo',
     'julieNum.doneDesc':
       'Julie contesta este número. Ponlo en tu Google Business, tu Instagram y donde te llamen tus clientes.',
@@ -1275,6 +1292,23 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.port.sending': 'Sending…',
     'julieNum.port.infoNote':
       'Porting takes several days and your line keeps working in the meantime. We will message you on WhatsApp to request your carrier documents.',
+    'julieNum.fwdTitle': 'Keep your number (forwarding)',
+    'julieNum.fwdDesc':
+      'Clients keep dialing your usual number; calls forward to Julie.',
+    'julieNum.fwd.currentLabel': 'Your usual number (the one clients dial)',
+    'julieNum.fwd.cta': 'Use {number} with forwarding',
+    'julieNum.fwd.needCurrent': 'Enter your usual number to continue.',
+    'julieNum.fwd.pendingTitle': 'Set up forwarding',
+    'julieNum.fwd.verifyIntro':
+      'Once forwarding is set up, make a test call to your usual number and tap Verify:',
+    'julieNum.fwd.verifyCta': 'Verify forwarding',
+    'julieNum.fwd.verifying': 'Verifying…',
+    'julieNum.fwd.notVerified':
+      "We don't see your test call yet. Call your usual number and verify again.",
+    'julieNum.fwd.calleridWarn':
+      "Forwarding works, but your carrier doesn't pass the caller's number. Julie still answers, but message confirmations and returning-client recognition are affected. Consider conditional forwarding or review your carrier settings.",
+    'julieNum.fwd.doneDesc':
+      "Forwarding confirmed: clients dial your usual number and Julie answers. Don't publish this new number; it's internal to the forwarding.",
     'julieNum.doneTitle': 'Number active',
     'julieNum.doneDesc':
       'Julie answers this number. Put it on your Google Business, your Instagram, and wherever clients call you.',

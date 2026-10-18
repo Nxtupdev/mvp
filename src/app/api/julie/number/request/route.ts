@@ -92,7 +92,19 @@ export async function POST(request: Request) {
       { status: 400 },
     )
   }
-  if (choice !== 'buy' && choice !== 'port') {
+  // Desvío (079): número nuevo elegido de la lista + el número público
+  // actual del dueño (sus clientes lo siguen marcando; el carrier
+  // desvía hacia el de Julie). Sin titularidad: no se transfiere nada.
+  if (
+    choice === 'forward' &&
+    (!/^\+1\d{10}$/.test(requestedNumber) || !currentNumber)
+  ) {
+    return Response.json(
+      { error: 'Faltan datos del desvío (número elegido y tu número actual).' },
+      { status: 400 },
+    )
+  }
+  if (choice !== 'buy' && choice !== 'port' && choice !== 'forward') {
     return Response.json({ error: 'Pedido inválido' }, { status: 400 })
   }
 
@@ -127,19 +139,32 @@ export async function POST(request: Request) {
             requested_number: requestedNumber,
             owner_name: shop.name,
           }
-        : {
-            shop_id: shop.id,
-            choice: 'port',
-            current_number: currentNumber,
-            owner_name: shop.name,
-            owner_phone: ownerPhone,
-          }
+        : choice === 'forward'
+          ? {
+              shop_id: shop.id,
+              choice: 'forward',
+              requested_number: requestedNumber,
+              current_number: currentNumber,
+              owner_name: shop.name,
+            }
+          : {
+              shop_id: shop.id,
+              choice: 'port',
+              current_number: currentNumber,
+              owner_name: shop.name,
+              owner_phone: ownerPhone,
+            }
     const res = await signedMamacitaPost(url, payload)
     const body = (res.body ?? {}) as {
       status?: string
       number?: string
       fail_reason?: string
       numbers?: string[]
+      // Desvío (079): pasos de configuración bilingües que la UI
+      // muestra al dueño hasta que verifique la llamada de prueba.
+      setup?: string
+      forward_to?: string
+      instructions?: unknown
     }
     if (res.status !== 200 || !body.status) {
       console.error('[julie/number/request] mamacita respondió', res.status, res.body)
@@ -154,11 +179,14 @@ export async function POST(request: Request) {
     await admin.from('julie_numbers').upsert({
       shop_id: shop.id,
       choice,
-      requested_number: choice === 'buy' ? requestedNumber : null,
-      current_number: choice === 'port' ? currentNumber : null,
+      requested_number: choice === 'port' ? null : requestedNumber,
+      current_number: choice === 'buy' ? null : currentNumber,
       status: body.status,
       number: body.status === 'completed' ? body.number ?? null : null,
       fail_reason: body.status === 'failed' ? body.fail_reason ?? null : null,
+      ...(choice === 'forward'
+        ? { instructions: body.instructions ?? null, forward_verified: false }
+        : {}),
       updated_at: new Date().toISOString(),
     })
 
@@ -167,6 +195,7 @@ export async function POST(request: Request) {
       number: body.number ?? null,
       fail_reason: body.fail_reason ?? null,
       numbers: body.numbers ?? null, // alternativas frescas si number_taken
+      instructions: choice === 'forward' ? body.instructions ?? null : null,
     })
   } catch (err) {
     console.error('[julie/number/request] error', err)

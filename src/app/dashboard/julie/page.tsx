@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
 import NumberSetup from './NumberSetup'
+import ForwardVerify from './ForwardVerify'
 
 export const metadata = { title: 'Julie — NXTUP' }
 
@@ -12,7 +13,7 @@ export const metadata = { title: 'Julie — NXTUP' }
  * progreso; la provisión real (Twilio-Softmedia + VAPI) es de Mamacita.
  */
 export default async function JuliePage() {
-  const { t } = await getServerI18n()
+  const { locale, t } = await getServerI18n()
   const supabase = await createClient()
   const {
     data: { user },
@@ -42,6 +43,33 @@ export default async function JuliePage() {
     .maybeSingle()
   const numStatus = (numRow?.status as string | undefined) ?? 'not_started'
 
+  // Desvío (079) en select APARTE y fail-open: pre-migración falla solo
+  // esto y la página sigue tratando el número como compra normal.
+  const { data: fwdRow } = await supabase
+    .from('julie_numbers')
+    .select('choice, forward_verified, instructions')
+    .eq('shop_id', shop.id)
+    .maybeSingle()
+  type FwdInstructions = {
+    forward_to?: string
+    recommended?: string
+    es?: { title?: string; steps?: string[]; note?: string }
+    en?: { title?: string; steps?: string[]; note?: string }
+  }
+  const fwd = fwdRow as {
+    choice?: string
+    forward_verified?: boolean
+    instructions?: FwdInstructions | null
+  } | null
+  const forwardPending =
+    numStatus === 'completed' &&
+    fwd?.choice === 'forward' &&
+    fwd.forward_verified !== true
+  const instr =
+    (locale === 'en' ? fwd?.instructions?.en : fwd?.instructions?.es) ??
+    fwd?.instructions?.es ??
+    null
+
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-2xl w-full mx-auto">
       <h1 className="text-3xl font-black tracking-tight mb-2">Julie</h1>
@@ -57,13 +85,35 @@ export default async function JuliePage() {
             {t('julieNum.goBilling')} →
           </Link>
         </section>
+      ) : forwardPending && numRow?.number ? (
+        <section className="border border-nxtup-break/40 rounded-2xl p-6 flex flex-col gap-4">
+          <div>
+            <p className="text-nxtup-break text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
+              {t('julieNum.fwd.pendingTitle')}
+            </p>
+            <p className="text-4xl font-black tracking-tight mb-2">{numRow.number}</p>
+            <p className="text-sm text-nxtup-muted">{instr?.title ?? t('julieNum.fwd.verifyIntro')}</p>
+          </div>
+          {instr?.steps && instr.steps.length > 0 && (
+            <ol className="text-sm text-nxtup-muted space-y-2 list-decimal list-inside">
+              {instr.steps.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ol>
+          )}
+          {instr?.note && <p className="text-xs text-nxtup-dim">{instr.note}</p>}
+          <p className="text-sm text-nxtup-muted">{t('julieNum.fwd.verifyIntro')}</p>
+          <ForwardVerify />
+        </section>
       ) : numStatus === 'completed' && numRow?.number ? (
         <section className="border border-nxtup-active/40 rounded-2xl p-6">
           <p className="text-nxtup-active text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
             {t('julieNum.doneTitle')}
           </p>
           <p className="text-4xl font-black tracking-tight mb-2">{numRow.number}</p>
-          <p className="text-sm text-nxtup-muted">{t('julieNum.doneDesc')}</p>
+          <p className="text-sm text-nxtup-muted">
+            {fwd?.choice === 'forward' ? t('julieNum.fwd.doneDesc') : t('julieNum.doneDesc')}
+          </p>
         </section>
       ) : numStatus === 'submitted' ||
         numStatus === 'porting_in_progress' ||
