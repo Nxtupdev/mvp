@@ -263,11 +263,27 @@ export default function ShopSettings({
 
       <Link
         href="/dashboard/services"
-        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-8 hover:border-white transition-colors group"
+        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-4 hover:border-white transition-colors group"
       >
         <div className="min-w-0">
           <p className="text-white font-semibold text-sm">{t('services.title')}</p>
           <p className="text-nxtup-dim text-xs">{t('services.linkHint')}</p>
+        </div>
+        <span
+          className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
+          aria-hidden
+        >
+          →
+        </span>
+      </Link>
+
+      <Link
+        href="/dashboard/ayuda"
+        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-8 hover:border-white transition-colors group"
+      >
+        <div className="min-w-0">
+          <p className="text-white font-semibold text-sm">{t('help.linkTitle')}</p>
+          <p className="text-nxtup-dim text-xs">{t('help.linkHint')}</p>
         </div>
         <span
           className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"

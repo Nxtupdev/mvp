@@ -440,6 +440,25 @@ export const MESSAGES: Record<Locale, Messages> = {
       'Julie contesta el teléfono de tu barbería. Se cobra en tu misma factura mensual.',
     'billing.julie.confirmOff':
       '¿Desactivar Julie? Deja de contestar al instante y el mes ya pagado no se reembolsa.',
+
+    // ── Tutoriales (/dashboard/ayuda) ───────────────────────────
+    'help.title': 'Tutoriales',
+    'help.subtitle':
+      'Videos de 60 a 90 segundos para ti y tu equipo. Compárteselos a tus barberos.',
+    'help.linkTitle': 'Tutoriales',
+    'help.linkHint': 'Videos cortos: tu dashboard, el panel del barbero y más',
+    'help.owner': 'Para el dueño',
+    'help.barber': 'Para tus barberos',
+    'help.v.config.title': 'Configura tu barbería e instala la app',
+    'help.v.config.desc': 'Horario, tu equipo y cómo poner NXTUP en el teléfono.',
+    'help.v.live.title': 'Tu dashboard En vivo',
+    'help.v.live.desc': 'La cola y tus barberos en tiempo real, desde donde estés.',
+    'help.v.cobro.title': 'Activa tu suscripción',
+    'help.v.cobro.desc': 'Cómo suscribirte y gestionar tu plan.',
+    'help.v.barbero.title': 'Tu panel en 60 segundos',
+    'help.v.barbero.desc': 'Disponible, ocupado y break: así se trabaja el turno.',
+    'help.v.citas.title': 'Citas',
+    'help.v.citas.desc': 'Qué pasa cuando un cliente llega con cita desde el kiosko.',
     'billing.manage': 'Gestionar suscripción',
     'billing.opening': 'Abriendo…',
     'billing.error': 'No se pudo continuar. Intenta de nuevo.',
@@ -1152,6 +1171,25 @@ export const MESSAGES: Record<Locale, Messages> = {
       "Julie answers your barbershop's phone. Billed on your same monthly invoice.",
     'billing.julie.confirmOff':
       'Remove Julie? She stops answering immediately and the month already paid is not refunded.',
+
+    // ── Tutorials (/dashboard/ayuda) ────────────────────────────
+    'help.title': 'Tutorials',
+    'help.subtitle':
+      '60-to-90-second videos for you and your team. Share them with your barbers.',
+    'help.linkTitle': 'Tutorials',
+    'help.linkHint': 'Short videos: your dashboard, the barber panel and more',
+    'help.owner': 'For the owner',
+    'help.barber': 'For your barbers',
+    'help.v.config.title': 'Set up your shop and install the app',
+    'help.v.config.desc': 'Hours, your team, and how to put NXTUP on your phone.',
+    'help.v.live.title': 'Your Live dashboard',
+    'help.v.live.desc': 'The queue and your barbers in real time, from anywhere.',
+    'help.v.cobro.title': 'Activate your subscription',
+    'help.v.cobro.desc': 'How to subscribe and manage your plan.',
+    'help.v.barbero.title': 'Your panel in 60 seconds',
+    'help.v.barbero.desc': 'Available, busy and break: how to work your shift.',
+    'help.v.citas.title': 'Appointments',
+    'help.v.citas.desc': 'What happens when a client arrives with an appointment at the kiosk.',
     'billing.manage': 'Manage subscription',
     'billing.opening': 'Opening…',
     'billing.error': 'Something went wrong. Try again.',
