@@ -21,6 +21,25 @@ export function priceIdForPlan(plan: PlanKey): string | null {
   return env ? process.env[env] ?? null : null
 }
 
+// ── Add-ons (076) ────────────────────────────────────────────────────
+// APARTE de PLANS a propósito: un add-on es un item extra dentro de la
+// suscripción existente, nunca una suscripción propia — si viviera en
+// PLANS, /api/billing/checkout dejaría crear una suscripción de SOLO
+// Julie sin el Queue, que es justo lo que el modelo prohíbe.
+// Sin la env configurada el add-on no existe para la app (la card de
+// billing muestra "Próximamente" y la ruta de activación rechaza).
+export type AddonKey = 'julie'
+
+export const ADDONS: Record<AddonKey, { label: string; priceEnv: string }> = {
+  julie: { label: 'Julie', priceEnv: 'STRIPE_PRICE_JULIE' },
+}
+
+/** Price id de Stripe para un add-on, desde env. null = add-on apagado. */
+export function priceIdForAddon(addon: AddonKey): string | null {
+  const env = ADDONS[addon]?.priceEnv
+  return env ? process.env[env] ?? null : null
+}
+
 /** Estados de Stripe que cuentan como "acceso activo". */
 const ACTIVE_STATUSES = new Set(['trialing', 'active'])
 

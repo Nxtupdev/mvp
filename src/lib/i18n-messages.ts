@@ -431,6 +431,15 @@ export const MESSAGES: Record<Locale, Messages> = {
     'billing.julie.badge': 'Próximamente',
     'billing.julie.desc':
       'Recepcionista con IA: contesta el teléfono de tu barbería y anota a los clientes en tu cola.',
+    'billing.julie.activeBadge': 'Activa',
+    'billing.julie.activate': 'Activar Julie',
+    'billing.julie.deactivate': 'Desactivar Julie',
+    'billing.julie.prorationNote':
+      'Hoy se cobra solo la parte proporcional del mes; luego {price}/mes en tu misma factura.',
+    'billing.julie.activeNote':
+      'Julie contesta el teléfono de tu barbería. Se cobra en tu misma factura mensual.',
+    'billing.julie.confirmOff':
+      '¿Desactivar Julie? Deja de contestar al instante y el mes ya pagado no se reembolsa.',
     'billing.manage': 'Gestionar suscripción',
     'billing.opening': 'Abriendo…',
     'billing.error': 'No se pudo continuar. Intenta de nuevo.',
@@ -1134,6 +1143,15 @@ export const MESSAGES: Record<Locale, Messages> = {
     'billing.julie.badge': 'Coming soon',
     'billing.julie.desc':
       "AI receptionist: answers your barbershop's phone and adds clients to your queue.",
+    'billing.julie.activeBadge': 'Active',
+    'billing.julie.activate': 'Add Julie',
+    'billing.julie.deactivate': 'Remove Julie',
+    'billing.julie.prorationNote':
+      "You're only charged today's prorated share of the month; then {price}/mo on your same invoice.",
+    'billing.julie.activeNote':
+      "Julie answers your barbershop's phone. Billed on your same monthly invoice.",
+    'billing.julie.confirmOff':
+      'Remove Julie? She stops answering immediately and the month already paid is not refunded.',
     'billing.manage': 'Manage subscription',
     'billing.opening': 'Opening…',
     'billing.error': 'Something went wrong. Try again.',

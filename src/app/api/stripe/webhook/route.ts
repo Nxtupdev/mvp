@@ -1,7 +1,8 @@
 import type Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
-import { subscriptionPeriodEnd } from '@/lib/billing'
+import { priceIdForAddon, subscriptionPeriodEnd } from '@/lib/billing'
+import { notifyMamacita } from '@/lib/mamacita'
 
 /**
  * POST /api/stripe/webhook
@@ -48,11 +49,17 @@ export async function POST(request: Request) {
     const shopId =
       (sub.metadata?.shop_id as string | undefined) ?? fallbackShopId ?? null
     const periodEnd = subscriptionPeriodEnd(sub)
+    // Con el add-on Julie la suscripción puede traer DOS items; price_id
+    // guarda el del plan base (el que no es Julie), no el primero que venga.
+    const items = sub.items?.data ?? []
+    const juliePriceId = priceIdForAddon('julie')
+    const baseItem =
+      items.find(it => !juliePriceId || it.price?.id !== juliePriceId) ?? items[0]
     const patch = {
       stripe_customer_id: customerId,
       stripe_subscription_id: sub.id,
       status: sub.status,
-      price_id: sub.items?.data?.[0]?.price?.id ?? null,
+      price_id: baseItem?.price?.id ?? null,
       plan: (sub.metadata?.plan as string | undefined) ?? null,
       current_period_end: periodEnd
         ? new Date(periodEnd * 1000).toISOString()
@@ -69,6 +76,58 @@ export async function POST(request: Request) {
         .from('subscriptions')
         .update(patch)
         .eq('stripe_customer_id', customerId)
+    }
+
+    await syncJulieAddon(sub, shopId, customerId)
+  }
+
+  /**
+   * Add-on Julie (076): espeja la presencia del item STRIPE_PRICE_JULIE
+   * en julie_active y, SOLO cuando el valor cambia, emite julie_enabled
+   * a Mamacita (que enciende/apaga a Julie para ese shop). Paso APARTE
+   * del sync principal y con su propio catch: un fallo aquí (columna
+   * sin migrar, Mamacita caída) jamás rompe el billing del Queue.
+   */
+  async function syncJulieAddon(
+    sub: Stripe.Subscription,
+    shopId: string | null,
+    customerId: string,
+  ) {
+    const juliePriceId = priceIdForAddon('julie')
+    if (!juliePriceId) return // add-on apagado por env: no tocar nada
+    try {
+      // Suscripción borrada = todo muerto, Julie incluida (los items
+      // siguen viniendo en el payload del deleted, por eso el status).
+      const julieActive =
+        sub.status !== 'canceled' &&
+        (sub.items?.data ?? []).some(it => it.price?.id === juliePriceId)
+
+      const lookup = admin.from('subscriptions').select('shop_id, julie_active')
+      const { data: row } = shopId
+        ? await lookup.eq('shop_id', shopId).maybeSingle()
+        : await lookup.eq('stripe_customer_id', customerId).maybeSingle()
+      // Sin fila (o sin columna → select fallido) o sin cambio: nada que
+      // hacer. El "sin cambio" también de-duplica los webhooks repetidos.
+      if (!row || row.julie_active === julieActive) return
+
+      const { error: updateErr } = await admin
+        .from('subscriptions')
+        .update({ julie_active: julieActive, updated_at: new Date().toISOString() })
+        .eq('shop_id', row.shop_id)
+      if (updateErr) {
+        console.error('[stripe/webhook] julie_active update failed', updateErr)
+        return
+      }
+
+      // Contrato 17-oct: evento con julie_enabled y SIN services (ausencia
+      // = sin cambio en el otro campo). notifyMamacita traga sus errores.
+      await notifyMamacita({
+        event: 'shop_profile_updated',
+        nxtup_shop_id: row.shop_id,
+        julie_enabled: julieActive,
+      })
+    } catch (err) {
+      console.error('[stripe/webhook] julie sync failed', err)
     }
   }
 

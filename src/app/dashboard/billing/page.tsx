@@ -2,9 +2,15 @@ import { redirect } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
-import { hasActiveAccess, priceIdForPlan, type BillingMode } from '@/lib/billing'
+import {
+  hasActiveAccess,
+  priceIdForAddon,
+  priceIdForPlan,
+  type BillingMode,
+} from '@/lib/billing'
 import { getStripe } from '@/lib/stripe'
 import BillingActions from './BillingActions'
+import JulieActions from './JulieActions'
 
 export const metadata = { title: 'Suscripción — NXTUP' }
 
@@ -76,6 +82,20 @@ export default async function BillingPage() {
         timeZone: shop.timezone ?? 'America/New_York',
       })
 
+  // Add-on Julie (076): lectura APARTE y fail-open, como el trial — si
+  // la columna aún no existe, Julie simplemente aparece apagada. Sin la
+  // env STRIPE_PRICE_JULIE la card queda en "Próximamente" (interruptor
+  // de lanzamiento del add-on).
+  const { data: julieRow } = await supabase
+    .from('subscriptions')
+    .select('julie_active')
+    .eq('shop_id', shop.id)
+    .maybeSingle()
+  const julieActive = Boolean(
+    (julieRow as { julie_active?: boolean } | null)?.julie_active,
+  )
+  const julieConfigured = Boolean(priceIdForAddon('julie'))
+
   // Precio del Queue leído de Stripe (del price live configurado por
   // env): si mañana cambian el precio en Stripe, la card se actualiza
   // sola — nunca queda un número viejo pintado en el código. Si Stripe
@@ -93,6 +113,21 @@ export default async function BillingPage() {
       }
     } catch (err) {
       console.error('[billing] no se pudo leer el precio de Stripe', err)
+    }
+  }
+
+  // Precio de Julie (misma lógica): solo hace falta en la card de
+  // activación — con Julie ya activa o sin env no se consulta.
+  let juliePriceLabel: string | null = null
+  if (hasBilling && mode === 'stripe' && julieConfigured && !julieActive) {
+    try {
+      const price = await getStripe().prices.retrieve(priceIdForAddon('julie')!)
+      if (typeof price.unit_amount === 'number') {
+        const amount = price.unit_amount / 100
+        juliePriceLabel = `$${Number.isInteger(amount) ? amount : amount.toFixed(2)}`
+      }
+    } catch (err) {
+      console.error('[billing] no se pudo leer el precio de Julie', err)
     }
   }
 
@@ -149,7 +184,65 @@ export default async function BillingPage() {
       </section>
 
       {hasBilling ? (
-        <BillingActions mode="manage" />
+        <>
+          <BillingActions mode="manage" />
+
+          {/* Add-on Julie (076) — solo en billing por Stripe: comp y
+              contract se acuerdan con los socios, no con un botón. */}
+          {mode === 'stripe' &&
+            (julieActive ? (
+              <section className="border border-nxtup-active/40 rounded-2xl p-6 mt-6 flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-nxtup-active text-[10px] uppercase tracking-[0.3em] font-bold">
+                    {t('billing.julie.label')}
+                  </p>
+                  <span className="text-[10px] uppercase tracking-wider font-bold border border-nxtup-active/40 rounded-full px-2.5 py-1 text-nxtup-active whitespace-nowrap">
+                    {t('billing.julie.activeBadge')}
+                  </span>
+                </div>
+                <p className="text-sm text-nxtup-muted">{t('billing.julie.activeNote')}</p>
+                <div>
+                  <JulieActions mode="deactivate" />
+                </div>
+              </section>
+            ) : julieConfigured && status === 'active' ? (
+              <section className="border border-nxtup-line rounded-2xl p-6 mt-6 flex flex-col gap-4">
+                <div>
+                  <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
+                    {t('billing.julie.label')}
+                  </p>
+                  {juliePriceLabel && (
+                    <p className="text-4xl font-black tracking-tight">
+                      {juliePriceLabel}
+                      <span className="text-base font-bold text-nxtup-muted">
+                        {' '}
+                        {t('billing.queue.perMonth')}
+                      </span>
+                    </p>
+                  )}
+                  <p className="text-nxtup-muted text-sm mt-1">{t('billing.julie.desc')}</p>
+                </div>
+                <JulieActions mode="activate" />
+                {juliePriceLabel && (
+                  <p className="text-nxtup-dim text-xs">
+                    {t('billing.julie.prorationNote', { price: juliePriceLabel })}
+                  </p>
+                )}
+              </section>
+            ) : !julieConfigured ? (
+              <section className="border border-nxtup-line rounded-2xl p-6 mt-6 opacity-60 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
+                    {t('billing.julie.label')}
+                  </p>
+                  <span className="text-[10px] uppercase tracking-wider font-bold border border-nxtup-line rounded-full px-2.5 py-1 text-nxtup-muted whitespace-nowrap">
+                    {t('billing.julie.badge')}
+                  </span>
+                </div>
+                <p className="text-sm text-nxtup-muted">{t('billing.julie.desc')}</p>
+              </section>
+            ) : null)}
+        </>
       ) : (
         <section className="grid gap-4 sm:grid-cols-2 items-start">
           {/* NXTUP Queue — el producto que se vende hoy */}

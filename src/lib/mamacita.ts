@@ -85,14 +85,18 @@ type MamacitaEvent =
   | { event: 'turn_approaching'; external_id: string; shop_id: string; position?: number; eta_minutes?: number }
   | { event: 'entry_completed'; external_id: string; shop_id: string }
   | { event: 'entry_no_show'; external_id: string; shop_id: string }
-  // Perfil del shop (servicios + precios) cambió — el dueño lo editó en
-  // NXTUP. Mamacita lo formatea a services_text para que Julie cite
-  // precios por voz. Nota: usa `nxtup_shop_id` (no `shop_id`) — así lo
-  // definió el contrato del lado Mamacita para este evento.
+  // Perfil del shop cambió. Dos emisores, mismo evento:
+  //   * Editor de servicios → manda `services` (lista fresca completa).
+  //   * Webhook de billing (076) → manda `julie_enabled` (add-on on/off).
+  // Contrato de AUSENCIA (acordado con Mamacita 17-oct): un campo
+  // ausente significa "sin cambio", nunca false/vacío — así el aviso de
+  // flag no pisa los servicios y viceversa. Nota: usa `nxtup_shop_id`
+  // (no `shop_id`) — así lo definió el contrato del lado Mamacita.
   | {
       event: 'shop_profile_updated'
       nxtup_shop_id: string
-      services: { name: string; price: number | null; duration_min?: number }[]
+      services?: { name: string; price: number | null; duration_min?: number }[]
+      julie_enabled?: boolean
     }
 
 /**
