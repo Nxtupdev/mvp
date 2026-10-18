@@ -700,6 +700,12 @@ export default function BarberDashboard({
         >
           Abrir modo pantalla completa →
         </Link>
+        <Link
+          href="/ayuda/barbero"
+          className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"
+        >
+          Cómo usar tu panel (videos) →
+        </Link>
       </footer>
 
       </div>

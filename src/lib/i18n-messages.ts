@@ -459,6 +459,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.barbero.desc': 'Disponible, ocupado y break: así se trabaja el turno.',
     'help.v.citas.title': 'Citas',
     'help.v.citas.desc': 'Qué pasa cuando un cliente llega con cita desde el kiosko.',
+    'help.barberPage.title': 'Tu panel en video',
+    'help.barberPage.subtitle':
+      'Dos videos cortos: cómo trabajar tu turno y qué pasa con las citas.',
 
     // ── Número de Julie (/dashboard/julie, 077) ─────────────────
     'julieNum.manageLink': 'Configura el número que contesta',
@@ -1260,6 +1263,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.barbero.desc': 'Available, busy and break: how to work your shift.',
     'help.v.citas.title': 'Appointments',
     'help.v.citas.desc': 'What happens when a client arrives with an appointment at the kiosk.',
+    'help.barberPage.title': 'Your panel on video',
+    'help.barberPage.subtitle':
+      'Two short videos: how to work your shift and how appointments behave.',
 
     // ── Julie's number (/dashboard/julie, 077) ──────────────────
     'julieNum.manageLink': 'Set up the number she answers',
