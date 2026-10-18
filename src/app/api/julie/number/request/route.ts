@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { JULIE_PORT_ENABLED } from '@/lib/billing'
 import { signedMamacitaPost } from '@/lib/mamacita'
 
 /**
@@ -22,6 +23,14 @@ import { signedMamacitaPost } from '@/lib/mamacita'
  *
  * El resultado se espeja en julie_numbers (077) para la UI.
  */
+/** 10 u 11 dígitos tecleados → E.164, o '' si no es usable. */
+function normalizeE164(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  return ''
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -51,20 +60,39 @@ export async function POST(request: Request) {
 
   let choice = ''
   let requestedNumber = ''
+  let currentNumber = ''
+  let ownerPhone = ''
+  let titular = false
   try {
     const body = await request.json()
     choice = String(body?.choice ?? '')
     requestedNumber = String(body?.requested_number ?? '').trim()
+    currentNumber = normalizeE164(String(body?.current_number ?? ''))
+    ownerPhone = normalizeE164(String(body?.owner_phone ?? ''))
+    titular = body?.titular === true
   } catch {
     // cae a las validaciones de abajo
   }
-  if (choice === 'port') {
+  if (choice === 'port' && !JULIE_PORT_ENABLED) {
     return Response.json(
       { error: 'Portar tu número llega pronto — por ahora compra uno nuevo.' },
       { status: 400 },
     )
   }
-  if (choice !== 'buy' || !/^\+1\d{10}$/.test(requestedNumber)) {
+  if (choice === 'buy' && !/^\+1\d{10}$/.test(requestedNumber)) {
+    return Response.json({ error: 'Pedido inválido' }, { status: 400 })
+  }
+  // Porte (contrato 17-oct): NXTUP solo captura lo NO sensible — número a
+  // portar, titularidad y el WhatsApp de contacto (Mamacita pide por ahí
+  // los documentos del carrier en info_required; las credenciales del
+  // carrier jamás pasan por NXTUP).
+  if (choice === 'port' && (!currentNumber || !ownerPhone || !titular)) {
+    return Response.json(
+      { error: 'Faltan datos del porte (número actual, WhatsApp de contacto y titularidad).' },
+      { status: 400 },
+    )
+  }
+  if (choice !== 'buy' && choice !== 'port') {
     return Response.json({ error: 'Pedido inválido' }, { status: 400 })
   }
 
@@ -91,12 +119,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const res = await signedMamacitaPost(url, {
-      shop_id: shop.id,
-      choice: 'buy',
-      requested_number: requestedNumber,
-      owner_name: shop.name,
-    })
+    const payload =
+      choice === 'buy'
+        ? {
+            shop_id: shop.id,
+            choice: 'buy',
+            requested_number: requestedNumber,
+            owner_name: shop.name,
+          }
+        : {
+            shop_id: shop.id,
+            choice: 'port',
+            current_number: currentNumber,
+            owner_name: shop.name,
+            owner_phone: ownerPhone,
+          }
+    const res = await signedMamacitaPost(url, payload)
     const body = (res.body ?? {}) as {
       status?: string
       number?: string
@@ -112,10 +150,12 @@ export async function POST(request: Request) {
     }
 
     // Espejo de estado para la UI (service role; el dueño solo lee).
+    // owner_phone NO se guarda: solo viaja a Mamacita para el contacto.
     await admin.from('julie_numbers').upsert({
       shop_id: shop.id,
-      choice: 'buy',
-      requested_number: requestedNumber,
+      choice,
+      requested_number: choice === 'buy' ? requestedNumber : null,
+      current_number: choice === 'port' ? currentNumber : null,
       status: body.status,
       number: body.status === 'completed' ? body.number ?? null : null,
       fail_reason: body.status === 'failed' ? body.fail_reason ?? null : null,

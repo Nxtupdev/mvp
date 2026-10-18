@@ -48,6 +48,14 @@ export function priceIdForAddon(addon: AddonKey): string | null {
 // narrowing de TS no marque como inalcanzable el código del encendido.
 export const JULIE_LAUNCHED: boolean = false
 
+// Fase 2 del número de Julie: PORTAR el número propio del dueño. La
+// captura (wizard + ruta) ya está construida contra el contrato
+// acordado con Mamacita (17-oct), pero su flujo real (WhatsApp de
+// documentos + Twilio Porting API) aún no existe — encender esto antes
+// de su aviso deja dueños atascados en info_required. Un solo flip
+// enciende la opción del wizard Y el paso del porte en la ruta.
+export const JULIE_PORT_ENABLED: boolean = false
+
 /** Estados de Stripe que cuentan como "acceso activo". */
 const ACTIVE_STATUSES = new Set(['trialing', 'active'])
 

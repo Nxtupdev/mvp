@@ -487,7 +487,16 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.progress.porting_in_progress':
       'Tu número está en proceso de portarse. Esto toma varios días; te avisamos cuando esté.',
     'julieNum.progress.info_required':
-      'Necesitamos documentos de tu línea actual para el porte. Te contactamos para pedírtelos.',
+      'Para completar el porte necesitamos unos documentos de tu línea actual. Te escribimos por WhatsApp para pedírtelos.',
+    'julieNum.port.numberLabel': 'Tu número actual (el que vas a portar)',
+    'julieNum.port.waLabel': '¿A qué WhatsApp te escribimos para coordinar?',
+    'julieNum.port.titular': 'Confirmo que soy el titular de esta línea telefónica.',
+    'julieNum.port.notice':
+      'Si usas ese número en WhatsApp, tu WhatsApp no se toca: Julie contesta las llamadas y los SMS, y los mensajes de WhatsApp salen de nuestro número con el nombre de tu barbería.',
+    'julieNum.port.cta': 'Iniciar el porte',
+    'julieNum.port.sending': 'Enviando…',
+    'julieNum.port.infoNote':
+      'El porte tarda varios días y tu línea sigue funcionando mientras tanto. Te escribiremos por WhatsApp para pedirte los documentos de tu carrier.',
     'julieNum.doneTitle': 'Número activo',
     'julieNum.doneDesc':
       'Julie contesta este número. Ponlo en tu Google Business, tu Instagram y donde te llamen tus clientes.',
@@ -1249,7 +1258,16 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.progress.porting_in_progress':
       'Your number is being ported. This takes several days; we will let you know when it is done.',
     'julieNum.progress.info_required':
-      'We need documents for your current line to complete the port. We will reach out to request them.',
+      'To complete the port we need a few documents for your current line. We will text you on WhatsApp to request them.',
+    'julieNum.port.numberLabel': 'Your current number (the one to port)',
+    'julieNum.port.waLabel': 'Which WhatsApp should we message to coordinate?',
+    'julieNum.port.titular': 'I confirm I am the account holder of this phone line.',
+    'julieNum.port.notice':
+      "If you use that number on WhatsApp, your WhatsApp is not touched: Julie answers calls and SMS, and WhatsApp messages go out from our number with your barbershop's name.",
+    'julieNum.port.cta': 'Start the port',
+    'julieNum.port.sending': 'Sending…',
+    'julieNum.port.infoNote':
+      'Porting takes several days and your line keeps working in the meantime. We will message you on WhatsApp to request your carrier documents.',
     'julieNum.doneTitle': 'Number active',
     'julieNum.doneDesc':
       'Julie answers this number. Put it on your Google Business, your Instagram, and wherever clients call you.',
