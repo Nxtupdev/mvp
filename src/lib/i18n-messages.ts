@@ -564,6 +564,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.tz.caracas': 'Caracas — UTC-4 fijo',
     // Fields + hints
     'settings.field.shopName': 'Nombre del shop',
+    'settings.field.address': 'Dirección de la barbería',
+    'settings.hint.address':
+      'Julie se la dice a los clientes por teléfono y va en los mensajes de confirmación.',
+    'settings.placeholder.address': '123 Main St, Raleigh, NC',
+    'settings.field.ownerWhatsapp': 'Tu WhatsApp (avisos de Julie)',
+    'settings.hint.ownerWhatsapp':
+      'Ahí te avisa Julie cuando anota un cliente por teléfono. Sin esto no recibes sus avisos.',
     'settings.field.displayMessage': 'Mensaje en la pantalla (TV)',
     'settings.hint.displayMessage':
       'Aparece rotando en el cintillo de abajo de la TV del shop. Promos, avisos, horarios. Déjalo vacío para ocultar el cintillo.',
@@ -1335,6 +1342,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.tz.caracas': 'Caracas — fixed UTC-4',
     // Fields + hints
     'settings.field.shopName': 'Shop name',
+    'settings.field.address': 'Shop address',
+    'settings.hint.address':
+      'Julie tells it to clients on the phone and it goes in confirmation messages.',
+    'settings.placeholder.address': '123 Main St, Raleigh, NC',
+    'settings.field.ownerWhatsapp': 'Your WhatsApp (Julie alerts)',
+    'settings.hint.ownerWhatsapp':
+      "Where Julie alerts you when she books a client by phone. Without it you won't get her alerts.",
     'settings.field.displayMessage': 'On-screen message (TV)',
     'settings.hint.displayMessage':
       'Rotates in the ticker at the bottom of the shop TV. Promos, notices, hours. Leave it empty to hide the ticker.',

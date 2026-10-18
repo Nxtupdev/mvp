@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
 import { JULIE_LAUNCHED, priceIdForAddon } from '@/lib/billing'
-import { notifyMamacita } from '@/lib/mamacita'
+import { buildShopProfileEvent, notifyMamacita } from '@/lib/mamacita'
 
 /**
  * POST /api/billing/julie — activar/desactivar el add-on Julie (076).
@@ -103,11 +103,23 @@ export async function POST(request: Request) {
       console.error('[billing/julie] mirror update failed', error)
       return
     }
-    await notifyMamacita({
-      event: 'shop_profile_updated',
-      nxtup_shop_id: shop!.id,
-      julie_enabled: julieActive,
-    })
+    // Perfil COMPLETO + flag (078): en la activación este evento es el
+    // ALTA del shop en Mamacita (upsert por nxtup_shop_id) — nace con
+    // nombre/horario/servicios antes de que llegue cualquier
+    // number_request. En la desactivación el perfil extra es inocuo.
+    try {
+      await notifyMamacita(
+        await buildShopProfileEvent(shop!.id, { julie_enabled: julieActive }),
+      )
+    } catch (err) {
+      // Fallback flag-only: el builder jamás debe impedir el aviso.
+      console.error('[billing/julie] buildShopProfileEvent failed', err)
+      await notifyMamacita({
+        event: 'shop_profile_updated',
+        nxtup_shop_id: shop!.id,
+        julie_enabled: julieActive,
+      })
+    }
   }
 
   try {

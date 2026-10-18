@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { notifyMamacita } from '@/lib/mamacita'
+import { buildShopProfileEvent, notifyMamacita } from '@/lib/mamacita'
 
 /**
  * POST /api/mamacita/notify-profile
@@ -42,26 +42,10 @@ export async function POST(_request: NextRequest) {
     return Response.json({ error: 'Shop no encontrado' }, { status: 404 })
   }
 
-  // Lista fresca de servicios activos, en el orden que el dueño definió.
-  const { data: services } = await admin
-    .from('services')
-    .select('name, price, duration_minutes')
-    .eq('shop_id', shop.id)
-    .eq('active', true)
-    .order('sort_order', { ascending: true })
-
-  await notifyMamacita({
-    event: 'shop_profile_updated',
-    nxtup_shop_id: shop.id,
-    services: (services ?? []).map((s) => {
-      const row = s as { name: string; price: number | null; duration_minutes: number | null }
-      return {
-        name: row.name,
-        price: row.price ?? null,
-        duration_min: row.duration_minutes ?? undefined,
-      }
-    }),
-  })
+  // Perfil COMPLETO fresco (078): name/address/timezone/hours/
+  // owner_whatsapp + servicios activos. Mamacita hace upsert por
+  // nxtup_shop_id, así que este mismo aviso sirve de alta y de sync.
+  await notifyMamacita(await buildShopProfileEvent(shop.id))
 
   return Response.json({ ok: true })
 }

@@ -49,6 +49,9 @@ export default async function SettingsPage() {
     business_hours?: unknown
     is_open: boolean
     logo_url: string | null
+    // Migración 078 — perfil para Julie.
+    address?: string | null
+    owner_whatsapp?: string | null
   }
   const row = shopRaw as ShopRow
 
@@ -79,6 +82,9 @@ export default async function SettingsPage() {
     logo_url: row.logo_url,
     // Migración 062 — horario semanal. NULL = sin auto-horario.
     business_hours: row.business_hours ?? null,
+    // Migración 078 — perfil para Julie.
+    address: row.address ?? null,
+    owner_whatsapp: row.owner_whatsapp ?? null,
   }
 
   // The IP the owner is connecting from right now — used by the anti-

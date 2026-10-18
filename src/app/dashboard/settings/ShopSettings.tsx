@@ -49,6 +49,10 @@ type Shop = {
   // (apertura manual pura). El cron apply_business_hours abre/cierra
   // is_open en las transiciones.
   business_hours: unknown
+  // Migración 078 — perfil para Julie: dirección (la cita por voz y va
+  // en los WhatsApp al cliente) y WhatsApp del dueño (avisos de Julie).
+  address: string | null
+  owner_whatsapp: string | null
 }
 
 // Migración 051 — límite del mensaje del cintillo. Lo suficientemente
@@ -94,6 +98,8 @@ export default function ShopSettings({
   const [breakMode, setBreakMode] = useState<BreakMode>(initial.break_mode ?? 'guaranteed')
   const [graceMinutes, setGraceMinutes] = useState(initial.break_position_grace_minutes)
   const [timezone, setTimezone] = useState(initial.timezone || 'America/New_York')
+  const [address, setAddress] = useState(initial.address ?? '')
+  const [ownerWhatsapp, setOwnerWhatsapp] = useState(initial.owner_whatsapp ?? '')
   // ── Late-arrival sanction state (migración 047) ──────────────
   // El DB column threshold es `time` (e.g. "12:00:00"). Lo renderizamos
   // con <input type="time"> que usa "HH:MM" — coercemos en ambas
@@ -239,7 +245,19 @@ export default function ShopSettings({
     if (updateErr) {
       setError(updateErr.message)
     } else if (data) {
-      setShop(data as Shop)
+      // Perfil para Julie (078) en un update APARTE y tolerante: si la
+      // migración no está corrida, falla solo esto (se loguea) y el
+      // guardado principal del dueño sigue intacto.
+      const wa = ownerWhatsapp.replace(/\D/g, '')
+      const waForDb =
+        wa.length === 10 ? `+1${wa}` : wa.length === 11 && wa.startsWith('1') ? `+${wa}` : null
+      const { error: profileErr } = await supabase
+        .from('shops')
+        .update({ address: address.trim() || null, owner_whatsapp: waForDb })
+        .eq('id', shop.id)
+      if (profileErr) console.error('[settings] perfil Julie (078) no guardado', profileErr)
+
+      setShop({ ...(data as Shop), address: address.trim() || null, owner_whatsapp: waForDb })
       setSavedAt(new Date())
       // Best-effort audit log entry. Failure here doesn't block the save.
       if (Object.keys(changes).length > 0) {
@@ -249,6 +267,9 @@ export default function ShopSettings({
           metadata: { changes },
         })
       }
+      // Sync del perfil a Mamacita (alta/actualización para Julie).
+      // Best-effort: el guardado ya persistió, esto es solo el aviso.
+      fetch('/api/mamacita/notify-profile', { method: 'POST' }).catch(() => {})
       router.refresh()
     }
     setSaving(false)
@@ -299,6 +320,30 @@ export default function ShopSettings({
             required
             value={name}
             onChange={e => setName(e.target.value)}
+            className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
+          />
+        </Field>
+
+        {/* Migración 078 — perfil para Julie: dirección + WhatsApp del
+            dueño. Opcionales; vacíos = ausentes en el sync a Mamacita. */}
+        <Field label={t('settings.field.address')} hint={t('settings.hint.address')}>
+          <input
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+            placeholder={t('settings.placeholder.address')}
+            className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
+          />
+        </Field>
+
+        <Field
+          label={t('settings.field.ownerWhatsapp')}
+          hint={t('settings.hint.ownerWhatsapp')}
+        >
+          <input
+            inputMode="tel"
+            value={ownerWhatsapp}
+            onChange={e => setOwnerWhatsapp(e.target.value)}
+            placeholder="(919) 555-1234"
             className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
           />
         </Field>

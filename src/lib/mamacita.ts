@@ -85,19 +85,106 @@ type MamacitaEvent =
   | { event: 'turn_approaching'; external_id: string; shop_id: string; position?: number; eta_minutes?: number }
   | { event: 'entry_completed'; external_id: string; shop_id: string }
   | { event: 'entry_no_show'; external_id: string; shop_id: string }
-  // Perfil del shop cambió. Dos emisores, mismo evento:
-  //   * Editor de servicios → manda `services` (lista fresca completa).
-  //   * Webhook de billing (076) → manda `julie_enabled` (add-on on/off).
-  // Contrato de AUSENCIA (acordado con Mamacita 17-oct): un campo
-  // ausente significa "sin cambio", nunca false/vacío — así el aviso de
-  // flag no pisa los servicios y viceversa. Nota: usa `nxtup_shop_id`
-  // (no `shop_id`) — así lo definió el contrato del lado Mamacita.
+  // Perfil del shop: alta Y sync en un solo evento (acuerdo 17-oct —
+  // NXTUP es el dueño del cliente; Mamacita hace upsert por
+  // nxtup_shop_id: si no existe lo CREA con los campos presentes).
+  // Emisores: activación de Julie (perfil COMPLETO = el alta), guardado
+  // de Configuración/Servicios (sync), webhook de billing (flag-only).
+  // Contrato de AUSENCIA: un campo ausente significa "sin cambio",
+  // nunca false/vacío — así el aviso de flag no pisa los servicios y
+  // viceversa. En `hours`, un DÍA ausente = cerrado; el campo entero
+  // ausente = sin cambio. Nota: usa `nxtup_shop_id` (no `shop_id`) —
+  // así lo definió el contrato del lado Mamacita.
   | {
       event: 'shop_profile_updated'
       nxtup_shop_id: string
+      name?: string
+      address?: string
+      timezone?: string
+      hours?: Record<string, { open: string; close: string }>
+      owner_whatsapp?: string
       services?: { name: string; price: number | null; duration_min?: number }[]
       julie_enabled?: boolean
     }
+
+/**
+ * Arma el evento shop_profile_updated COMPLETO de un shop: perfil
+ * (name/address/timezone/hours/owner_whatsapp) + servicios activos, con
+ * los campos vacíos AUSENTES (= "sin cambio" del lado Mamacita). El
+ * horario se mapea del shape interno de la 062 ({enabled,start,end})
+ * al del contrato ({open,close}, día ausente = cerrado); business_hours
+ * null = campo hours ausente, no "todo cerrado". `extra` agrega
+ * julie_enabled cuando el emisor es billing.
+ */
+export async function buildShopProfileEvent(
+  shopId: string,
+  extra?: { julie_enabled?: boolean },
+): Promise<Extract<MamacitaEvent, { event: 'shop_profile_updated' }>> {
+  // Import dinámico para no acoplar este lib (usado también por rutas
+  // sin DB) al cliente admin en tiempo de carga.
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  // address/owner_whatsapp en un select APARTE y fail-open: si la 078
+  // no está corrida, falla solo esa query y el evento sale igual con
+  // name/timezone/hours/services (esos campos simplemente ausentes).
+  const [{ data: shop }, { data: extraCols }, { data: services }] = await Promise.all([
+    admin
+      .from('shops')
+      .select('name, timezone, business_hours')
+      .eq('id', shopId)
+      .maybeSingle(),
+    admin
+      .from('shops')
+      .select('address, owner_whatsapp')
+      .eq('id', shopId)
+      .maybeSingle(),
+    admin
+      .from('services')
+      .select('name, price, duration_minutes')
+      .eq('shop_id', shopId)
+      .eq('active', true)
+      .order('sort_order', { ascending: true }),
+  ])
+
+  type DayCfg = { enabled?: boolean; start?: string; end?: string }
+  let hours: Record<string, { open: string; close: string }> | undefined
+  const bh = (shop as { business_hours?: Record<string, DayCfg> | null } | null)
+    ?.business_hours
+  if (bh && typeof bh === 'object') {
+    const out: Record<string, { open: string; close: string }> = {}
+    for (const d of ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) {
+      const c = bh[d]
+      if (c?.enabled && c.start && c.end) out[d] = { open: c.start, close: c.end }
+    }
+    hours = out
+  }
+
+  const row = shop as { name?: string | null; timezone?: string | null } | null
+  const extraRow = extraCols as {
+    address?: string | null
+    owner_whatsapp?: string | null
+  } | null
+
+  return {
+    event: 'shop_profile_updated',
+    nxtup_shop_id: shopId,
+    ...(row?.name ? { name: row.name } : {}),
+    ...(extraRow?.address ? { address: extraRow.address } : {}),
+    ...(row?.timezone ? { timezone: row.timezone } : {}),
+    ...(hours ? { hours } : {}),
+    ...(extraRow?.owner_whatsapp ? { owner_whatsapp: extraRow.owner_whatsapp } : {}),
+    services: (services ?? []).map(s => {
+      const r = s as { name: string; price: number | null; duration_minutes: number | null }
+      return {
+        name: r.name,
+        price: r.price ?? null,
+        duration_min: r.duration_minutes ?? undefined,
+      }
+    }),
+    ...(extra?.julie_enabled !== undefined ? { julie_enabled: extra.julie_enabled } : {}),
+  }
+}
 
 /**
  * POST firmado (mismo HMAC x-nxtup-signature/x-nxtup-timestamp) a un
