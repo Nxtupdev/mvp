@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
-import { priceIdForAddon } from '@/lib/billing'
+import { JULIE_LAUNCHED, priceIdForAddon } from '@/lib/billing'
 import { notifyMamacita } from '@/lib/mamacita'
 
 /**
@@ -44,7 +44,10 @@ export async function POST(request: Request) {
   }
 
   const juliePriceId = priceIdForAddon('julie')
-  if (!juliePriceId) {
+  // Activar exige env + lanzamiento encendido (mismo doble candado que
+  // la card). Desactivar queda SIEMPRE permitido como válvula de escape:
+  // si alguien llegó a activar antes del candado, puede salirse.
+  if (!juliePriceId || (action === 'activate' && !JULIE_LAUNCHED)) {
     return Response.json(
       { error: 'Julie aún no está disponible.' },
       { status: 400 },

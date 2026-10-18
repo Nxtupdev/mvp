@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
 import {
   hasActiveAccess,
+  JULIE_LAUNCHED,
   priceIdForAddon,
   priceIdForPlan,
   type BillingMode,
@@ -94,7 +95,10 @@ export default async function BillingPage() {
   const julieActive = Boolean(
     (julieRow as { julie_active?: boolean } | null)?.julie_active,
   )
-  const julieConfigured = Boolean(priceIdForAddon('julie'))
+  // Doble candado: env presente Y lanzamiento encendido. La env ya está
+  // en Vercel, así que hasta el flip de JULIE_LAUNCHED la card sigue en
+  // "Próximamente" aunque el price exista.
+  const julieConfigured = JULIE_LAUNCHED && Boolean(priceIdForAddon('julie'))
 
   // Precio del Queue leído de Stripe (del price live configurado por
   // env): si mañana cambian el precio en Stripe, la card se actualiza

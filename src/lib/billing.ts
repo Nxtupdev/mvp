@@ -40,6 +40,14 @@ export function priceIdForAddon(addon: AddonKey): string | null {
   return env ? process.env[env] ?? null : null
 }
 
+// Interruptor de LANZAMIENTO comercial de Julie (orden de Francisco,
+// 17-oct): la env STRIPE_PRICE_JULIE ya está en Vercel (price creado),
+// pero la card no se vende ni la ruta activa hasta que él lo indique —
+// falta el onboarding del número del lado Mamacita. Encender = poner
+// true aquí (un commit). El tipo es `boolean` a propósito para que el
+// narrowing de TS no marque como inalcanzable el código del encendido.
+export const JULIE_LAUNCHED: boolean = false
+
 /** Estados de Stripe que cuentan como "acceso activo". */
 const ACTIVE_STATUSES = new Set(['trialing', 'active'])
 
