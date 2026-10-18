@@ -459,6 +459,38 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.barbero.desc': 'Disponible, ocupado y break: así se trabaja el turno.',
     'help.v.citas.title': 'Citas',
     'help.v.citas.desc': 'Qué pasa cuando un cliente llega con cita desde el kiosko.',
+
+    // ── Número de Julie (/dashboard/julie, 077) ─────────────────
+    'julieNum.manageLink': 'Configura el número que contesta',
+    'julieNum.notActive':
+      'Julie no está activa en tu barbería. Actívala desde Suscripción y luego configura aquí el número que contesta.',
+    'julieNum.goBilling': 'Ir a Suscripción',
+    'julieNum.setupLabel': 'Tu número de Julie',
+    'julieNum.setupIntro':
+      'Elige el número con el que Julie contesta a tus clientes. Busca por código de área para que sea local a tu zona.',
+    'julieNum.buyTitle': 'Comprar un número nuevo',
+    'julieNum.buyDesc': 'Eliges el que más te guste de los disponibles. Queda activo en minutos.',
+    'julieNum.portTitle': 'Portar mi número actual',
+    'julieNum.portDesc': 'Conservas el número que tu clientela ya conoce. Tarda varios días.',
+    'julieNum.areaPlaceholder': '919',
+    'julieNum.searchCta': 'Buscar números',
+    'julieNum.searching': 'Buscando…',
+    'julieNum.pickTitle': 'Elige tu número:',
+    'julieNum.noneFound': 'Sin números en ese código de área — prueba otro.',
+    'julieNum.buyCta': 'Quiero el {number}',
+    'julieNum.buying': 'Comprando…',
+    'julieNum.taken':
+      'Ese número se vendió mientras decidías. Aquí van opciones frescas:',
+    'julieNum.previousFailed': 'El intento anterior no se completó. Intenta de nuevo.',
+    'julieNum.progressTitle': 'En proceso',
+    'julieNum.progress.submitted': 'Estamos activando tu número. Suele tomar unos minutos.',
+    'julieNum.progress.porting_in_progress':
+      'Tu número está en proceso de portarse. Esto toma varios días; te avisamos cuando esté.',
+    'julieNum.progress.info_required':
+      'Necesitamos documentos de tu línea actual para el porte. Te contactamos para pedírtelos.',
+    'julieNum.doneTitle': 'Número activo',
+    'julieNum.doneDesc':
+      'Julie contesta este número. Ponlo en tu Google Business, tu Instagram y donde te llamen tus clientes.',
     'billing.manage': 'Gestionar suscripción',
     'billing.opening': 'Abriendo…',
     'billing.error': 'No se pudo continuar. Intenta de nuevo.',
@@ -1190,6 +1222,37 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.barbero.desc': 'Available, busy and break: how to work your shift.',
     'help.v.citas.title': 'Appointments',
     'help.v.citas.desc': 'What happens when a client arrives with an appointment at the kiosk.',
+
+    // ── Julie's number (/dashboard/julie, 077) ──────────────────
+    'julieNum.manageLink': 'Set up the number she answers',
+    'julieNum.notActive':
+      'Julie is not active for your shop. Activate her from Subscription, then set up her phone number here.',
+    'julieNum.goBilling': 'Go to Subscription',
+    'julieNum.setupLabel': "Julie's phone number",
+    'julieNum.setupIntro':
+      'Pick the number Julie answers for your clients. Search by area code so it feels local to your area.',
+    'julieNum.buyTitle': 'Buy a new number',
+    'julieNum.buyDesc': 'Pick your favorite from the available list. Active in minutes.',
+    'julieNum.portTitle': 'Port my current number',
+    'julieNum.portDesc': 'Keep the number your clients already know. Takes several days.',
+    'julieNum.areaPlaceholder': '919',
+    'julieNum.searchCta': 'Search numbers',
+    'julieNum.searching': 'Searching…',
+    'julieNum.pickTitle': 'Pick your number:',
+    'julieNum.noneFound': 'No numbers in that area code — try another one.',
+    'julieNum.buyCta': 'I want {number}',
+    'julieNum.buying': 'Buying…',
+    'julieNum.taken': 'That number sold while you were deciding. Here are fresh options:',
+    'julieNum.previousFailed': "The previous attempt didn't complete. Try again.",
+    'julieNum.progressTitle': 'In progress',
+    'julieNum.progress.submitted': 'We are activating your number. It usually takes a few minutes.',
+    'julieNum.progress.porting_in_progress':
+      'Your number is being ported. This takes several days; we will let you know when it is done.',
+    'julieNum.progress.info_required':
+      'We need documents for your current line to complete the port. We will reach out to request them.',
+    'julieNum.doneTitle': 'Number active',
+    'julieNum.doneDesc':
+      'Julie answers this number. Put it on your Google Business, your Instagram, and wherever clients call you.',
     'billing.manage': 'Manage subscription',
     'billing.opening': 'Opening…',
     'billing.error': 'Something went wrong. Try again.',

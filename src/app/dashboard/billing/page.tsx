@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -205,6 +206,12 @@ export default async function BillingPage() {
                   </span>
                 </div>
                 <p className="text-sm text-nxtup-muted">{t('billing.julie.activeNote')}</p>
+                <Link
+                  href="/dashboard/julie"
+                  className="text-sm font-bold text-nxtup-active hover:brightness-110 transition"
+                >
+                  {t('julieNum.manageLink')} →
+                </Link>
                 <div>
                   <JulieActions mode="deactivate" />
                 </div>

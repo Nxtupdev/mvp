@@ -100,6 +100,45 @@ type MamacitaEvent =
     }
 
 /**
+ * POST firmado (mismo HMAC x-nxtup-signature/x-nxtup-timestamp) a un
+ * endpoint de Mamacita, DEVOLVIENDO la respuesta — para los flujos
+ * request/response como el onboarding del número (buscar números
+ * disponibles, pedir compra/porte), a diferencia de notifyMamacita que
+ * es fire-and-forget. Lanza en timeout/red; el caller decide qué hacer.
+ */
+export async function signedMamacitaPost(
+  url: string,
+  payload: unknown,
+  timeoutMs = 30000,
+): Promise<{ status: number; body: unknown }> {
+  const secret = getSecret()
+  if (!secret) throw new Error('MAMACITA_SHARED_SECRET not configured')
+  const body = JSON.stringify(payload)
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const signature = hmacHex(secret, `${timestamp}.${body}`)
+
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+        'x-nxtup-signature': signature,
+        'x-nxtup-timestamp': timestamp,
+      },
+      body,
+      signal: controller.signal,
+    })
+    const resBody = await res.json().catch(() => null)
+    return { status: res.status, body: resBody }
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+/**
  * Fire a signed webhook to Mamacita's nxtup-events function. Best-effort:
  * logs and swallows errors so a Mamacita outage never breaks NXTUP's own
  * queue flow. `shop_id` in the payload must be the NXTUP shop UUID (that's
