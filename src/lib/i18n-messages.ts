@@ -580,6 +580,11 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.tz.lima': 'Lima — UTC-5 fijo',
     'settings.tz.caracas': 'Caracas — UTC-4 fijo',
     // Fields + hints
+    'settings.tab.shop': 'Barbería',
+    'settings.tab.hours': 'Horario',
+    'settings.tab.team': 'Equipo',
+    'settings.tab.access': 'Accesos',
+    'settings.unsaved': 'Tienes cambios sin guardar',
     'settings.field.shopName': 'Nombre del shop',
     'settings.field.address': 'Dirección de la barbería',
     'settings.hint.address':
@@ -1375,6 +1380,11 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.tz.lima': 'Lima — fixed UTC-5',
     'settings.tz.caracas': 'Caracas — fixed UTC-4',
     // Fields + hints
+    'settings.tab.shop': 'Shop',
+    'settings.tab.hours': 'Hours',
+    'settings.tab.team': 'Team',
+    'settings.tab.access': 'Access',
+    'settings.unsaved': 'You have unsaved changes',
     'settings.field.shopName': 'Shop name',
     'settings.field.address': 'Shop address',
     'settings.hint.address':

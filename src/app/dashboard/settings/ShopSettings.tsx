@@ -145,6 +145,10 @@ export default function ShopSettings({
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
+  // Pestañas (reorganización 18-oct): la página era un solo scroll de
+  // 12 secciones. Los campos viven en el MISMO estado aunque su pestaña
+  // no esté montada, así que Guardar persiste cambios de todas.
+  const [tab, setTab] = useState<'shop' | 'hours' | 'team' | 'access'>('shop')
 
   // Normalize "HH:MM" → "HH:MM:00" for the DB.
   const lateThresholdForDb = lateEnabled ? `${lateThreshold}:00` : null
@@ -153,8 +157,19 @@ export default function ShopSettings({
   // Horario: toggle apagado (o sin ningún día activo) → NULL en DB.
   const businessHoursForDb =
     hoursEnabled && hasAnyOpenDay(schedule) ? schedule : null
+  // Perfil para Julie (078): vacío → null; WhatsApp normalizado a E.164.
+  const addressForDb = address.trim() || null
+  const waDigits = ownerWhatsapp.replace(/\D/g, '')
+  const ownerWhatsappForDb =
+    waDigits.length === 10
+      ? `+1${waDigits}`
+      : waDigits.length === 11 && waDigits.startsWith('1')
+        ? `+${waDigits}`
+        : null
 
   const dirty =
+    addressForDb !== shop.address ||
+    ownerWhatsappForDb !== shop.owner_whatsapp ||
     name.trim() !== shop.name ||
     maxQueue !== shop.max_queue_size ||
     firstBreak !== shop.first_break_minutes ||
@@ -169,8 +184,10 @@ export default function ShopSettings({
     JSON.stringify(businessHoursForDb) !==
       JSON.stringify(shop.business_hours ?? null)
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
+  // Sin <form>: las pestañas montan/desmontan campos y el signout tiene
+  // su propio form (anidar forms es HTML inválido). El guardado es el
+  // botón de la barra fija.
+  async function handleSave() {
     if (saving || !dirty || !name.trim()) return
     setSaving(true)
     setError('')
@@ -248,16 +265,13 @@ export default function ShopSettings({
       // Perfil para Julie (078) en un update APARTE y tolerante: si la
       // migración no está corrida, falla solo esto (se loguea) y el
       // guardado principal del dueño sigue intacto.
-      const wa = ownerWhatsapp.replace(/\D/g, '')
-      const waForDb =
-        wa.length === 10 ? `+1${wa}` : wa.length === 11 && wa.startsWith('1') ? `+${wa}` : null
       const { error: profileErr } = await supabase
         .from('shops')
-        .update({ address: address.trim() || null, owner_whatsapp: waForDb })
+        .update({ address: addressForDb, owner_whatsapp: ownerWhatsappForDb })
         .eq('id', shop.id)
       if (profileErr) console.error('[settings] perfil Julie (078) no guardado', profileErr)
 
-      setShop({ ...(data as Shop), address: address.trim() || null, owner_whatsapp: waForDb })
+      setShop({ ...(data as Shop), address: addressForDb, owner_whatsapp: ownerWhatsappForDb })
       setSavedAt(new Date())
       // Best-effort audit log entry. Failure here doesn't block the save.
       if (Object.keys(changes).length > 0) {
@@ -282,39 +296,73 @@ export default function ShopSettings({
         {t('settings.subtitle')}
       </p>
 
-      <Link
-        href="/dashboard/services"
-        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-4 hover:border-white transition-colors group"
-      >
-        <div className="min-w-0">
-          <p className="text-white font-semibold text-sm">{t('services.title')}</p>
-          <p className="text-nxtup-dim text-xs">{t('services.linkHint')}</p>
-        </div>
-        <span
-          className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
-          aria-hidden
+      {/* Puertas, no configuración: visibles sobre las pestañas. */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <Link
+          href="/dashboard/services"
+          className="flex items-center justify-between gap-2 border border-nxtup-line rounded-xl px-4 py-3 hover:border-white transition-colors group"
         >
-          →
-        </span>
-      </Link>
-
-      <Link
-        href="/dashboard/ayuda"
-        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-8 hover:border-white transition-colors group"
-      >
-        <div className="min-w-0">
-          <p className="text-white font-semibold text-sm">{t('help.linkTitle')}</p>
-          <p className="text-nxtup-dim text-xs">{t('help.linkHint')}</p>
-        </div>
-        <span
-          className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
-          aria-hidden
+          <div className="min-w-0">
+            <p className="text-white font-semibold text-sm truncate">{t('services.title')}</p>
+            <p className="text-nxtup-dim text-xs truncate">{t('services.linkHint')}</p>
+          </div>
+          <span
+            className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
+            aria-hidden
+          >
+            →
+          </span>
+        </Link>
+        <Link
+          href="/dashboard/ayuda"
+          className="flex items-center justify-between gap-2 border border-nxtup-line rounded-xl px-4 py-3 hover:border-white transition-colors group"
         >
-          →
-        </span>
-      </Link>
+          <div className="min-w-0">
+            <p className="text-white font-semibold text-sm truncate">{t('help.linkTitle')}</p>
+            <p className="text-nxtup-dim text-xs truncate">{t('help.linkHint')}</p>
+          </div>
+          <span
+            className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
+            aria-hidden
+          >
+            →
+          </span>
+        </Link>
+      </div>
 
-      <form onSubmit={handleSave} className="flex flex-col gap-6">
+      {/* Pestañas (18-oct): Barbería / Horario / Equipo / Accesos. Los
+          campos conservan su estado aunque su pestaña no esté montada;
+          la barra fija de abajo guarda los cambios de todas. */}
+      <div className="grid grid-cols-4 gap-1 mb-2 border border-nxtup-line rounded-xl p-1">
+        {([
+          ['shop', 'settings.tab.shop'],
+          ['hours', 'settings.tab.hours'],
+          ['team', 'settings.tab.team'],
+          ['access', 'settings.tab.access'],
+        ] as const).map(([key, labelKey]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`rounded-lg px-1 py-2 text-xs sm:text-sm font-bold transition-colors ${
+              tab === key ? 'bg-nxtup-line text-white' : 'text-nxtup-muted hover:text-white'
+            }`}
+          >
+            {t(labelKey)}
+          </button>
+        ))}
+      </div>
+      <p
+        className={`text-nxtup-active text-xs text-right mb-6 transition-opacity ${
+          savedAt && !dirty ? 'opacity-100' : 'opacity-0'
+        }`}
+        aria-hidden={!(savedAt && !dirty)}
+      >
+        {t('settings.saved')}
+      </p>
+
+      {tab === 'shop' && (
+        <div className="flex flex-col gap-6">
         <Field label={t('settings.field.shopName')}>
           <input
             required
@@ -400,6 +448,29 @@ export default function ShopSettings({
           </fieldset>
         </Field>
 
+        <LogoSection shop={shop} onUpdated={(s) => { setShop(s); router.refresh() }} />
+
+        {/* Acceso a Suscripción: la barra móvil no tiene el tab (solo el
+            nav de escritorio) y los dueños pagan desde el teléfono. */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold">
+            {t('settings.billing.heading')}
+          </h2>
+          <Link
+            href="/dashboard/billing"
+            className="flex items-center justify-between border border-nxtup-line rounded-xl px-4 py-4 hover:border-nxtup-dim transition-colors"
+          >
+            <span className="text-white text-sm font-semibold">
+              {t('settings.billing.manage')}
+            </span>
+            <span className="text-nxtup-muted" aria-hidden>→</span>
+          </Link>
+        </section>
+        </div>
+      )}
+
+      {tab === 'team' && (
+        <div className="flex flex-col gap-6">
         <Field label={t('settings.field.maxQueue')} hint={t('settings.hint.maxQueue')}>
           <input
             type="number"
@@ -410,7 +481,11 @@ export default function ShopSettings({
             className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
           />
         </Field>
+        </div>
+      )}
 
+      {tab === 'hours' && (
+        <div className="flex flex-col gap-6">
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
             {t('settings.section.hours')}
@@ -432,6 +507,39 @@ export default function ShopSettings({
           )}
         </div>
 
+        <Field
+          label={t('settings.field.timezone')}
+          hint={t('settings.hint.timezone')}
+        >
+          <select
+            value={timezone}
+            onChange={e => setTimezone(e.target.value)}
+            className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none"
+          >
+            {TIMEZONE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value} className="bg-nxtup-bg">
+                {t(o.labelKey)}
+              </option>
+            ))}
+            {/* Allow the current value even if it's not in our preset list */}
+            {!TIMEZONE_OPTIONS.find(o => o.value === timezone) && (
+              <option value={timezone} className="bg-nxtup-bg">
+                {timezone}
+              </option>
+            )}
+          </select>
+        </Field>
+
+        <ShopOpenSection
+          shopId={shop.id}
+          initialOpen={shop.is_open}
+          hasHours={hasAnyOpenDay(schedule)}
+        />
+        </div>
+      )}
+
+      {tab === 'team' && (
+        <div className="flex flex-col gap-6">
         <div>
           <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
             {t('settings.section.breaks')}
@@ -624,91 +732,20 @@ export default function ShopSettings({
           )}
         </div>
 
-        <Field
-          label={t('settings.field.timezone')}
-          hint={t('settings.hint.timezone')}
-        >
-          <select
-            value={timezone}
-            onChange={e => setTimezone(e.target.value)}
-            className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none"
-          >
-            {TIMEZONE_OPTIONS.map(o => (
-              <option key={o.value} value={o.value} className="bg-nxtup-bg">
-                {t(o.labelKey)}
-              </option>
-            ))}
-            {/* Allow the current value even if it's not in our preset list */}
-            {!TIMEZONE_OPTIONS.find(o => o.value === timezone) && (
-              <option value={timezone} className="bg-nxtup-bg">
-                {timezone}
-              </option>
-            )}
-          </select>
-        </Field>
-
-        {error && <p className="text-nxtup-busy text-sm">{error}</p>}
-
-        <div className="flex items-center gap-4">
-          <button
-            type="submit"
-            disabled={saving || !dirty || !name.trim()}
-            className="px-5 py-3 bg-white text-black font-semibold rounded-lg disabled:opacity-40 transition-all active:scale-[0.98]"
-          >
-            {saving ? t('settings.saving') : t('settings.save')}
-          </button>
-          {savedAt && !dirty && (
-            <span className="text-nxtup-active text-sm">{t('settings.saved')}</span>
-          )}
         </div>
-      </form>
+      )}
 
-      <hr className="border-nxtup-line my-10" />
+      {tab === 'access' && (
+        <div className="flex flex-col gap-10">
+        <ManagerAccessSection shopId={shop.id} />
 
-      <ShopOpenSection
-        shopId={shop.id}
-        initialOpen={shop.is_open}
-        hasHours={hasAnyOpenDay(schedule)}
-      />
+        <AntiCheatSection
+          shop={shop}
+          currentIp={currentIp}
+          onUpdated={(s) => { setShop(s); router.refresh() }}
+        />
 
-      <hr className="border-nxtup-line my-10" />
-
-      {/* Acceso a Suscripción: la barra móvil no tiene el tab (solo el
-          nav de escritorio) y los dueños pagan desde el teléfono. */}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold">
-          {t('settings.billing.heading')}
-        </h2>
-        <Link
-          href="/dashboard/billing"
-          className="flex items-center justify-between border border-nxtup-line rounded-xl px-4 py-4 hover:border-nxtup-dim transition-colors"
-        >
-          <span className="text-white text-sm font-semibold">
-            {t('settings.billing.manage')}
-          </span>
-          <span className="text-nxtup-muted" aria-hidden>→</span>
-        </Link>
-      </section>
-
-      <hr className="border-nxtup-line my-10" />
-
-      <AntiCheatSection
-        shop={shop}
-        currentIp={currentIp}
-        onUpdated={(s) => { setShop(s); router.refresh() }}
-      />
-
-      <hr className="border-nxtup-line my-10" />
-
-      <LogoSection shop={shop} onUpdated={(s) => { setShop(s); router.refresh() }} />
-
-      <hr className="border-nxtup-line my-10" />
-
-      <ManagerAccessSection shopId={shop.id} />
-
-      <hr className="border-nxtup-line my-10" />
-
-      <section className="flex flex-col gap-2">
+        <section className="flex flex-col gap-2">
         <h2 className="text-xs uppercase tracking-[0.3em] text-nxtup-muted font-bold mb-3">
           {t('settings.account.heading')}
         </h2>
@@ -729,6 +766,31 @@ export default function ShopSettings({
           </form>
         </div>
       </section>
+        </div>
+      )}
+
+      {/* Barra de guardar FIJA (18-oct): aparece solo con cambios sin
+          guardar, desde cualquier pestaña, siempre a la vista — nunca
+          más scrollear para guardar. En móvil flota sobre el tab bar
+          inferior del dashboard (~64px + safe area). */}
+      {(dirty || saving) && (
+        <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-4 z-30 mt-8">
+          <div className="rounded-xl border border-nxtup-line bg-nxtup-bg/95 backdrop-blur-md px-4 py-3 shadow-lg shadow-black/40">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || !name.trim()}
+                className="px-5 py-2.5 bg-white text-black font-semibold rounded-lg disabled:opacity-40 transition-all active:scale-[0.98]"
+              >
+                {saving ? t('settings.saving') : t('settings.save')}
+              </button>
+              <p className="text-nxtup-muted text-xs flex-1">{t('settings.unsaved')}</p>
+            </div>
+            {error && <p className="text-nxtup-busy text-sm mt-2">{error}</p>}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
