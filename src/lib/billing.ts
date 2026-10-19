@@ -48,13 +48,13 @@ export function priceIdForAddon(addon: AddonKey): string | null {
 // el narrowing de TS no marque ramas como inalcanzables.
 export const JULIE_LAUNCHED: boolean = true
 
-// Fase 2 del número de Julie: PORTAR el número propio del dueño. La
-// captura (wizard + ruta) ya está construida contra el contrato
-// acordado con Mamacita (17-oct), pero su flujo real (WhatsApp de
-// documentos + Twilio Porting API) aún no existe — encender esto antes
-// de su aviso deja dueños atascados en info_required. Un solo flip
-// enciende la opción del wizard Y el paso del porte en la ruta.
-export const JULIE_PORT_ENABLED: boolean = false
+// Porte del número de Julie. ENCENDIDO el 19-oct-2026: contrato final
+// con Mamacita (opción A de Francisco) construido por ambos lados —
+// NXTUP captura lo no sensible, el dueño completa cuenta/PIN/factura
+// en el enlace seguro de Mamacita (intake_url), ops somete el porte a
+// mano y el estado se consulta con mamacita-port-status al cargar la
+// página. Un solo flip enciende la opción del wizard Y la ruta.
+export const JULIE_PORT_ENABLED: boolean = true
 
 /** Estados de Stripe que cuentan como "acceso activo". */
 const ACTIVE_STATUSES = new Set(['trialing', 'active'])
