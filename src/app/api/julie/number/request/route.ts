@@ -61,14 +61,16 @@ export async function POST(request: Request) {
   let choice = ''
   let requestedNumber = ''
   let currentNumber = ''
-  let ownerPhone = ''
+  let carrierName = ''
+  let authorizedName = ''
   let titular = false
   try {
     const body = await request.json()
     choice = String(body?.choice ?? '')
     requestedNumber = String(body?.requested_number ?? '').trim()
     currentNumber = normalizeE164(String(body?.current_number ?? ''))
-    ownerPhone = normalizeE164(String(body?.owner_phone ?? ''))
+    carrierName = String(body?.carrier_name ?? '').trim().slice(0, 80)
+    authorizedName = String(body?.authorized_name ?? '').trim().slice(0, 120)
     titular = body?.titular === true
   } catch {
     // cae a las validaciones de abajo
@@ -82,13 +84,13 @@ export async function POST(request: Request) {
   if (choice === 'buy' && !/^\+1\d{10}$/.test(requestedNumber)) {
     return Response.json({ error: 'Pedido inválido' }, { status: 400 })
   }
-  // Porte (contrato 17-oct): NXTUP solo captura lo NO sensible — número a
-  // portar, titularidad y el WhatsApp de contacto (Mamacita pide por ahí
-  // los documentos del carrier en info_required; las credenciales del
-  // carrier jamás pasan por NXTUP).
-  if (choice === 'port' && (!currentNumber || !ownerPhone || !titular)) {
+  // Porte (contrato FINAL 19-oct, opción A de Francisco): NXTUP captura
+  // SOLO lo no sensible — número a portar, operador, nombre del titular
+  // y el checkbox de titularidad. Cuenta/PIN/factura/LOA van DIRECTO al
+  // enlace seguro de Mamacita (intake_url) y jamás tocan NXTUP.
+  if (choice === 'port' && (!currentNumber || !titular)) {
     return Response.json(
-      { error: 'Faltan datos del porte (número actual, WhatsApp de contacto y titularidad).' },
+      { error: 'Faltan datos del porte (número actual y titularidad).' },
       { status: 400 },
     )
   }
@@ -122,6 +124,60 @@ export async function POST(request: Request) {
     )
   }
 
+  // ── PORTE: endpoint y contrato propios (mamacita-port-request) ────
+  // Respuesta: { status:'collecting', port_request_id, intake_url } —
+  // el enlace seguro donde el dueño mete lo sensible. Se espeja como
+  // info_required + intake_url y la página lo muestra hasta completar.
+  if (choice === 'port') {
+    const portUrl = process.env.MAMACITA_PORT_REQUEST_URL
+    if (!portUrl) {
+      return Response.json(
+        { error: 'El porte de números aún no está conectado.' },
+        { status: 503 },
+      )
+    }
+    try {
+      const res = await signedMamacitaPost(portUrl, {
+        shop_id: shop.id,
+        phone_number: currentNumber,
+        ...(carrierName ? { carrier_name: carrierName } : {}),
+        ...(authorizedName ? { authorized_name: authorizedName } : {}),
+      })
+      const body = (res.body ?? {}) as { status?: string; intake_url?: string }
+      if (res.status !== 200 || body.status !== 'collecting' || !body.intake_url) {
+        console.error('[julie/number/request] port-request respondió', res.status, res.body)
+        return Response.json(
+          { error: 'No se pudo iniciar el porte — intenta de nuevo.' },
+          { status: 502 },
+        )
+      }
+      const { error: upsertErr } = await admin.from('julie_numbers').upsert({
+        shop_id: shop.id,
+        choice: 'port',
+        requested_number: null,
+        current_number: currentNumber,
+        status: 'info_required', // = "collecting" del lado Mamacita
+        intake_url: body.intake_url,
+        fail_reason: null,
+        updated_at: new Date().toISOString(),
+      })
+      if (upsertErr) {
+        console.error('[julie/number/request] port upsert failed', upsertErr)
+        return Response.json(
+          { error: 'No se pudo guardar el estado del porte — intenta de nuevo.' },
+          { status: 500 },
+        )
+      }
+      return Response.json({ status: 'info_required', intake_url: body.intake_url })
+    } catch (err) {
+      console.error('[julie/number/request] port error', err)
+      return Response.json(
+        { error: 'No se pudo iniciar el porte — intenta de nuevo.' },
+        { status: 502 },
+      )
+    }
+  }
+
   const url = process.env.MAMACITA_NUMBER_REQUEST_URL
   if (!url) {
     return Response.json(
@@ -139,21 +195,13 @@ export async function POST(request: Request) {
             requested_number: requestedNumber,
             owner_name: shop.name,
           }
-        : choice === 'forward'
-          ? {
-              shop_id: shop.id,
-              choice: 'forward',
-              requested_number: requestedNumber,
-              current_number: currentNumber,
-              owner_name: shop.name,
-            }
-          : {
-              shop_id: shop.id,
-              choice: 'port',
-              current_number: currentNumber,
-              owner_name: shop.name,
-              owner_phone: ownerPhone,
-            }
+        : {
+            shop_id: shop.id,
+            choice: 'forward',
+            requested_number: requestedNumber,
+            current_number: currentNumber,
+            owner_name: shop.name,
+          }
     const res = await signedMamacitaPost(url, payload)
     const body = (res.body ?? {}) as {
       status?: string
@@ -179,8 +227,8 @@ export async function POST(request: Request) {
     await admin.from('julie_numbers').upsert({
       shop_id: shop.id,
       choice,
-      requested_number: choice === 'port' ? null : requestedNumber,
-      current_number: choice === 'buy' ? null : currentNumber,
+      requested_number: requestedNumber,
+      current_number: choice === 'forward' ? currentNumber : null,
       status: body.status,
       number: body.status === 'completed' ? body.number ?? null : null,
       fail_reason: body.status === 'failed' ? body.fail_reason ?? null : null,

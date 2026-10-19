@@ -499,7 +499,21 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.port.cta': 'Iniciar el porte',
     'julieNum.port.sending': 'Enviando…',
     'julieNum.port.infoNote':
-      'El porte tarda varios días y tu línea sigue funcionando mientras tanto. Te escribiremos por WhatsApp para pedirte los documentos de tu carrier.',
+      'El porte tarda varios días y tu línea sigue funcionando mientras tanto. Al continuar te damos un enlace seguro para completar los datos de tu operador (cuenta, PIN y factura) — necesitamos el dato exacto o el operador rechaza el porte.',
+    'julieNum.port.carrierLabel': 'Tu operador actual (opcional)',
+    'julieNum.port.authorizedLabel': 'Nombre del titular de la cuenta (opcional)',
+    'julieNum.portFlow.title': 'Porte en proceso',
+    'julieNum.portFlow.intakeIntro':
+      'Falta un paso: completa los datos de tu línea (cuenta, PIN del operador y factura) en este enlace seguro. Sin eso el porte no puede arrancar.',
+    'julieNum.portFlow.intakeCta': 'Completar mis datos',
+    'julieNum.portFlow.intakeNote':
+      'El enlace es de un solo uso y expira en 7 días. Tus datos van directo al equipo del porte; no se guardan en NXTUP.',
+    'julieNum.portFlow.submitted':
+      'Datos recibidos. Estamos sometiendo el porte con tu operador; esto toma varios días y te avisamos cuando haya fecha.',
+    'julieNum.portFlow.scheduled':
+      'Porte programado: tu número pasa a Julie el {date}. Puede haber un parpadeo breve ese día.',
+    'julieNum.portFlow.lineNote':
+      'Tu línea sigue funcionando normal durante todo el proceso.',
     'julieNum.fwdTitle': 'Mantén tu número (desvío)',
     'julieNum.fwdDesc':
       'Tus clientes siguen marcando tu número de siempre; las llamadas se desvían a Julie.',
@@ -1302,7 +1316,21 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.port.cta': 'Start the port',
     'julieNum.port.sending': 'Sending…',
     'julieNum.port.infoNote':
-      'Porting takes several days and your line keeps working in the meantime. We will message you on WhatsApp to request your carrier documents.',
+      "Porting takes several days and your line keeps working in the meantime. When you continue we'll give you a secure link to complete your carrier details (account, PIN and bill) — the data must be exact or the carrier rejects the port.",
+    'julieNum.port.carrierLabel': 'Your current carrier (optional)',
+    'julieNum.port.authorizedLabel': 'Account holder name (optional)',
+    'julieNum.portFlow.title': 'Port in progress',
+    'julieNum.portFlow.intakeIntro':
+      'One step left: complete your line details (account, carrier PIN and bill) on this secure link. The port cannot start without it.',
+    'julieNum.portFlow.intakeCta': 'Complete my details',
+    'julieNum.portFlow.intakeNote':
+      'The link is single-use and expires in 7 days. Your details go straight to the porting team; nothing is stored in NXTUP.',
+    'julieNum.portFlow.submitted':
+      'Details received. We are submitting the port with your carrier; this takes several days and we will let you know when there is a date.',
+    'julieNum.portFlow.scheduled':
+      'Port scheduled: your number moves to Julie on {date}. There may be a brief blip that day.',
+    'julieNum.portFlow.lineNote':
+      'Your line keeps working normally throughout the process.',
     'julieNum.fwdTitle': 'Keep your number (forwarding)',
     'julieNum.fwdDesc':
       'Clients keep dialing your usual number; calls forward to Julie.',

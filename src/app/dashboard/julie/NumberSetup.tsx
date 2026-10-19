@@ -38,9 +38,11 @@ export default function NumberSetup({ failReason }: { failReason: string | null 
   // desvío: el número público actual del dueño
   const [publicNumber, setPublicNumber] = useState('')
 
-  // porte
+  // porte (contrato final 19-oct: solo lo NO sensible; cuenta/PIN/
+  // factura/LOA van al enlace seguro de Mamacita, nunca por aquí)
   const [currentNumber, setCurrentNumber] = useState('')
-  const [ownerPhone, setOwnerPhone] = useState('')
+  const [carrierName, setCarrierName] = useState('')
+  const [authorizedName, setAuthorizedName] = useState('')
   const [titular, setTitular] = useState(false)
   const [porting, setPorting] = useState(false)
 
@@ -115,7 +117,8 @@ export default function NumberSetup({ failReason }: { failReason: string | null 
         body: JSON.stringify({
           choice: 'port',
           current_number: currentNumber,
-          owner_phone: ownerPhone,
+          carrier_name: carrierName,
+          authorized_name: authorizedName,
           titular,
         }),
       })
@@ -297,13 +300,23 @@ export default function NumberSetup({ failReason }: { failReason: string | null 
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-xs text-nxtup-muted font-semibold">
-                {t('julieNum.port.waLabel')}
+                {t('julieNum.port.carrierLabel')}
               </span>
               <input
-                inputMode="tel"
-                placeholder="(919) 555-0000"
-                value={ownerPhone}
-                onChange={e => setOwnerPhone(e.target.value)}
+                placeholder="T-Mobile, AT&T, Verizon…"
+                value={carrierName}
+                onChange={e => setCarrierName(e.target.value)}
+                className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-nxtup-muted font-semibold">
+                {t('julieNum.port.authorizedLabel')}
+              </span>
+              <input
+                placeholder="Juan Pérez"
+                value={authorizedName}
+                onChange={e => setAuthorizedName(e.target.value)}
                 className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
               />
             </label>
@@ -320,7 +333,7 @@ export default function NumberSetup({ failReason }: { failReason: string | null 
             <button
               type="button"
               onClick={startPort}
-              disabled={porting || !titular || !phoneOk(currentNumber) || !phoneOk(ownerPhone)}
+              disabled={porting || !titular || !phoneOk(currentNumber)}
               className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-nxtup-active text-black px-5 py-3 text-sm font-bold uppercase tracking-wider hover:brightness-110 transition disabled:opacity-50"
             >
               <ArrowLeftRight size={16} aria-hidden />
