@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
@@ -107,19 +108,27 @@ export async function POST(request: Request) {
     // ALTA del shop en Mamacita (upsert por nxtup_shop_id) — nace con
     // nombre/horario/servicios antes de que llegue cualquier
     // number_request. En la desactivación el perfil extra es inocuo.
-    try {
-      await notifyMamacita(
-        await buildShopProfileEvent(shop!.id, { julie_enabled: julieActive }),
-      )
-    } catch (err) {
-      // Fallback flag-only: el builder jamás debe impedir el aviso.
-      console.error('[billing/julie] buildShopProfileEvent failed', err)
-      await notifyMamacita({
-        event: 'shop_profile_updated',
-        nxtup_shop_id: shop!.id,
-        julie_enabled: julieActive,
-      })
-    }
+    //
+    // DESPUÉS de responder (incidente 20-oct): este aviso (4 queries +
+    // POST con timeout de 3s) corría antes del return y alargaba el
+    // botón girando — el dueño de NuevaYol creyó que murió y tocó 3
+    // veces. after() lo saca de la ruta crítica; el flag local ya quedó
+    // escrito arriba, así que el reload pinta "Activa" sin esperar esto.
+    after(async () => {
+      try {
+        await notifyMamacita(
+          await buildShopProfileEvent(shop!.id, { julie_enabled: julieActive }),
+        )
+      } catch (err) {
+        // Fallback flag-only: el builder jamás debe impedir el aviso.
+        console.error('[billing/julie] buildShopProfileEvent failed', err)
+        await notifyMamacita({
+          event: 'shop_profile_updated',
+          nxtup_shop_id: shop!.id,
+          julie_enabled: julieActive,
+        })
+      }
+    })
   }
 
   try {
