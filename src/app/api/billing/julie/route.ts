@@ -128,12 +128,41 @@ export async function POST(request: Request) {
 
     if (action === 'activate') {
       if (!julieItem) {
+        // Clave de idempotencia por suscripción en ventana de 1 minuto:
+        // dos toques CONCURRENTES del botón creaban DOS items de Julie
+        // (TOCTOU: ambos leían "no existe" antes de que el otro
+        // escribiera; caso real 20-oct, cliente con doble cobro). Con
+        // la clave, Stripe ejecuta UNA sola activación y al toque
+        // gemelo le devuelve la misma respuesta. La ventana de 1 min
+        // permite re-activar legítimamente más tarde (una clave fija
+        // re-serviría la respuesta vieja sin re-agregar el item).
+        const minuteBucket = Math.floor(Date.now() / 60000)
+        await stripe.subscriptions.update(
+          subId,
+          {
+            items: [{ price: juliePriceId, quantity: 1 }],
+            proration_behavior: 'always_invoice',
+            payment_behavior: 'error_if_incomplete',
+          },
+          { idempotencyKey: `julie-activate-${subId}-${minuteBucket}` },
+        )
+      }
+
+      // Autocuración de carreras pasadas o de borde de ventana: si la
+      // suscripción quedó con items DUPLICADOS de Julie, remover los
+      // extras acreditando su tiempo no usado (create_prorations).
+      const fresh = await stripe.subscriptions.retrieve(subId)
+      const dupes = fresh.items.data
+        .filter(it => it.price?.id === juliePriceId)
+        .slice(1)
+      for (const extra of dupes) {
+        console.error('[billing/julie] item duplicado de Julie removido:', extra.id)
         await stripe.subscriptions.update(subId, {
-          items: [{ price: juliePriceId, quantity: 1 }],
-          proration_behavior: 'always_invoice',
-          payment_behavior: 'error_if_incomplete',
+          items: [{ id: extra.id, deleted: true }],
+          proration_behavior: 'create_prorations',
         })
       }
+
       await mirror(true)
       return Response.json({ ok: true, julie_active: true })
     }
