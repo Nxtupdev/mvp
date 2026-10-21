@@ -5,6 +5,7 @@ import { getServerI18n } from '@/lib/i18n-server'
 import NumberSetup from './NumberSetup'
 import ForwardVerify from './ForwardVerify'
 import JulieActions from '../billing/JulieActions'
+import CancelNumberFlow from './CancelNumberFlow'
 import { syncPortStatus } from '@/lib/julie-port'
 
 export const metadata = { title: 'Julie — NXTUP' }
@@ -172,6 +173,10 @@ export default async function JuliePage() {
                 {t('julieNum.portFlow.intakeCta')} →
               </a>
               <p className="text-xs text-nxtup-dim">{t('julieNum.portFlow.intakeNote')}</p>
+              {/* Salida de emergencia (caso NuevaYol 21-oct): mientras
+                  solo falten los datos, abandonar el porte es gratis y
+                  devuelve al wizard (comprar / desvío). */}
+              <CancelNumberFlow />
             </>
           ) : displayStatus === 'porting_in_progress' && focDateLabel ? (
             <p className="text-sm text-nxtup-muted">

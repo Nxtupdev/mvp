@@ -514,6 +514,10 @@ export const MESSAGES: Record<Locale, Messages> = {
       'Porte programado: tu número pasa a Julie el {date}. Puede haber un parpadeo breve ese día.',
     'julieNum.portFlow.lineNote':
       'Tu línea sigue funcionando normal durante todo el proceso.',
+    'julieNum.cancel.cta': 'Cambiar de método (comprar o desvío)',
+    'julieNum.cancel.working': 'Cancelando…',
+    'julieNum.cancel.confirm':
+      '¿Cancelar el porte y elegir otro método? No se ha cobrado nada; podrás volver a elegir portar después si quieres.',
     'julieNum.fwdTitle': 'Mantén tu número (desvío)',
     'julieNum.fwdDesc':
       'Tus clientes siguen marcando tu número de siempre; las llamadas se desvían a Julie.',
@@ -1331,6 +1335,10 @@ export const MESSAGES: Record<Locale, Messages> = {
       'Port scheduled: your number moves to Julie on {date}. There may be a brief blip that day.',
     'julieNum.portFlow.lineNote':
       'Your line keeps working normally throughout the process.',
+    'julieNum.cancel.cta': 'Change method (buy or forwarding)',
+    'julieNum.cancel.working': 'Cancelling…',
+    'julieNum.cancel.confirm':
+      "Cancel the port and pick another method? Nothing has been charged; you can choose porting again later if you want.",
     'julieNum.fwdTitle': 'Keep your number (forwarding)',
     'julieNum.fwdDesc':
       'Clients keep dialing your usual number; calls forward to Julie.',
