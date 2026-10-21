@@ -221,6 +221,16 @@ export async function POST(request: Request) {
         { status: 502 },
       )
     }
+    // Un failed viaja en un 200 "exitoso" y sin esto queda invisible en
+    // los logs (incidente NuevaYol 21-oct: primera compra real fallida y
+    // hubo que pedirle el motivo al otro lado a ciegas).
+    if (body.status === 'failed') {
+      console.error('[julie/number/request] compra FALLIDA', {
+        shop_id: shop.id,
+        choice,
+        fail_reason: body.fail_reason ?? null,
+      })
+    }
 
     // Espejo de estado para la UI (service role; el dueño solo lee).
     // owner_phone NO se guarda: solo viaja a Mamacita para el contacto.
