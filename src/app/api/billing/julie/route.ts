@@ -2,7 +2,7 @@ import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
-import { JULIE_LAUNCHED, priceIdForAddon } from '@/lib/billing'
+import { JULIE_LAUNCHED, priceIdForAddon, subscriptionPeriodEnd } from '@/lib/billing'
 import { buildShopProfileEvent, notifyMamacita } from '@/lib/mamacita'
 
 /**
@@ -83,6 +83,18 @@ export async function POST(request: Request) {
     )
   }
 
+  // Memoria de pago por ciclo (081, incidente Fade Factory): select
+  // APARTE y fail-open — si la columna no existe aún, alreadyPaid=false
+  // y el comportamiento es el de siempre.
+  const { data: paidRow } = await admin
+    .from('subscriptions')
+    .select('julie_paid_until')
+    .eq('shop_id', shop.id)
+    .maybeSingle()
+  const paidUntilRaw = (paidRow as { julie_paid_until?: string | null } | null)
+    ?.julie_paid_until
+  const alreadyPaid = Boolean(paidUntilRaw && Date.parse(paidUntilRaw) > Date.now())
+
   const stripe = getStripe()
 
   // Espejo local + aviso a Mamacita. Guard de "sin cambio" en AMBOS
@@ -146,13 +158,23 @@ export async function POST(request: Request) {
         // permite re-activar legítimamente más tarde (una clave fija
         // re-serviría la respuesta vieja sin re-agregar el item).
         const minuteBucket = Math.floor(Date.now() / 60000)
+        // Ciclo ya PAGADO (081): el item vuelve SIN prorrateo — reactivar
+        // dentro del periodo cubierto es gratis, cobrar dos veces el
+        // mismo ciclo es imposible (incidente Fade Factory 20-oct:
+        // activó en la mañana, el item se quitó al mediodía, y la
+        // reactivación nocturna le cobró el prorrateo completo otra vez).
         await stripe.subscriptions.update(
           subId,
-          {
-            items: [{ price: juliePriceId, quantity: 1 }],
-            proration_behavior: 'always_invoice',
-            payment_behavior: 'error_if_incomplete',
-          },
+          alreadyPaid
+            ? {
+                items: [{ price: juliePriceId, quantity: 1 }],
+                proration_behavior: 'none',
+              }
+            : {
+                items: [{ price: juliePriceId, quantity: 1 }],
+                proration_behavior: 'always_invoice',
+                payment_behavior: 'error_if_incomplete',
+              },
           { idempotencyKey: `julie-activate-${subId}-${minuteBucket}` },
         )
       }
@@ -172,11 +194,25 @@ export async function POST(request: Request) {
         })
       }
 
+      // Registrar hasta cuándo quedó pagado este ciclo de Julie (081).
+      // Update APARTE y tolerante (pre-migración falla solo esto).
+      const periodEnd = subscriptionPeriodEnd(fresh)
+      if (periodEnd) {
+        const { error: paidErr } = await admin
+          .from('subscriptions')
+          .update({ julie_paid_until: new Date(periodEnd * 1000).toISOString() })
+          .eq('shop_id', shop.id)
+        if (paidErr) console.error('[billing/julie] julie_paid_until update failed', paidErr)
+      }
+
       await mirror(true)
       return Response.json({ ok: true, julie_active: true })
     }
 
     // deactivate
+    // Marca forense: saber QUIÉN/CUÁNDO desactivó vale oro en incidentes
+    // de cobro (el del 20-oct quedó sin autor por falta de este log).
+    console.log('[billing/julie] deactivate', { shop_id: shop.id, had_item: Boolean(julieItem) })
     if (julieItem) {
       await stripe.subscriptions.update(subId, {
         items: [{ id: julieItem.id, deleted: true }],

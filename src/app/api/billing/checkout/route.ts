@@ -51,9 +51,24 @@ export async function POST(request: Request) {
   // get-or-create del Customer (guardado en subscriptions).
   const { data: subRow } = await admin
     .from('subscriptions')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, status, billing_mode')
     .eq('shop_id', shop.id)
     .maybeSingle()
+
+  // Guard anti doble-pago (20-oct): la UI ya esconde el botón con acceso
+  // activo, pero el server es la verdad — un checkout con suscripción
+  // viva crearía una SEGUNDA suscripción completa y cobraría de nuevo.
+  const currentStatus = (subRow as { status?: string } | null)?.status ?? 'none'
+  const currentMode = (subRow as { billing_mode?: string } | null)?.billing_mode ?? 'stripe'
+  if (
+    currentMode !== 'stripe' ||
+    ['trialing', 'active', 'past_due'].includes(currentStatus)
+  ) {
+    return Response.json(
+      { error: 'Esta barbería ya tiene su suscripción activa — no hay nada que pagar.' },
+      { status: 409 },
+    )
+  }
 
   let customerId = subRow?.stripe_customer_id as string | null | undefined
   if (!customerId) {

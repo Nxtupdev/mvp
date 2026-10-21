@@ -106,9 +106,30 @@ export async function POST(request: Request) {
       const { data: row } = shopId
         ? await lookup.eq('shop_id', shopId).maybeSingle()
         : await lookup.eq('stripe_customer_id', customerId).maybeSingle()
-      // Sin fila (o sin columna → select fallido) o sin cambio: nada que
-      // hacer. El "sin cambio" también de-duplica los webhooks repetidos.
-      if (!row || row.julie_active === julieActive) return
+      if (!row) return
+
+      // Memoria de pago por ciclo (081): con el item de Julie presente y
+      // la suscripción viva, el ciclo corriente está cubierto hasta su
+      // period end. Se refresca ANTES del guard "sin cambio" a propósito:
+      // las renovaciones mensuales no cambian el flag pero SÍ extienden
+      // el periodo pagado — sin este refresh, el doble cobro de Fade
+      // Factory volvería en el segundo ciclo. Update aparte y tolerante.
+      if (julieActive) {
+        const pe = subscriptionPeriodEnd(sub)
+        if (pe) {
+          const { error: paidErr } = await admin
+            .from('subscriptions')
+            .update({ julie_paid_until: new Date(pe * 1000).toISOString() })
+            .eq('shop_id', row.shop_id)
+          if (paidErr) {
+            console.error('[stripe/webhook] julie_paid_until update failed', paidErr)
+          }
+        }
+      }
+
+      // Sin cambio de flag: nada más que hacer (también de-duplica los
+      // webhooks repetidos).
+      if (row.julie_active === julieActive) return
 
       const { error: updateErr } = await admin
         .from('subscriptions')
