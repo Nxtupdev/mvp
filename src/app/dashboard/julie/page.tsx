@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
 import NumberSetup from './NumberSetup'
 import ForwardVerify from './ForwardVerify'
+import JulieActions from '../billing/JulieActions'
 import { syncPortStatus } from '@/lib/julie-port'
 
 export const metadata = { title: 'Julie — NXTUP' }
@@ -194,6 +195,15 @@ export default async function JuliePage() {
         </section>
       ) : (
         <NumberSetup failReason={failReason} />
+      )}
+
+      {/* Desactivar vive AQUÍ abajo (pedido de Francisco 20-oct), lejos
+          del flujo normal: en la card de billing era muy fácil tocarlo
+          por error. Pequeño, apagado y con confirmación. */}
+      {julieActive && (
+        <div className="mt-12 pt-6 border-t border-nxtup-line flex justify-end">
+          <JulieActions mode="deactivate" />
+        </div>
       )}
     </main>
   )

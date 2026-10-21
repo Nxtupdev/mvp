@@ -45,14 +45,16 @@ export default function JulieActions({
   }
 
   if (mode === 'deactivate') {
+    // Discreto a propósito (20-oct): vive al fondo de /dashboard/julie,
+    // chico y apagado; el rojo solo asoma al pasar por encima.
     return (
       <button
         type="button"
         onClick={go}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg border border-nxtup-line px-5 py-2.5 text-sm font-bold text-nxtup-muted hover:border-white hover:text-white transition-colors disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-nxtup-line px-3 py-2 text-xs font-semibold text-nxtup-dim hover:border-nxtup-busy/60 hover:text-nxtup-busy transition-colors disabled:opacity-50"
       >
-        <PhoneOff size={16} aria-hidden />
+        <PhoneOff size={13} aria-hidden />
         {loading ? t('billing.opening') : t('billing.julie.deactivate')}
       </button>
     )

@@ -214,15 +214,15 @@ export default async function BillingPage() {
                   </span>
                 </div>
                 <p className="text-sm text-nxtup-muted">{t('billing.julie.activeNote')}</p>
+                {/* Desactivar ya NO vive aquí (pedido de Francisco 20-oct:
+                    demasiado fácil tocarlo por error) — está al fondo de
+                    /dashboard/julie, pequeño y con confirmación. */}
                 <Link
                   href="/dashboard/julie"
-                  className="text-sm font-bold text-nxtup-active hover:brightness-110 transition"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-nxtup-active text-black px-5 py-3 text-sm font-bold uppercase tracking-wider hover:brightness-110 transition"
                 >
                   {t('julieNum.manageLink')} →
                 </Link>
-                <div>
-                  <JulieActions mode="deactivate" />
-                </div>
               </section>
             ) : julieConfigured && status === 'active' ? (
               <section className="border border-nxtup-line rounded-2xl p-6 mt-6 flex flex-col gap-4">
