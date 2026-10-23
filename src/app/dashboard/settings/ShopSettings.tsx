@@ -13,6 +13,7 @@ import {
 import WeeklyScheduleEditor from './WeeklyScheduleEditor'
 import ManagerAccessSection from './ManagerAccess'
 import ShopOpenSection from './ShopOpenSection'
+import SplitSlider from '@/components/SplitSlider'
 import { cleanLogoEdges } from '@/lib/logo-clean'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
@@ -53,6 +54,9 @@ type Shop = {
   // en los WhatsApp al cliente) y WhatsApp del dueño (avisos de Julie).
   address: string | null
   owner_whatsapp: string | null
+  // Migración 082 — tickets por porcentaje (opt-in por barbería).
+  tickets_enabled: boolean
+  barber_split_percent: number
 }
 
 // Migración 051 — límite del mensaje del cintillo. Lo suficientemente
@@ -100,6 +104,9 @@ export default function ShopSettings({
   const [timezone, setTimezone] = useState(initial.timezone || 'America/New_York')
   const [address, setAddress] = useState(initial.address ?? '')
   const [ownerWhatsapp, setOwnerWhatsapp] = useState(initial.owner_whatsapp ?? '')
+  // Tickets por porcentaje (082).
+  const [ticketsEnabled, setTicketsEnabled] = useState(initial.tickets_enabled ?? false)
+  const [barberSplit, setBarberSplit] = useState(initial.barber_split_percent ?? 60)
   // ── Late-arrival sanction state (migración 047) ──────────────
   // El DB column threshold es `time` (e.g. "12:00:00"). Lo renderizamos
   // con <input type="time"> que usa "HH:MM" — coercemos en ambas
@@ -168,6 +175,8 @@ export default function ShopSettings({
         : null
 
   const dirty =
+    ticketsEnabled !== (shop.tickets_enabled ?? false) ||
+    barberSplit !== (shop.barber_split_percent ?? 60) ||
     addressForDb !== shop.address ||
     ownerWhatsappForDb !== shop.owner_whatsapp ||
     name.trim() !== shop.name ||
@@ -271,7 +280,20 @@ export default function ShopSettings({
         .eq('id', shop.id)
       if (profileErr) console.error('[settings] perfil Julie (078) no guardado', profileErr)
 
-      setShop({ ...(data as Shop), address: addressForDb, owner_whatsapp: ownerWhatsappForDb })
+      // Tickets por porcentaje (082), mismo patrón tolerante.
+      const { error: ticketsErr } = await supabase
+        .from('shops')
+        .update({ tickets_enabled: ticketsEnabled, barber_split_percent: barberSplit })
+        .eq('id', shop.id)
+      if (ticketsErr) console.error('[settings] tickets (082) no guardado', ticketsErr)
+
+      setShop({
+        ...(data as Shop),
+        address: addressForDb,
+        owner_whatsapp: ownerWhatsappForDb,
+        tickets_enabled: ticketsEnabled,
+        barber_split_percent: barberSplit,
+      })
       setSavedAt(new Date())
       // Best-effort audit log entry. Failure here doesn't block the save.
       if (Object.keys(changes).length > 0) {
@@ -732,6 +754,56 @@ export default function ShopSettings({
           )}
         </div>
 
+        {/* ── Tickets por porcentaje (082) ───────────────────────
+            Opt-in: apagado = nada de esto existe en ninguna pantalla
+            (ni la pregunta al barbero ni Cuentas). */}
+        <div>
+          <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
+            {t('settings.section.tickets')}
+          </p>
+          <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
+            {t('settings.tickets.blurb')}
+          </p>
+          <label className="mb-4 flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={ticketsEnabled}
+              onChange={e => setTicketsEnabled(e.target.checked)}
+              className="h-4 w-4 accent-salvia"
+            />
+            <span className="text-sm text-white">{t('settings.tickets.toggle')}</span>
+          </label>
+          {ticketsEnabled && (
+            <div className="flex flex-col gap-4">
+              <div className="border border-nxtup-line rounded-xl p-4">
+                <p className="text-nxtup-muted text-xs mb-3">
+                  {t('settings.tickets.splitHint')}
+                </p>
+                <SplitSlider
+                  value={barberSplit}
+                  onChange={setBarberSplit}
+                  barberLabel={t('settings.tickets.barber')}
+                  shopLabel={t('settings.tickets.house')}
+                />
+              </div>
+              <Link
+                href="/dashboard/cuentas"
+                className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 hover:border-white transition-colors group"
+              >
+                <div className="min-w-0">
+                  <p className="text-white font-semibold text-sm">{t('tickets.title')}</p>
+                  <p className="text-nxtup-dim text-xs">{t('settings.tickets.linkHint')}</p>
+                </div>
+                <span
+                  className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
+                  aria-hidden
+                >
+                  →
+                </span>
+              </Link>
+            </div>
+          )}
+        </div>
         </div>
       )}
 

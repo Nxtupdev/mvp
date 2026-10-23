@@ -52,6 +52,9 @@ export default async function SettingsPage() {
     // Migración 078 — perfil para Julie.
     address?: string | null
     owner_whatsapp?: string | null
+    // Migración 082 — tickets por porcentaje.
+    tickets_enabled?: boolean | null
+    barber_split_percent?: number | null
   }
   const row = shopRaw as ShopRow
 
@@ -85,6 +88,9 @@ export default async function SettingsPage() {
     // Migración 078 — perfil para Julie.
     address: row.address ?? null,
     owner_whatsapp: row.owner_whatsapp ?? null,
+    // Migración 082 — tickets por porcentaje.
+    tickets_enabled: row.tickets_enabled ?? false,
+    barber_split_percent: row.barber_split_percent ?? 60,
   }
 
   // The IP the owner is connecting from right now — used by the anti-

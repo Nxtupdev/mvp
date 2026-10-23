@@ -87,6 +87,7 @@ export default function BarberDashboard({
   initialCalledClient,
   initialCurrentClient,
   shopAvatars = [],
+  ticketsEnabled = false,
 }: {
   shopId: string
   shop: Shop
@@ -101,6 +102,9 @@ export default function BarberDashboard({
   // the avatar picker so the barber sees their shop's bespoke set
   // ahead of the generic stroke pool.
   shopAvatars?: ShopAvatar[]
+  // Tickets por porcentaje (082): habilita la hoja "¿Qué le hiciste?"
+  // al cerrar cliente y el link a Mi cuenta. Apagado = panel intacto.
+  ticketsEnabled?: boolean
 }) {
   const [barber, setBarber] = useState<Barber>({
     ...initialBarber,
@@ -150,6 +154,24 @@ export default function BarberDashboard({
   }, [])
   const [pending, setPending] = useState<ActionTone | null>(null)
   const [error, setError] = useState('')
+  // Tickets (082): servicios para la hoja "¿Qué le hiciste?" (vienen
+  // del API con admin — la página del barbero es anónima) y el cliente
+  // recién cerrado al que pertenece la hoja abierta.
+  type TicketService = { id: string; name: string; price: number | null }
+  const [ticketServices, setTicketServices] = useState<TicketService[]>([])
+  const [ticketFor, setTicketFor] = useState<{
+    entryId: string | null
+    clientName: string | null
+  } | null>(null)
+  useEffect(() => {
+    if (!ticketsEnabled) return
+    fetch(`/api/barbers/${initialBarber.id}/tickets`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (j && Array.isArray(j.services)) setTicketServices(j.services)
+      })
+      .catch(() => {})
+  }, [ticketsEnabled, initialBarber.id])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
   const [claiming, setClaiming] = useState(false)
@@ -399,6 +421,15 @@ export default function BarberDashboard({
           : target === 'break'
             ? 'break'
             : 'offline'
+    // Tickets (082): busy → available con cliente en silla = corte
+    // terminado. Snapshot ANTES del PATCH (realtime lo limpia después).
+    const closingClient =
+      ticketsEnabled &&
+      ticketServices.length > 0 &&
+      barber.status === 'busy' &&
+      target === 'active'
+        ? (currentClient ?? calledClient)
+        : null
     setPending(target)
     setError('')
     try {
@@ -410,6 +441,13 @@ export default function BarberDashboard({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setError(data.error ?? 'Error')
+      } else if (closingClient) {
+        // La hoja "¿Qué le hiciste?" va ENCIMA, nunca bloquea el estado
+        // (el PATCH ya corrió). Cerrarla sin elegir = línea pendiente.
+        setTicketFor({
+          entryId: closingClient.id,
+          clientName: closingClient.client_name,
+        })
       }
     } catch {
       setError('Error de red')
@@ -700,6 +738,14 @@ export default function BarberDashboard({
         >
           Abrir modo pantalla completa →
         </Link>
+        {ticketsEnabled && (
+          <Link
+            href={`/barber/${shopId}/${barber.id}/cuenta`}
+            className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"
+          >
+            Mi cuenta →
+          </Link>
+        )}
         <Link
           href="/ayuda/barbero"
           className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"
@@ -709,6 +755,17 @@ export default function BarberDashboard({
       </footer>
 
       </div>
+
+      {/* Hoja de ticket (082) — misma mecánica de overlay que el picker. */}
+      {ticketFor && (
+        <TicketSheet
+          barberId={barber.id}
+          clientName={ticketFor.clientName}
+          entryId={ticketFor.entryId}
+          services={ticketServices}
+          onClose={() => setTicketFor(null)}
+        />
+      )}
 
       {/* Avatar picker modal — kept outside the body wrapper so the
           fixed overlay doesn't inherit the px-5 padding. */}
@@ -965,6 +1022,124 @@ function ActionButton({
  * teléfono ANTES de subir. Una selfie de 12MP baja a ~50-100KB en 512px
  * — el TV y el dashboard cargan al instante y el bucket no engorda.
  */
+// ──────────────────────────────────────────────────────────────
+// Hoja de ticket "¿Qué le hiciste?" (082)
+//
+// Aparece ENCIMA tras cerrar un cliente (el estado ya cambió; esto
+// jamás bloquea el piso). Botones de SELECCIÓN con el precio heredado
+// del servicio — el precio nunca se teclea. Multi-select con total
+// visible y un solo "Terminar". Cerrar sin elegir = línea pendiente
+// (se completa después en Mi cuenta o la corrige el dueño).
+// ──────────────────────────────────────────────────────────────
+
+function TicketSheet({
+  barberId,
+  clientName,
+  entryId,
+  services,
+  onClose,
+}: {
+  barberId: string
+  clientName: string | null
+  entryId: string | null
+  services: { id: string; name: string; price: number | null }[]
+  onClose: () => void
+}) {
+  const [picked, setPicked] = useState<string[]>([])
+  const [sending, setSending] = useState(false)
+
+  const total = services
+    .filter(s => picked.includes(s.id))
+    .reduce((sum, s) => sum + (s.price ?? 0), 0)
+
+  async function send(serviceIds: string[]) {
+    if (sending) return
+    setSending(true)
+    try {
+      await fetch(`/api/barbers/${barberId}/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry_id: entryId, service_ids: serviceIds }),
+      })
+    } catch {
+      // Mejor esfuerzo: el corte ya cerró; si el guardado falla, la
+      // línea se repone después (pendiente del dueño es peor que nada,
+      // pero bloquear al barbero aquí es peor que todo).
+    } finally {
+      onClose()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-2xl border border-nxtup-line bg-nxtup-bg p-5 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-white font-black text-xl">¿Qué le hiciste?</p>
+            {clientName && (
+              <p className="text-nxtup-muted text-sm">a {clientName}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => send([])}
+            disabled={sending}
+            aria-label="Cerrar sin elegir"
+            className="text-nxtup-dim hover:text-white text-2xl leading-none px-2"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {services.map(s => {
+            const on = picked.includes(s.id)
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() =>
+                  setPicked(p =>
+                    on ? p.filter(x => x !== s.id) : [...p, s.id],
+                  )
+                }
+                className={`rounded-xl border px-3 py-4 text-left transition-colors ${
+                  on
+                    ? 'border-nxtup-active bg-nxtup-active/10'
+                    : 'border-nxtup-line hover:border-white'
+                }`}
+              >
+                <p className={`font-bold text-sm ${on ? 'text-nxtup-active' : 'text-white'}`}>
+                  {s.name}
+                </p>
+                <p className="text-nxtup-muted text-sm tabular-nums">
+                  ${Number(s.price ?? 0)}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => send(picked)}
+          disabled={sending || picked.length === 0}
+          className="w-full rounded-xl bg-nxtup-active text-black px-5 py-4 text-base font-black uppercase tracking-wider disabled:opacity-40 transition active:scale-[0.98]"
+        >
+          {sending
+            ? 'Guardando…'
+            : picked.length === 0
+              ? 'Elige el servicio'
+              : `Terminar · $${Math.round(total * 100) / 100}`}
+        </button>
+        <p className="text-nxtup-dim text-xs text-center">
+          ¿Te equivocaste? Toca de nuevo para cambiar antes de Terminar.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 async function squareJpeg(file: File, side: number, quality: number): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   try {

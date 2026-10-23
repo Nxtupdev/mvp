@@ -518,6 +518,48 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.cancel.working': 'Cancelando…',
     'julieNum.cancel.confirm':
       '¿Cancelar el porte y elegir otro método? No se ha cobrado nada; podrás volver a elegir portar después si quieres.',
+
+    // ── Tickets por porcentaje (082) ────────────────────────────
+    'settings.section.tickets': 'Cuentas por porcentaje',
+    'settings.tickets.blurb':
+      'Para barberías donde los barberos trabajan a porcentaje: al terminar cada cliente, el barbero marca qué servicio hizo y el sistema lleva las cuentas y el reparto solo.',
+    'settings.tickets.toggle': 'Activar cuentas por porcentaje',
+    'settings.tickets.splitHint':
+      'Reparto por defecto de la barbería. Puedes ajustarlo por barbero en la página de Cuentas.',
+    'settings.tickets.barber': 'Barbero',
+    'settings.tickets.house': 'Barbería',
+    'settings.tickets.linkHint': 'Las cuentas en vivo, el cierre y el historial',
+    'tickets.title': 'Cuentas',
+    'tickets.disabled':
+      'Las cuentas por porcentaje están apagadas. Enciéndelas en Configuración · Equipo y los barberos empezarán a marcar sus servicios al terminar cada cliente.',
+    'tickets.goSettings': 'Ir a Configuración',
+    'tickets.unsettled': 'Por liquidar',
+    'tickets.unsettledMeta': '{n} servicios confirmados sin liquidar',
+    'tickets.pendingNote':
+      '{n} línea(s) sin servicio marcado — complétalas antes del cierre o quedarán para el próximo.',
+    'tickets.empty':
+      'Todavía no hay servicios registrados. Cuando un barbero termine un cliente y marque qué le hizo, aparece aquí.',
+    'tickets.card.split': '{barber} barbero · {house} barbería ({pct}%)',
+    'tickets.settle.cta': 'Cerrar cuentas',
+    'tickets.settle.confirm':
+      '¿Cerrar cuentas? Se liquidan {n} servicios y se congela el comprobante por barbero. Esta acción no se deshace.',
+    'tickets.settle.pendingWarn':
+      'Ojo: hay {n} línea(s) pendientes sin servicio que NO entran a este cierre.',
+    'tickets.print': 'Imprimir',
+    'tickets.history': 'Cierres anteriores',
+    'tickets.historyEmpty': 'Todavía no hay cierres.',
+    'tickets.split.save': 'Guardar {pct}% para este barbero',
+    'tickets.split.custom': 'Porcentaje propio',
+    'tickets.split.default': 'Usa el de la barbería',
+    'tickets.split.useDefault': 'Volver al de la barbería',
+    'tickets.line.pending': 'Sin servicio marcado',
+    'tickets.line.fill': 'Completar',
+    'tickets.line.edit': 'Corregir',
+    'tickets.line.pick': 'Elige el servicio…',
+    'tickets.line.save': 'Guardar',
+    'tickets.line.delete': 'Eliminar línea',
+    'tickets.line.deleteConfirm':
+      '¿Eliminar esta línea? Desaparece de las cuentas (queda rastro en el registro de actividad).',
     'julieNum.fwdTitle': 'Mantén tu número (desvío)',
     'julieNum.fwdDesc':
       'Tus clientes siguen marcando tu número de siempre; las llamadas se desvían a Julie.',
@@ -1339,6 +1381,48 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.cancel.working': 'Cancelling…',
     'julieNum.cancel.confirm':
       "Cancel the port and pick another method? Nothing has been charged; you can choose porting again later if you want.",
+
+    // ── Percentage accounts / tickets (082) ─────────────────────
+    'settings.section.tickets': 'Percentage accounts',
+    'settings.tickets.blurb':
+      'For shops where barbers work on commission: when finishing each client, the barber marks the service and the system keeps the books and the split automatically.',
+    'settings.tickets.toggle': 'Enable percentage accounts',
+    'settings.tickets.splitHint':
+      "Shop default split. You can adjust it per barber on the Accounts page.",
+    'settings.tickets.barber': 'Barber',
+    'settings.tickets.house': 'Shop',
+    'settings.tickets.linkHint': 'Live accounts, settlement and history',
+    'tickets.title': 'Accounts',
+    'tickets.disabled':
+      'Percentage accounts are off. Turn them on in Settings · Team and barbers will start marking their services when finishing each client.',
+    'tickets.goSettings': 'Go to Settings',
+    'tickets.unsettled': 'To settle',
+    'tickets.unsettledMeta': '{n} confirmed services unsettled',
+    'tickets.pendingNote':
+      "{n} line(s) without a service marked — complete them before closing or they'll wait for the next one.",
+    'tickets.empty':
+      'No services recorded yet. When a barber finishes a client and marks what they did, it shows up here.',
+    'tickets.card.split': '{barber} barber · {house} shop ({pct}%)',
+    'tickets.settle.cta': 'Close accounts',
+    'tickets.settle.confirm':
+      'Close accounts? {n} services get settled and the per-barber receipt is frozen. This cannot be undone.',
+    'tickets.settle.pendingWarn':
+      'Heads up: {n} pending line(s) without a service will NOT enter this settlement.',
+    'tickets.print': 'Print',
+    'tickets.history': 'Past settlements',
+    'tickets.historyEmpty': 'No settlements yet.',
+    'tickets.split.save': 'Save {pct}% for this barber',
+    'tickets.split.custom': 'Custom split',
+    'tickets.split.default': "Uses the shop's",
+    'tickets.split.useDefault': "Back to the shop's",
+    'tickets.line.pending': 'No service marked',
+    'tickets.line.fill': 'Complete',
+    'tickets.line.edit': 'Fix',
+    'tickets.line.pick': 'Pick the service…',
+    'tickets.line.save': 'Save',
+    'tickets.line.delete': 'Delete line',
+    'tickets.line.deleteConfirm':
+      'Delete this line? It disappears from the accounts (a trace stays in the activity log).',
     'julieNum.fwdTitle': 'Keep your number (forwarding)',
     'julieNum.fwdDesc':
       'Clients keep dialing your usual number; calls forward to Julie.',

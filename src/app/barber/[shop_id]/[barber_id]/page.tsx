@@ -116,6 +116,17 @@ export default async function BarberPage({
 
   if (!barber || !shop) notFound()
 
+  // Tickets por porcentaje (082): lectura APARTE y fail-open — si la
+  // columna no existe aún, la feature simplemente no aparece.
+  const { data: ticketsRow } = await supabase
+    .from('shops')
+    .select('tickets_enabled')
+    .eq('id', shop_id)
+    .maybeSingle()
+  const ticketsEnabled = Boolean(
+    (ticketsRow as { tickets_enabled?: boolean } | null)?.tickets_enabled,
+  )
+
   // Defensive default for shops that haven't run migration 014 yet —
   // keeps the dashboard rendering correctly with the safest behavior
   // ('guaranteed' = current/legacy semantics).
@@ -153,6 +164,7 @@ export default async function BarberPage({
       initialCurrentClient={currentClient}
       initialCutsToday={cutsToday ?? 0}
       shopAvatars={shopAvatars ?? []}
+      ticketsEnabled={ticketsEnabled}
     />
   )
 }
