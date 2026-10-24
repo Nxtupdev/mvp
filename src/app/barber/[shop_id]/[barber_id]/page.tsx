@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import BarberDashboard from './BarberDashboard'
 
@@ -117,8 +118,11 @@ export default async function BarberPage({
   if (!barber || !shop) notFound()
 
   // Tickets por porcentaje (082): lectura APARTE y fail-open — si la
-  // columna no existe aún, la feature simplemente no aparece.
-  const { data: ticketsRow } = await supabase
+  // columna no existe aún, la feature simplemente no aparece. Con el
+  // admin client a propósito: esta página es ANÓNIMA y los grants por
+  // columna de la 069 no exponen tickets_enabled al rol anon (la lectura
+  // fallaba y el panel creía la feature apagada — caso Prueba Barber).
+  const { data: ticketsRow } = await createAdminClient()
     .from('shops')
     .select('tickets_enabled')
     .eq('id', shop_id)
