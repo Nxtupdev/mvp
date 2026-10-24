@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
 import { barberPercent, barberTotals, type TicketRow } from '@/lib/tickets'
-import { SettleButton, PrintButton, BarberSplit, TicketLineAdmin } from './CuentasClient'
+import { SettleButton, PrintButton, SplitRow, TicketLineAdmin } from './CuentasClient'
 
 export const metadata = { title: 'Cuentas — NXTUP' }
 
@@ -141,80 +141,111 @@ export default async function CuentasPage() {
         </div>
       </section>
 
-      {/* Por barbero */}
-      <section className="flex flex-col gap-6 mb-10">
-        {(barbers ?? []).map(b => {
-          const bRows = rows.filter(r => r.barber_id === b.id)
-          if (bRows.length === 0) return null
-          const pct = barberPercent(shopDefault, b.split_percent)
-          const totals = barberTotals(bRows, pct)
-          const byDay = new Map<string, TicketRow[]>()
-          for (const r of bRows) {
-            const d = fmtDay(r.created_at)
-            byDay.set(d, [...(byDay.get(d) ?? []), r])
+      {/* Por barbero (rediseño 23-oct, pedido de Francisco: con 15
+          barberos las tarjetas abiertas eran un scroll eterno). Una FILA
+          por barbero (orden por producción, punto naranja si tiene
+          pendientes) y el detalle a un toque con <details> nativo: sin
+          JS, accesible, y el reparto escondido tras "cambiar". */}
+      <section className="mb-10">
+        {(() => {
+          const list = (barbers ?? [])
+            .map(b => {
+              const bRows = rows.filter(r => r.barber_id === b.id)
+              const pct = barberPercent(shopDefault, b.split_percent)
+              return { b, bRows, pct, totals: barberTotals(bRows, pct) }
+            })
+            .filter(x => x.bRows.length > 0)
+            .sort((a, z) => z.totals.total - a.totals.total)
+
+          if (list.length === 0) {
+            return <p className="text-nxtup-dim text-sm">{t('tickets.empty')}</p>
           }
+
           return (
-            <div key={b.id} className="border border-nxtup-line rounded-2xl p-5 print:border-black">
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                <div>
-                  <p className="text-white font-black text-xl">{b.name}</p>
-                  <p className="text-nxtup-muted text-sm tabular-nums">
-                    ${totals.total} · {t('tickets.card.split', {
-                      barber: `$${totals.barber_part}`,
-                      house: `$${totals.house_part}`,
-                      pct: String(pct),
-                    })}
-                  </p>
-                </div>
-                <div className="w-56">
-                  <BarberSplit
-                    barberId={b.id}
-                    initial={pct}
-                    hasOverride={b.split_percent !== null && b.split_percent !== undefined}
-                  />
-                </div>
-              </div>
-              {Array.from(byDay.entries()).map(([day, dayRows]) => (
-                <div key={day} className="mb-3">
-                  <p className="text-nxtup-dim text-[10px] uppercase tracking-[0.3em] font-bold mb-1.5">
-                    {day}
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    {dayRows.map(r => (
-                      <div
-                        key={r.id}
-                        className="flex items-center justify-between gap-3 border border-nxtup-line rounded-lg px-3 py-1.5"
-                      >
-                        <span
-                          className={`text-sm ${
-                            r.status === 'pending' ? 'text-nxtup-break' : 'text-white'
-                          }`}
-                        >
-                          {r.status === 'pending'
-                            ? t('tickets.line.pending')
-                            : r.service_name ?? '—'}
-                        </span>
-                        <span className="flex items-center gap-3">
-                          <span className="text-sm font-bold tabular-nums">
-                            ${Number(r.amount)}
-                          </span>
-                          <TicketLineAdmin
-                            ticketId={r.id}
-                            services={services ?? []}
-                            isPending={r.status === 'pending'}
+            <div className="border border-nxtup-line rounded-2xl divide-y divide-nxtup-line overflow-hidden print:border-black">
+              {list.map(({ b, bRows, pct, totals }) => {
+                const byDay = new Map<string, TicketRow[]>()
+                for (const r of bRows) {
+                  const d = fmtDay(r.created_at)
+                  byDay.set(d, [...(byDay.get(d) ?? []), r])
+                }
+                return (
+                  <details key={b.id} className="group">
+                    <summary className="flex items-center gap-3 px-4 py-3.5 cursor-pointer list-none hover:bg-white/[0.03] transition-colors [&::-webkit-details-marker]:hidden">
+                      <span className="flex-1 min-w-0 flex items-center gap-2">
+                        <span className="text-white font-bold truncate">{b.name}</span>
+                        {totals.pending > 0 && (
+                          <span
+                            className="h-2 w-2 rounded-full bg-nxtup-break flex-shrink-0"
+                            aria-label={t('tickets.row.hasPending')}
                           />
+                        )}
+                      </span>
+                      <span className="text-nxtup-dim text-xs tabular-nums hidden sm:inline">
+                        {t('tickets.row.count', { n: String(totals.count) })}
+                      </span>
+                      <span className="text-right tabular-nums">
+                        <span className="block text-white font-black">${totals.total}</span>
+                        <span className="block text-nxtup-active text-xs">
+                          {t('tickets.row.part', { amount: `$${totals.barber_part}` })}
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                      </span>
+                      <span
+                        className="text-nxtup-muted transition-transform group-open:rotate-90 print:hidden"
+                        aria-hidden
+                      >
+                        ›
+                      </span>
+                    </summary>
+
+                    <div className="px-4 pb-4 pt-1 bg-white/[0.02]">
+                      <SplitRow
+                        barberId={b.id}
+                        pct={pct}
+                        hasOverride={b.split_percent !== null && b.split_percent !== undefined}
+                      />
+                      {Array.from(byDay.entries()).map(([day, dayRows]) => (
+                        <div key={day} className="mt-3">
+                          <p className="text-nxtup-dim text-[10px] uppercase tracking-[0.3em] font-bold mb-1.5">
+                            {day}
+                          </p>
+                          <div className="flex flex-col gap-1">
+                            {dayRows.map(r => (
+                              <div
+                                key={r.id}
+                                className="flex items-center justify-between gap-3 border border-nxtup-line rounded-lg px-3 py-1.5"
+                              >
+                                <span
+                                  className={`text-sm ${
+                                    r.status === 'pending' ? 'text-nxtup-break' : 'text-white'
+                                  }`}
+                                >
+                                  {r.status === 'pending'
+                                    ? t('tickets.line.pending')
+                                    : r.service_name ?? '—'}
+                                </span>
+                                <span className="flex items-center gap-3">
+                                  <span className="text-sm font-bold tabular-nums">
+                                    ${Number(r.amount)}
+                                  </span>
+                                  <TicketLineAdmin
+                                    ticketId={r.id}
+                                    services={services ?? []}
+                                    isPending={r.status === 'pending'}
+                                  />
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )
+              })}
             </div>
           )
-        })}
-        {confirmedCount === 0 && pendingCount === 0 && (
-          <p className="text-nxtup-dim text-sm">{t('tickets.empty')}</p>
-        )}
+        })()}
       </section>
 
       {/* Historial de cierres */}

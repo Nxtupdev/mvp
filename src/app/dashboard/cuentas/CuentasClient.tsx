@@ -68,6 +68,57 @@ export function PrintButton() {
   )
 }
 
+/**
+ * Renglón de reparto dentro del detalle de un barbero: "Reparto 70/30 ·
+ * cambiar". El deslizador SOLO aparece al tocar cambiar — se ajusta una
+ * vez al contratar y casi nunca más, y suelto en la vista diaria se
+ * movía sin querer al hacer scroll en el teléfono.
+ */
+export function SplitRow({
+  barberId,
+  pct,
+  hasOverride,
+}: {
+  barberId: string
+  pct: number
+  hasOverride: boolean
+}) {
+  const { t } = useLocale()
+  const [open, setOpen] = useState(false)
+
+  if (open) {
+    return (
+      <div className="border border-nxtup-line rounded-xl p-3 mb-1">
+        <BarberSplit barberId={barberId} initial={pct} hasOverride={hasOverride} />
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="mt-2 text-xs text-nxtup-dim underline underline-offset-4 hover:text-white"
+        >
+          {t('tickets.split.close')}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <p className="text-xs text-nxtup-muted flex items-center gap-2 print:hidden">
+      <span>
+        {t('tickets.split.row', { barber: String(pct), house: String(100 - pct) })}
+        {' · '}
+        {hasOverride ? t('tickets.split.custom') : t('tickets.split.default')}
+      </span>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="font-bold text-nxtup-active underline underline-offset-4"
+      >
+        {t('tickets.split.change')}
+      </button>
+    </p>
+  )
+}
+
 /** Deslizador de % de UN barbero (override), guarda al soltar. */
 export function BarberSplit({
   barberId,
