@@ -49,7 +49,7 @@ export async function GET(
     // on the same device produces TWO distinct apps instead of one
     // overwriting the other.
     id: `nxtup-barber-${barber_id}`,
-    name: `NXTUP — ${shopName}`,
+    name: `NXTUP · ${shopName}`,
     short_name: shortName,
     description: `Panel del barbero en ${shopName}`,
     start_url: `/barber/${shop_id}/${barber_id}`,

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import BarberTabBar from './BarberTabBar'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { debounce } from '@/lib/debounce'
@@ -484,7 +485,7 @@ export default function BarberDashboard({
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <main className="min-h-[100dvh] flex flex-col max-w-md mx-auto w-full">
+    <main className="min-h-[100dvh] flex flex-col max-w-md mx-auto w-full pb-[calc(5rem+env(safe-area-inset-bottom))]">
       {/* PWA install banner — high-visibility so barbers who never
           scroll to the footer still get a chance to install. The
           original prominent button in the footer stays too, as a
@@ -497,7 +498,7 @@ export default function BarberDashboard({
           PWA so it feels like a real installed app rather than a
           floating web page. Sticky so it stays put if the viewport is
           short and the barber has to scroll for the kiosk link. */}
-      <header className="sticky top-0 z-10 flex items-center gap-3 px-5 py-4 border-b border-nxtup-line bg-nxtup-bg/95 backdrop-blur-md">
+      <header className="sticky top-0 z-10 flex items-center gap-3 px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] border-b border-nxtup-line bg-nxtup-bg/95 backdrop-blur-md">
         {shop.logo_url ? (
           <ShopLogo url={shop.logo_url} name={shop.name} size={32} />
         ) : (
@@ -738,23 +739,12 @@ export default function BarberDashboard({
         >
           Abrir modo pantalla completa →
         </Link>
-        {ticketsEnabled && (
-          <Link
-            href={`/barber/${shopId}/${barber.id}/cuenta`}
-            className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"
-          >
-            Mi cuenta →
-          </Link>
-        )}
-        <Link
-          href="/ayuda/barbero"
-          className="text-nxtup-dim text-xs underline underline-offset-4 hover:text-nxtup-muted"
-        >
-          Cómo usar tu panel (videos) →
-        </Link>
       </footer>
 
       </div>
+
+      {/* Navegación de app (23-oct): Mi panel · Mi cuenta · Ayuda. */}
+      <BarberTabBar shopId={shopId} barberId={barber.id} ticketsEnabled={ticketsEnabled} />
 
       {/* Hoja de ticket (082) — misma mecánica de overlay que el picker. */}
       {ticketFor && (

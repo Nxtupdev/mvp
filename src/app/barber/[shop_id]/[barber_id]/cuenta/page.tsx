@@ -9,6 +9,7 @@ import {
   type SettlementTotals,
 } from '@/lib/ticket-report'
 import PendingFill from './PendingFill'
+import BarberTabBar from '../BarberTabBar'
 
 export const metadata = { title: 'Mi cuenta — NXTUP' }
 
@@ -164,12 +165,12 @@ export default async function MiCuentaPage({
     .filter((x): x is NonNullable<typeof x> => x !== null)
 
   return (
-    <main className="min-h-screen px-5 py-8 max-w-md mx-auto flex flex-col gap-6">
+    <main className="min-h-[100dvh] px-5 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))] max-w-md mx-auto flex flex-col gap-6">
+      {/* Marco de app (23-oct): sin "← Mi panel" — la barra inferior
+          lleva la navegación, como en cualquier app instalada. */}
+      <BarberTabBar shopId={shop_id} barberId={barber_id} ticketsEnabled />
       <div>
-        <Link href={panelHref} className="text-nxtup-dim text-xs underline underline-offset-4">
-          ← Mi panel
-        </Link>
-        <h1 className="text-3xl font-black tracking-tight mt-2">Mi cuenta</h1>
+        <h1 className="text-3xl font-black tracking-tight">Mi cuenta</h1>
         <p className="text-nxtup-muted text-sm">
           {barber.name} · {shop.name} · tu parte: {pct}%
         </p>
