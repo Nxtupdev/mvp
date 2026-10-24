@@ -24,10 +24,13 @@ export default async function CuentasPage() {
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, name')
+    .select('id, name, timezone')
     .eq('owner_id', user.id)
     .maybeSingle()
   if (!shop) redirect('/onboarding')
+  // Etiquetas de día en la hora LOCAL de la barbería (sin esto el
+  // servidor, en UTC, ponía cortes del viernes 9pm bajo "sábado").
+  const tz = (shop as { timezone?: string | null }).timezone ?? 'America/New_York'
 
   // Fail-open (082 sin correr → feature apagada).
   const { data: cfgRow } = await supabase
@@ -98,6 +101,7 @@ export default async function CuentasPage() {
       weekday: 'long',
       day: 'numeric',
       month: 'short',
+      timeZone: tz,
     })
 
   type SettleTotal = {
@@ -284,6 +288,7 @@ export default async function CuentasPage() {
                       {new Date(s.created_at).toLocaleDateString(locale, {
                         day: 'numeric',
                         month: 'long',
+                        timeZone: tz,
                       })}
                     </p>
                     <p className="text-sm font-black tabular-nums">${sum}</p>

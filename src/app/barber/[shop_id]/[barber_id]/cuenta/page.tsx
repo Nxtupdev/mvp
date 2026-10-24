@@ -132,13 +132,16 @@ export default async function MiCuentaPage({
   const rows = (unsettled ?? []) as TicketRow[]
   const totals = barberTotals(rows, pct)
 
-  // Agrupar por día (como el papelito).
+  // Agrupar por día (como el papelito) — en la hora LOCAL de la
+  // barbería: sin timeZone, el servidor (UTC) ponía un corte del
+  // viernes 9pm bajo "sábado" (caso Prueba Barber, 23-oct).
   const byDay = new Map<string, TicketRow[]>()
   for (const r of rows) {
     const day = new Date(r.created_at).toLocaleDateString('es', {
       weekday: 'long',
       day: 'numeric',
       month: 'short',
+      timeZone: tz,
     })
     byDay.set(day, [...(byDay.get(day) ?? []), r])
   }
@@ -192,32 +195,53 @@ export default async function MiCuentaPage({
             </Link>
           ))}
         </div>
-        <form method="get" className="flex items-end gap-2">
-          <input type="hidden" name="period" value="range" />
-          <input
-            type="date"
-            name="from"
-            defaultValue={range.fromYmd}
-            required
-            aria-label="Desde"
-            className="flex-1 min-w-0 bg-nxtup-line text-white rounded-lg px-2 py-2 text-xs border border-nxtup-dim"
-          />
-          <input
-            type="date"
-            name="to"
-            defaultValue={range.toYmd}
-            required
-            aria-label="Hasta"
-            className="flex-1 min-w-0 bg-nxtup-line text-white rounded-lg px-2 py-2 text-xs border border-nxtup-dim"
-          />
-          <button
-            type="submit"
-            className="rounded-lg px-3 py-2 text-xs font-bold border border-nxtup-line text-nxtup-muted hover:border-white hover:text-white"
+        {/* Rango libre detrás de "Otras fechas" (23-oct: con las fechas
+            precargadas iguales al periodo visto, tocar Ver no cambiaba
+            nada y parecía roto). Abierto solo si el rango está activo. */}
+        <details open={range.period === 'range'} className="group">
+          <summary
+            className={`list-none cursor-pointer text-xs font-bold underline underline-offset-4 [&::-webkit-details-marker]:hidden ${
+              range.period === 'range' ? 'text-white' : 'text-nxtup-muted'
+            }`}
           >
-            Ver
-          </button>
-        </form>
-        <p className="text-nxtup-dim text-xs">
+            Otras fechas
+          </summary>
+          <form method="get" className="mt-2 grid grid-cols-2 gap-2">
+            <input type="hidden" name="period" value="range" />
+            <label className="flex flex-col gap-1 text-[11px] text-nxtup-muted min-w-0">
+              Desde
+              <input
+                type="date"
+                name="from"
+                defaultValue={range.fromYmd}
+                required
+                className="w-full min-w-0 bg-nxtup-line text-white rounded-lg px-2 py-2 text-sm border border-nxtup-dim"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-nxtup-muted min-w-0">
+              Hasta
+              <input
+                type="date"
+                name="to"
+                defaultValue={range.toYmd}
+                required
+                className="w-full min-w-0 bg-nxtup-line text-white rounded-lg px-2 py-2 text-sm border border-nxtup-dim"
+              />
+            </label>
+            <button
+              type="submit"
+              className="col-span-2 rounded-lg px-3 py-2.5 text-sm font-bold bg-white text-black active:scale-[0.98] transition"
+            >
+              Ver estas fechas
+            </button>
+          </form>
+        </details>
+        <p
+          className={`text-sm font-bold ${
+            range.period === 'range' ? 'text-white' : 'text-nxtup-dim'
+          }`}
+        >
+          {range.period === 'range' ? 'Fechas: ' : ''}
           {range.fromYmd === range.toYmd
             ? fmtYmd(range.fromYmd)
             : `${fmtYmd(range.fromYmd)} – ${fmtYmd(range.toYmd)}`}
@@ -324,6 +348,7 @@ export default async function MiCuentaPage({
                   {new Date(s.created_at).toLocaleDateString('es', {
                     day: 'numeric',
                     month: 'short',
+                    timeZone: tz,
                   })}{' '}
                   · {s.mine.count} servicios · {s.mine.percent}%
                 </span>
