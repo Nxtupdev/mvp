@@ -2,6 +2,12 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { barberPercent, barberTotals, type TicketRow } from '@/lib/tickets'
+import {
+  aggregateReport,
+  resolvePeriod,
+  type ReportLine,
+  type SettlementTotals,
+} from '@/lib/ticket-report'
 import PendingFill from './PendingFill'
 
 export const metadata = { title: 'Mi cuenta — NXTUP' }
@@ -12,16 +18,20 @@ export const metadata = { title: 'Mi cuenta — NXTUP' }
  * acceso que su panel (el link es la identidad); el PIN de 4 dígitos
  * quedó pospuesto por Francisco (ver memoria nxtup-pin-barbero).
  *
- * Secciones: POR LIQUIDAR (sus líneas sin cierre, agrupadas por día,
- * con su total y su parte al % vigente) + LIQUIDACIONES (su fila de
- * cada comprobante congelado).
+ * Secciones: MI REPORTE (cualquier periodo: hoy/semana/mes/rango,
+ * liquidado o no — "¿cuánto gané este mes?"), POR LIQUIDAR (sus líneas
+ * sin cierre, agrupadas por día) + LIQUIDACIONES (su fila de cada
+ * comprobante congelado).
  */
 export default async function MiCuentaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ shop_id: string; barber_id: string }>
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>
 }) {
   const { shop_id, barber_id } = await params
+  const sp = await searchParams
   const admin = createAdminClient()
 
   const [{ data: barber }, { data: shop }] = await Promise.all([
@@ -33,7 +43,7 @@ export default async function MiCuentaPage({
       .maybeSingle(),
     admin
       .from('shops')
-      .select('id, name, tickets_enabled, barber_split_percent')
+      .select('id, name, timezone, tickets_enabled, barber_split_percent')
       .eq('id', shop_id)
       .maybeSingle(),
   ])
@@ -79,6 +89,46 @@ export default async function MiCuentaPage({
         .order('sort_order', { ascending: true }),
     ])
 
+  // ── Mi reporte por periodo (solo lo suyo; % congelado en lo liquidado)
+  const tz = shop.timezone ?? 'America/New_York'
+  const range = resolvePeriod(sp.period, sp.from, sp.to, tz)
+  const { data: periodLines } = await admin
+    .from('tickets')
+    .select('barber_id, service_name, amount, settlement_id')
+    .eq('barber_id', barber_id)
+    .eq('status', 'confirmed')
+    .gte('created_at', range.startIso)
+    .lt('created_at', range.endIso)
+    .limit(2000)
+  // % congelados de EXACTAMENTE los cierres que toca el periodo (no los
+  // 20 recientes de la lista: un rango viejo puede tocar cierres viejos).
+  const periodSettlementIds = Array.from(
+    new Set((periodLines ?? []).map(l => l.settlement_id).filter((x): x is string => !!x)),
+  )
+  const frozen = new Map<string, SettlementTotals>()
+  if (periodSettlementIds.length > 0) {
+    const { data: periodSets } = await admin
+      .from('settlements')
+      .select('id, totals')
+      .in('id', periodSettlementIds)
+    for (const st of periodSets ?? []) {
+      frozen.set(st.id, (st.totals as SettlementTotals) ?? [])
+    }
+  }
+  const myReport = aggregateReport(
+    (periodLines ?? []) as ReportLine[],
+    () => pct,
+    frozen,
+  )
+  const mine = myReport.perBarber[0]
+  const periodTabs = [
+    { key: 'today', label: 'Hoy' },
+    { key: 'week', label: 'Esta semana' },
+    { key: 'month', label: 'Este mes' },
+  ]
+  const fmtYmd = (ymd: string) =>
+    new Date(`${ymd}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'short' })
+
   const rows = (unsettled ?? []) as TicketRow[]
   const totals = barberTotals(rows, pct)
 
@@ -121,6 +171,82 @@ export default async function MiCuentaPage({
           {barber.name} · {shop.name} · tu parte: {pct}%
         </p>
       </div>
+
+      {/* Mi reporte por periodo */}
+      <section className="border border-nxtup-line rounded-2xl p-5 flex flex-col gap-3">
+        <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold">
+          Mi reporte
+        </p>
+        <div className="grid grid-cols-3 gap-1 border border-nxtup-line rounded-xl p-1">
+          {periodTabs.map(tab => (
+            <Link
+              key={tab.key}
+              href={`?period=${tab.key}`}
+              className={`rounded-lg px-1 py-2 text-center text-xs font-bold transition-colors ${
+                range.period === tab.key
+                  ? 'bg-nxtup-line text-white'
+                  : 'text-nxtup-muted hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+        <form method="get" className="flex items-end gap-2">
+          <input type="hidden" name="period" value="range" />
+          <input
+            type="date"
+            name="from"
+            defaultValue={range.fromYmd}
+            required
+            aria-label="Desde"
+            className="flex-1 min-w-0 bg-nxtup-line text-white rounded-lg px-2 py-2 text-xs border border-nxtup-dim"
+          />
+          <input
+            type="date"
+            name="to"
+            defaultValue={range.toYmd}
+            required
+            aria-label="Hasta"
+            className="flex-1 min-w-0 bg-nxtup-line text-white rounded-lg px-2 py-2 text-xs border border-nxtup-dim"
+          />
+          <button
+            type="submit"
+            className="rounded-lg px-3 py-2 text-xs font-bold border border-nxtup-line text-nxtup-muted hover:border-white hover:text-white"
+          >
+            Ver
+          </button>
+        </form>
+        <p className="text-nxtup-dim text-xs">
+          {range.fromYmd === range.toYmd
+            ? fmtYmd(range.fromYmd)
+            : `${fmtYmd(range.fromYmd)} – ${fmtYmd(range.toYmd)}`}
+        </p>
+        {mine ? (
+          <>
+            <div className="flex items-end justify-between">
+              <p className="text-4xl font-black tabular-nums text-nxtup-active">
+                ${mine.barber_part}
+              </p>
+              <p className="text-nxtup-muted text-sm tabular-nums">
+                de ${mine.total} · {mine.count} servicios
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              {myReport.perService.map(sv => (
+                <div key={sv.name} className="flex items-center justify-between text-sm">
+                  <span className="text-white">
+                    {sv.name} <span className="text-nxtup-dim">× {sv.count}</span>
+                  </span>
+                  <span className="font-bold tabular-nums">${sv.total}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-nxtup-dim text-sm">Sin servicios en este periodo.</p>
+        )}
+      </section>
 
       {/* Por liquidar */}
       <section className="border border-nxtup-active/40 rounded-2xl p-5">

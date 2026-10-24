@@ -116,7 +116,24 @@ export default async function CuentasPage() {
         <h1 className="text-3xl font-black tracking-tight">{t('tickets.title')}</h1>
         <PrintButton />
       </div>
-      <p className="text-nxtup-muted text-sm mb-8">{shop.name}</p>
+      <p className="text-nxtup-muted text-sm mb-6">{shop.name}</p>
+
+      {/* Reportes por periodo (hoy/semana/mes/rango), liquidado o no. */}
+      <Link
+        href="/dashboard/cuentas/reportes"
+        className="print:hidden flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 mb-6 hover:border-white transition-colors group"
+      >
+        <div className="min-w-0">
+          <p className="text-white font-semibold text-sm">{t('reports.title')}</p>
+          <p className="text-nxtup-dim text-xs">{t('reports.linkHint')}</p>
+        </div>
+        <span
+          className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
+          aria-hidden
+        >
+          →
+        </span>
+      </Link>
 
       {/* Por liquidar + cierre */}
       <section className="border border-nxtup-active/40 rounded-2xl p-6 mb-8 print:border-black">
