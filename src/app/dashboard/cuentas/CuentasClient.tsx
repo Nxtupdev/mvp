@@ -69,27 +69,57 @@ export function PrintButton() {
 }
 
 /**
- * Renglón de reparto dentro del detalle de un barbero: "Reparto 70/30 ·
- * cambiar". El deslizador SOLO aparece al tocar cambiar — se ajusta una
- * vez al contratar y casi nunca más, y suelto en la vista diaria se
- * movía sin querer al hacer scroll en el teléfono.
+ * Renglón de reparto de UN barbero: "Reparto 70/30 · Usa el de la
+ * barbería · cambiar". El deslizador SOLO aparece al tocar cambiar (se
+ * ajusta una vez al contratar; suelto se movía sin querer al hacer
+ * scroll). Se usa en dos lugares:
+ *   * Cuentas (detalle del barbero) — refreshOnSave: los totales de la
+ *     página dependen del % y hay que recalcularlos.
+ *   * Configuración · Equipo (TODOS los barberos, tengan o no servicios
+ *     — 23-oct: antes el ajuste solo existía en Cuentas y un barbero sin
+ *     líneas no aparecía, así que no se podía configurar antes de su
+ *     primer corte). Allí NO recarga: perdería cambios sin guardar del
+ *     formulario; actualiza su estado local.
+ * Guarda directo por /api/tickets/split (no depende de la barra Guardar).
  */
 export function SplitRow({
   barberId,
   pct,
   hasOverride,
+  shopDefault,
+  refreshOnSave = true,
 }: {
   barberId: string
   pct: number
   hasOverride: boolean
+  shopDefault: number
+  refreshOnSave?: boolean
 }) {
   const { t } = useLocale()
   const [open, setOpen] = useState(false)
+  // Override propio (null = usa el default del shop, que puede cambiar
+  // en vivo en Configuración si el dueño mueve el deslizador general).
+  const [override, setOverride] = useState<number | null>(hasOverride ? pct : null)
+  const effective = override ?? shopDefault
+
+  function onSaved(next: number | null) {
+    if (refreshOnSave) {
+      window.location.reload()
+      return
+    }
+    setOverride(next)
+    setOpen(false)
+  }
 
   if (open) {
     return (
       <div className="border border-nxtup-line rounded-xl p-3 mb-1">
-        <BarberSplit barberId={barberId} initial={pct} hasOverride={hasOverride} />
+        <BarberSplit
+          barberId={barberId}
+          initial={effective}
+          hasOverride={override !== null}
+          onSaved={onSaved}
+        />
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -104,9 +134,9 @@ export function SplitRow({
   return (
     <p className="text-xs text-nxtup-muted flex items-center gap-2 print:hidden">
       <span>
-        {t('tickets.split.row', { barber: String(pct), house: String(100 - pct) })}
+        {t('tickets.split.row', { barber: String(effective), house: String(100 - effective) })}
         {' · '}
-        {hasOverride ? t('tickets.split.custom') : t('tickets.split.default')}
+        {override !== null ? t('tickets.split.custom') : t('tickets.split.default')}
       </span>
       <button
         type="button"
@@ -119,19 +149,20 @@ export function SplitRow({
   )
 }
 
-/** Deslizador de % de UN barbero (override), guarda al soltar. */
+/** Deslizador de % de UN barbero (override); guarda con su botón. */
 export function BarberSplit({
   barberId,
   initial,
   hasOverride,
+  onSaved,
 }: {
   barberId: string
   initial: number
   hasOverride: boolean
+  onSaved: (next: number | null) => void
 }) {
   const { t } = useLocale()
   const [value, setValue] = useState(initial)
-  const [saved, setSaved] = useState(initial)
   const [saving, setSaving] = useState(false)
 
   async function save(next: number | null) {
@@ -146,17 +177,13 @@ export function BarberSplit({
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
         window.alert(j.error ?? t('billing.error'))
-        setValue(saved)
+        setValue(initial)
         return
       }
-      if (next !== null) {
-        setSaved(next)
-      } else {
-        window.location.reload() // vuelve al default del shop
-      }
+      onSaved(next)
     } catch {
       window.alert(t('billing.error'))
-      setValue(saved)
+      setValue(initial)
     } finally {
       setSaving(false)
     }
@@ -172,7 +199,7 @@ export function BarberSplit({
         shopLabel={t('settings.tickets.house')}
       />
       <div className="flex items-center justify-between mt-1">
-        {value !== saved ? (
+        {value !== initial || !hasOverride ? (
           <button
             type="button"
             onClick={() => save(value)}
@@ -182,11 +209,9 @@ export function BarberSplit({
             {saving ? t('settings.saving') : t('tickets.split.save', { pct: String(value) })}
           </button>
         ) : (
-          <span className="text-xs text-nxtup-dim">
-            {hasOverride ? t('tickets.split.custom') : t('tickets.split.default')}
-          </span>
+          <span className="text-xs text-nxtup-dim">{t('tickets.split.custom')}</span>
         )}
-        {hasOverride && value === saved && (
+        {hasOverride && (
           <button
             type="button"
             onClick={() => save(null)}

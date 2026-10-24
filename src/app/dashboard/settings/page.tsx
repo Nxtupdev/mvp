@@ -93,6 +93,20 @@ export default async function SettingsPage() {
     barber_split_percent: row.barber_split_percent ?? 60,
   }
 
+  // Tickets (082): roster con su override de reparto, para ajustar el %
+  // POR BARBERO desde Equipo. Select aparte y fail-open (sin la 082 la
+  // columna no existe y la lista simplemente no aparece).
+  const { data: barberRows } = await supabase
+    .from('barbers')
+    .select('id, name, split_percent')
+    .eq('shop_id', row.id)
+    .order('name')
+  const barbers = (barberRows ?? []) as {
+    id: string
+    name: string
+    split_percent: number | null
+  }[]
+
   // The IP the owner is connecting from right now — used by the anti-
   // cheat section to show "you'd register THIS IP" before they tap.
   const h = await headers()
@@ -102,6 +116,11 @@ export default async function SettingsPage() {
     (xff ? xff.split(',')[0]?.trim() : null) || (xri ? xri.trim() : null) || null
 
   return (
-    <ShopSettings shop={shop} userEmail={user.email ?? ''} currentIp={currentIp} />
+    <ShopSettings
+      shop={shop}
+      userEmail={user.email ?? ''}
+      currentIp={currentIp}
+      barbers={barbers}
+    />
   )
 }

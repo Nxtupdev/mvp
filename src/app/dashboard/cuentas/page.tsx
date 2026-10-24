@@ -224,6 +224,7 @@ export default async function CuentasPage() {
                         barberId={b.id}
                         pct={pct}
                         hasOverride={b.split_percent !== null && b.split_percent !== undefined}
+                        shopDefault={shopDefault}
                       />
                       {Array.from(byDay.entries()).map(([day, dayRows]) => (
                         <div key={day} className="mt-3">
