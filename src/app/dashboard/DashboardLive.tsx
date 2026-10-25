@@ -109,10 +109,13 @@ export default function DashboardLive({
   shop: initialShop,
   initialEntries,
   initialBarbers,
+  ticketsEnabled = false,
 }: {
   shop: Shop
   initialEntries: Entry[]
   initialBarbers: Barber[]
+  // Cuentas por porcentaje (082): muestra la pestaña Cuentas en FloorTabs.
+  ticketsEnabled?: boolean
 }) {
   const { t } = useLocale()
   const [shop, setShop] = useState(initialShop)
@@ -269,7 +272,7 @@ export default function DashboardLive({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-6xl w-full mx-auto">
-      <FloorTabs />
+      <FloorTabs showAccounts={ticketsEnabled} />
       {/* Línea de estado compacta (port del dealer, pedido de Francisco
           oct-2026): el hero con logo + letrero gigante se fue — el logo
           del shop vive en el TV y el kiosko, que es donde vende. El

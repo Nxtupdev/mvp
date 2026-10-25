@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import FloorTabs from '../../FloorTabs'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
@@ -107,6 +108,7 @@ export default async function ReportesPage({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
+      <FloorTabs showAccounts />
       <Link
         href="/dashboard/cuentas"
         className="print:hidden text-nxtup-dim text-xs underline underline-offset-4"

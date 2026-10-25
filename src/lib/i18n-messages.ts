@@ -191,6 +191,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.traffic.many': 'clientes hoy',
     'dash.floor.stats': 'Stats',
     'dash.floor.clients': 'Clientes',
+    'dash.floor.accounts': 'Cuentas',
     'dash.nav.stats': 'Estadísticas',
     'dash.nav.barbers': 'Barberos',
     'dash.nav.activity': 'Actividad',
@@ -529,6 +530,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.tickets.barber': 'Barbero',
     'settings.tickets.house': 'Barbería',
     'settings.tickets.linkHint': 'Las cuentas en vivo, el cierre y el historial',
+    'settings.tickets.whereAccounts': 'Las cuentas, el cierre y los reportes están en la pestaña Cuentas del panel En vivo.',
     'tickets.title': 'Cuentas',
     'tickets.disabled':
       'Las cuentas por porcentaje están apagadas. Enciéndelas en Configuración · Equipo y los barberos empezarán a marcar sus servicios al terminar cada cliente.',
@@ -1088,6 +1090,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'dash.traffic.many': 'clients today',
     'dash.floor.stats': 'Stats',
     'dash.floor.clients': 'Clients',
+    'dash.floor.accounts': 'Accounts',
     'dash.nav.stats': 'Stats',
     'dash.nav.barbers': 'Barbers',
     'dash.nav.activity': 'Activity',
@@ -1413,6 +1416,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'settings.tickets.barber': 'Barber',
     'settings.tickets.house': 'Shop',
     'settings.tickets.linkHint': 'Live accounts, settlement and history',
+    'settings.tickets.whereAccounts': 'Accounts, settlement and reports live in the Accounts tab of the Live panel.',
     'tickets.title': 'Accounts',
     'tickets.disabled':
       'Percentage accounts are off. Turn them on in Settings · Team and barbers will start marking their services when finishing each client.',

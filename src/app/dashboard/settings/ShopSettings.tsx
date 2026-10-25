@@ -786,21 +786,9 @@ export default function ShopSettings({
                   shopLabel={t('settings.tickets.house')}
                 />
               </div>
-              <Link
-                href="/dashboard/cuentas"
-                className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 hover:border-white transition-colors group"
-              >
-                <div className="min-w-0">
-                  <p className="text-white font-semibold text-sm">{t('tickets.title')}</p>
-                  <p className="text-nxtup-dim text-xs">{t('settings.tickets.linkHint')}</p>
-                </div>
-                <span
-                  className="text-nxtup-muted group-hover:text-white transition-colors flex-shrink-0"
-                  aria-hidden
-                >
-                  →
-                </span>
-              </Link>
+              {/* Sin link a Cuentas aquí (25-oct): Cuentas vive como
+                  pestaña del piso, junto a Live, Stats y Clientes. */}
+              <p className="text-nxtup-dim text-xs">{t('settings.tickets.whereAccounts')}</p>
             </div>
           )}
         </div>

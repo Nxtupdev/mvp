@@ -21,19 +21,33 @@ const SEGMENTS = [
   { href: '/dashboard/history', key: 'dash.floor.clients' },
 ] as const
 
-export default function FloorTabs({ className = 'mb-8' }: { className?: string }) {
+// Cuarto segmento (25-oct, pedido de Francisco): Cuentas sale de
+// Configuración y vive junto a los demás números del shop. SOLO con
+// las cuentas por porcentaje encendidas (082); apagado, el selector
+// queda idéntico al de siempre.
+const ACCOUNTS_SEGMENT = { href: '/dashboard/cuentas', key: 'dash.floor.accounts' } as const
+
+export default function FloorTabs({
+  className = 'mb-8',
+  showAccounts = false,
+}: {
+  className?: string
+  showAccounts?: boolean
+}) {
   const pathname = usePathname()
   const { t } = useLocale()
+  const segments = showAccounts ? [...SEGMENTS, ACCOUNTS_SEGMENT] : SEGMENTS
   return (
     <div className={`print:hidden inline-flex rounded-xl bg-white/[0.04] ring-1 ring-white/[0.08] p-1 ${className}`}>
-      {SEGMENTS.map(s => {
+      {segments.map(s => {
         const active = s.href === '/dashboard' ? pathname === s.href : pathname.startsWith(s.href)
         return (
           <Link
             key={s.href}
             href={s.href}
             aria-current={active ? 'page' : undefined}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold tracking-wide transition-colors ${
+            // px-3 en teléfono: con 4 segmentos, px-5 no cabe en 375 px.
+            className={`${showAccounts ? 'px-3 sm:px-5' : 'px-5'} py-2 rounded-lg text-sm font-semibold tracking-wide transition-colors ${
               active ? 'bg-nxtup-line text-white' : 'text-nxtup-muted hover:text-white'
             }`}
           >

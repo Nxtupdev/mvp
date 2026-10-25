@@ -40,6 +40,17 @@ export default async function DashboardPage() {
 
   const { t } = await getServerI18n()
 
+  // Cuentas por porcentaje (082): lectura APARTE y fail-open para la
+  // pestaña Cuentas del selector del piso.
+  const { data: ticketsRow } = await supabase
+    .from('shops')
+    .select('tickets_enabled')
+    .eq('id', shop.id)
+    .maybeSingle()
+  const ticketsEnabled = Boolean(
+    (ticketsRow as { tickets_enabled?: boolean } | null)?.tickets_enabled,
+  )
+
   return (
     <>
       {/* Nudge de horario (062): visible hasta que el dueño lo configure.
@@ -60,6 +71,7 @@ export default async function DashboardPage() {
         shop={shop}
         initialEntries={entries ?? []}
         initialBarbers={barbers ?? []}
+        ticketsEnabled={ticketsEnabled}
       />
     </>
   )
