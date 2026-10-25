@@ -525,7 +525,10 @@ export const MESSAGES: Record<Locale, Messages> = {
       'Para barberías donde los barberos trabajan a porcentaje: al terminar cada cliente, el barbero marca qué servicio hizo y el sistema lleva las cuentas y el reparto solo.',
     'settings.tickets.toggle': 'Activar cuentas por porcentaje',
     'settings.tickets.splitHint':
-      'Reparto por defecto de la barbería. Puedes ajustarlo por barbero en la página de Cuentas.',
+      'Reparto por defecto de la barbería: lo usan todos los barberos que no tengan uno propio.',
+    'settings.tickets.perBarber': 'Por barbero',
+    'settings.tickets.perBarberHint':
+      'Si un barbero trabaja con otro porcentaje, toca cambiar en su nombre. Se guarda al instante.',
     'settings.tickets.barber': 'Barbero',
     'settings.tickets.house': 'Barbería',
     'settings.tickets.linkHint': 'Las cuentas en vivo, el cierre y el historial',
@@ -1409,7 +1412,10 @@ export const MESSAGES: Record<Locale, Messages> = {
       'For shops where barbers work on commission: when finishing each client, the barber marks the service and the system keeps the books and the split automatically.',
     'settings.tickets.toggle': 'Enable percentage accounts',
     'settings.tickets.splitHint':
-      "Shop default split. You can adjust it per barber on the Accounts page.",
+      "Shop default split: every barber without a custom one uses it.",
+    'settings.tickets.perBarber': 'Per barber',
+    'settings.tickets.perBarberHint':
+      'If a barber works with a different percentage, tap change on their name. It saves instantly.',
     'settings.tickets.barber': 'Barber',
     'settings.tickets.house': 'Shop',
     'settings.tickets.linkHint': 'Live accounts, settlement and history',

@@ -14,6 +14,7 @@ import WeeklyScheduleEditor from './WeeklyScheduleEditor'
 import ManagerAccessSection from './ManagerAccess'
 import ShopOpenSection from './ShopOpenSection'
 import SplitSlider from '@/components/SplitSlider'
+import { SplitRow } from '../cuentas/CuentasClient'
 import { cleanLogoEdges } from '@/lib/logo-clean'
 
 type BreakMode = 'guaranteed' | 'not_guaranteed'
@@ -87,10 +88,13 @@ export default function ShopSettings({
   shop: initial,
   userEmail,
   currentIp,
+  barbers = [],
 }: {
   shop: Shop
   userEmail: string
   currentIp: string | null
+  // Tickets (082): roster para el reparto POR BARBERO en Equipo.
+  barbers?: { id: string; name: string; split_percent: number | null }[]
 }) {
   const router = useRouter()
   const { t } = useLocale()
@@ -786,6 +790,34 @@ export default function ShopSettings({
                   shopLabel={t('settings.tickets.house')}
                 />
               </div>
+              {/* Reparto POR BARBERO (23-oct): TODOS los barberos, tengan
+                  o no servicios — antes solo se ajustaba en Cuentas y un
+                  barbero sin líneas no aparecía. Guarda directo (no usa
+                  la barra Guardar). */}
+              {barbers.length > 0 && (
+                <div className="border border-nxtup-line rounded-xl p-4">
+                  <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-1">
+                    {t('settings.tickets.perBarber')}
+                  </p>
+                  <p className="text-nxtup-dim text-xs mb-3">
+                    {t('settings.tickets.perBarberHint')}
+                  </p>
+                  <div className="flex flex-col divide-y divide-nxtup-line">
+                    {barbers.map(b => (
+                      <div key={b.id} className="py-2.5 flex flex-col gap-1.5">
+                        <p className="text-white text-sm font-semibold">{b.name}</p>
+                        <SplitRow
+                          barberId={b.id}
+                          pct={b.split_percent ?? barberSplit}
+                          hasOverride={b.split_percent !== null}
+                          shopDefault={barberSplit}
+                          refreshOnSave={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Link
                 href="/dashboard/cuentas"
                 className="flex items-center justify-between gap-3 border border-nxtup-line rounded-xl px-4 py-3 hover:border-white transition-colors group"
