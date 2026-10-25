@@ -106,6 +106,9 @@ type Shop = {
 // mismo, así el grid queda parejo.
 type Density = 'lg' | 'md' | 'sm'
 
+// Ancho para el que están pensados los tamaños de SIZE (TV 1080p).
+const TV_DESIGN_WIDTH = 1920
+
 const SIZE: Record<
   Density,
   {
@@ -482,13 +485,20 @@ export default function DisplayBoard({
   const occupiedCount = busyBarbers.length + breakBarbers.length
   const maxColumnCount = Math.max(availableCount, occupiedCount, waitingEntries.length)
   const tiers: Density[] = ['lg', 'md', 'sm']
-  let tier = maxColumnCount <= 5 ? 0 : maxColumnCount <= 9 ? 1 : 2
-  // TVs de 720p (o un stick que renderiza a 1280 px): con 'md' los
-  // nombres todavía se truncan, así que va directo a 'sm'.
-  if (viewportWidth != null && viewportWidth < 1500) tier = 2
+  const tier = maxColumnCount <= 5 ? 0 : maxColumnCount <= 9 ? 1 : 2
   const density = tiers[tier]
 
-  return (
+  // Las cajitas Android de TV dibujan a 960 px CSS y los sticks a 1280:
+  // con los tamaños pensados para 1920 los nombres quedaban en 1-2
+  // letras (NuevaYol, oct-2026; bajar a 'sm' no alcanzaba). En TV (md+)
+  // se pinta SIEMPRE el diseño de 1920 y se escala entero, así que las
+  // proporciones —y lo que cabe— son las mismas en cualquier pantalla.
+  const tvScale =
+    viewportWidth != null && viewportWidth >= 768 && viewportWidth < TV_DESIGN_WIDTH
+      ? viewportWidth / TV_DESIGN_WIDTH
+      : null
+
+  const board = (
     // Margen de seguridad: muchos televisores recortan el 2-5 % del
     // borde (overscan) y se llevaban la columna del tiempo.
     // En TV (md+): viewport fijo sin scroll. En TELÉFONO: los barberos
@@ -496,7 +506,19 @@ export default function DisplayBoard({
     // columnas en 375px era papilla ilegible (reporte real de Fade
     // Factory, oct-2026). En angosto las columnas se apilan y la página
     // scrollea normal.
-    <main className="min-h-dvh md:h-dvh flex flex-col md:cursor-none select-none md:overflow-hidden px-[2.5%] py-[1%]">
+    <main
+      className="min-h-dvh md:h-dvh flex flex-col md:cursor-none select-none md:overflow-hidden px-[2.5%] py-[1%]"
+      style={
+        tvScale
+          ? {
+              width: TV_DESIGN_WIDTH,
+              height: `calc(100dvh / ${tvScale})`,
+              transform: `scale(${tvScale})`,
+              transformOrigin: '0 0',
+            }
+          : undefined
+      }
+    >
       {/* Cabecera: logo + shop a la izquierda, reloj + fecha a la derecha */}
       <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-5 border-b border-nxtup-line gap-4 md:gap-8">
         <div className="flex items-center gap-3 md:gap-5 min-w-0">
@@ -685,6 +707,10 @@ export default function DisplayBoard({
       </footer>
     </main>
   )
+
+  // El transform no cambia el tamaño de layout (1920): sin este marco
+  // la página tendría scroll horizontal.
+  return tvScale ? <div className="h-dvh w-screen overflow-hidden">{board}</div> : board
 }
 
 // ──────────────────────────────────────────────────────────────
