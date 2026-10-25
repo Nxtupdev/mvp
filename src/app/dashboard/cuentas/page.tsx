@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import FloorTabs from '../FloorTabs'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
@@ -116,6 +117,9 @@ export default async function CuentasPage() {
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-3xl w-full mx-auto">
+      {/* Cuentas vive en el selector del piso (25-oct), junto a Live,
+          Stats y Clientes. */}
+      <FloorTabs showAccounts />
       <div className="flex items-start justify-between gap-4 mb-2">
         <h1 className="text-3xl font-black tracking-tight">{t('tickets.title')}</h1>
         <PrintButton />

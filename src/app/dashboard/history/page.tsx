@@ -129,6 +129,17 @@ export default async function HistoryPage({
     .maybeSingle()
   if (!shop) redirect('/onboarding')
 
+  // Cuentas por porcentaje (082): pestaña Cuentas en el selector del
+  // piso. Lectura aparte y fail-open.
+  const { data: ticketsRow } = await supabase
+    .from('shops')
+    .select('tickets_enabled')
+    .eq('id', shop.id)
+    .maybeSingle()
+  const ticketsEnabled = Boolean(
+    (ticketsRow as { tickets_enabled?: boolean } | null)?.tickets_enabled,
+  )
+
   let timeZone = 'America/New_York'
   try {
     const { data: tzRow } = await supabase
@@ -255,7 +266,7 @@ export default async function HistoryPage({
 
   return (
     <main className="flex-1 px-4 sm:px-6 py-8 max-w-5xl w-full mx-auto stats-print-root">
-      <FloorTabs />
+      <FloorTabs showAccounts={ticketsEnabled} />
       {/* Header SOLO para impresión — mismo patrón que stats. */}
       <header className="hidden print:flex items-center gap-6 mb-8 pb-6 border-b border-zinc-300">
         {shop.logo_url && (
