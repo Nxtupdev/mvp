@@ -452,11 +452,15 @@ export async function POST(request: NextRequest) {
 
     if (claimedApptBarber) {
       // CASO A — directo a la silla de su barbero.
+      // appointment_barber_id también aquí: en el camino de ACTIVACIÓN de
+      // una reserva por voz (Julie) la entrada ya existía y nunca recibió
+      // la marca de cita del insert (caso NuevaYol, 25-oct).
       const { data: updatedEntry } = await supabase
         .from('queue_entries')
         .update({
           status: 'called',
           barber_id: apptBarber.id,
+          appointment_barber_id: apptBarber.id,
           called_at: new Date().toISOString(),
         })
         .eq('id', entry.id)
@@ -467,10 +471,14 @@ export async function POST(request: NextRequest) {
         assignedBarber = { id: apptBarber.id, name: apptBarber.name }
       }
     } else {
-      // CASO B — amarre directo: espera a SU barbero.
+      // CASO B — amarre directo: espera a SU barbero. Con la marca de
+      // cita SIEMPRE (también al activar una reserva por voz): sin ella el
+      // barbero no veía la tarjeta "Cita esperándote" ni el botón "No es
+      // mi cita", la fila lo saltaba y el cliente quedaba invisible
+      // (caso NuevaYol, 25-oct: David esperó sin que nadie lo viera).
       const { data: pinned } = await supabase
         .from('queue_entries')
-        .update({ barber_id: apptBarber.id })
+        .update({ barber_id: apptBarber.id, appointment_barber_id: apptBarber.id })
         .eq('id', entry.id)
         .select()
         .single()

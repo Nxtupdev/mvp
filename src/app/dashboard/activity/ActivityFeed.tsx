@@ -39,6 +39,9 @@ type Action =
   // (decremento manual de breaks_taken_today). Usado cuando el
   // barbero tocó BREAK sin querer en su PWA.
   | 'break_restored_by_owner'
+  // Migración 084 — el sistema asumió que un barbero ocupado pasó a su
+  // cliente amarrado (citas en cadena sin tocar Disponible).
+  | 'appointment_auto_advanced'
 
 type Event = {
   id: string
@@ -331,6 +334,7 @@ const ACTION_ACCENT: Record<Action, string> = {
   // en el resto de la UI) — coincide visualmente con el contexto del
   // recurso que se está restaurando.
   break_restored_by_owner: 'text-nxtup-break',
+  appointment_auto_advanced: 'text-nxtup-active',
 }
 
 function describe(event: Event, t: TFn): string {
@@ -463,6 +467,19 @@ function describe(event: Event, t: TFn): string {
         return t('activity.desc.breakUndone', { counter })
       }
       return t('activity.desc.breakReturned', { counter })
+    }
+    case 'appointment_auto_advanced': {
+      // 084: { closed_client, advanced_client, threshold_minutes, ... }
+      const meta = event.metadata as {
+        closed_client?: string
+        advanced_client?: string
+        threshold_minutes?: number
+      }
+      return t('activity.desc.autoAdvanced', {
+        closed: meta.closed_client ?? '—',
+        next: meta.advanced_client ?? '—',
+        minutes: meta.threshold_minutes ?? 40,
+      })
     }
   }
 }

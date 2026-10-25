@@ -521,6 +521,9 @@ export const MESSAGES: Record<Locale, Messages> = {
       '¿Cancelar el porte y elegir otro método? No se ha cobrado nada; podrás volver a elegir portar después si quieres.',
 
     // ── Tickets por porcentaje (082) ────────────────────────────
+    'settings.section.autoAdvance': 'Citas en cadena',
+    'settings.autoAdvance.blurb':
+      'Si un barbero sigue ocupado y su cliente amarrado (cita o pedido) ya llegó, pasado este tiempo de corte el sistema asume que pasó al siguiente: cierra el corte anterior y sienta al que esperaba. Así nadie queda colgado aunque el barbero no toque Disponible.',
     'settings.section.tickets': 'Cuentas por porcentaje',
     'settings.tickets.blurb':
       'Para barberías donde los barberos trabajan a porcentaje: al terminar cada cliente, el barbero marca qué servicio hizo y el sistema lleva las cuentas y el reparto solo.',
@@ -912,6 +915,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'activity.desc.sanctionClearedNightly': 'sanción limpiada en el reset nocturno',
     'activity.desc.breakUndone': 'el dueño le deshizo el break en curso{counter}',
     'activity.desc.breakReturned': 'el dueño le devolvió un break{counter}',
+    'activity.desc.autoAdvanced':
+      'el sistema cerró a {closed} y le sentó a {next} (su cliente esperaba y el corte pasó de {minutes} min)',
 
     // Metadata detail strings (formatMetadata())
     'activity.meta.ordinal.first': 'primer',
@@ -1411,6 +1416,9 @@ export const MESSAGES: Record<Locale, Messages> = {
       "Cancel the port and pick another method? Nothing has been charged; you can choose porting again later if you want.",
 
     // ── Percentage accounts / tickets (082) ─────────────────────
+    'settings.section.autoAdvance': 'Back-to-back appointments',
+    'settings.autoAdvance.blurb':
+      "If a barber is still busy and their pinned client (appointment or request) has already arrived, after this much cutting time the system assumes they moved on: it closes the previous cut and seats the one waiting. Nobody gets stuck even if the barber never taps Available.",
     'settings.section.tickets': 'Percentage accounts',
     'settings.tickets.blurb':
       'For shops where barbers work on commission: when finishing each client, the barber marks the service and the system keeps the books and the split automatically.',
@@ -1800,6 +1808,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'activity.desc.sanctionClearedNightly': 'sanction cleared in the nightly reset',
     'activity.desc.breakUndone': 'the owner undid their in-progress break{counter}',
     'activity.desc.breakReturned': 'the owner returned a break to them{counter}',
+    'activity.desc.autoAdvanced':
+      'the system closed {closed} and seated {next} (their client was waiting and the cut passed {minutes} min)',
 
     // Metadata detail strings (formatMetadata())
     'activity.meta.ordinal.first': 'first',

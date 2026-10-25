@@ -55,6 +55,8 @@ export default async function SettingsPage() {
     // Migración 082 — tickets por porcentaje.
     tickets_enabled?: boolean | null
     barber_split_percent?: number | null
+    // Migración 084 — auto-avance de clientes amarrados.
+    appointment_advance_minutes?: number | null
   }
   const row = shopRaw as ShopRow
 
@@ -91,6 +93,8 @@ export default async function SettingsPage() {
     // Migración 082 — tickets por porcentaje.
     tickets_enabled: row.tickets_enabled ?? false,
     barber_split_percent: row.barber_split_percent ?? 60,
+    // Migración 084 — auto-avance de clientes amarrados.
+    appointment_advance_minutes: row.appointment_advance_minutes ?? 40,
   }
 
   // Tickets (082): roster con su override de reparto, para ajustar el %

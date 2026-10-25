@@ -58,6 +58,9 @@ type Shop = {
   // Migración 082 — tickets por porcentaje (opt-in por barbería).
   tickets_enabled: boolean
   barber_split_percent: number
+  // Migración 084 — minutos tras los que el sistema asume que el barbero
+  // pasó a su cliente amarrado (citas en cadena sin tocar Disponible).
+  appointment_advance_minutes: number
 }
 
 // Migración 051 — límite del mensaje del cintillo. Lo suficientemente
@@ -111,6 +114,8 @@ export default function ShopSettings({
   // Tickets por porcentaje (082).
   const [ticketsEnabled, setTicketsEnabled] = useState(initial.tickets_enabled ?? false)
   const [barberSplit, setBarberSplit] = useState(initial.barber_split_percent ?? 60)
+  // Auto-avance de citas (084). Opciones fijas: nada de campo numérico.
+  const [advanceMinutes, setAdvanceMinutes] = useState(initial.appointment_advance_minutes ?? 40)
   // ── Late-arrival sanction state (migración 047) ──────────────
   // El DB column threshold es `time` (e.g. "12:00:00"). Lo renderizamos
   // con <input type="time"> que usa "HH:MM" — coercemos en ambas
@@ -181,6 +186,7 @@ export default function ShopSettings({
   const dirty =
     ticketsEnabled !== (shop.tickets_enabled ?? false) ||
     barberSplit !== (shop.barber_split_percent ?? 60) ||
+    advanceMinutes !== (shop.appointment_advance_minutes ?? 40) ||
     addressForDb !== shop.address ||
     ownerWhatsappForDb !== shop.owner_whatsapp ||
     name.trim() !== shop.name ||
@@ -291,12 +297,20 @@ export default function ShopSettings({
         .eq('id', shop.id)
       if (ticketsErr) console.error('[settings] tickets (082) no guardado', ticketsErr)
 
+      // Auto-avance de citas (084), mismo patrón tolerante.
+      const { error: advanceErr } = await supabase
+        .from('shops')
+        .update({ appointment_advance_minutes: advanceMinutes })
+        .eq('id', shop.id)
+      if (advanceErr) console.error('[settings] auto-avance (084) no guardado', advanceErr)
+
       setShop({
         ...(data as Shop),
         address: addressForDb,
         owner_whatsapp: ownerWhatsappForDb,
         tickets_enabled: ticketsEnabled,
         barber_split_percent: barberSplit,
+        appointment_advance_minutes: advanceMinutes,
       })
       setSavedAt(new Date())
       // Best-effort audit log entry. Failure here doesn't block the save.
@@ -756,6 +770,42 @@ export default function ShopSettings({
               </Field>
             </div>
           )}
+        </div>
+
+        {/* ── Auto-avance de clientes amarrados (084) ─────────────
+            Barberos con citas en cadena no tocan Disponible; pasado
+            este tiempo de corte, si su cliente amarrado ya llegó, el
+            sistema asume que siguió con él. */}
+        <div>
+          <p className="text-nxtup-muted text-xs uppercase tracking-[0.3em] mb-1 font-bold">
+            {t('settings.section.autoAdvance')}
+          </p>
+          <p className="text-nxtup-dim text-xs mb-4 leading-relaxed">
+            {t('settings.autoAdvance.blurb')}
+          </p>
+          <fieldset className="grid grid-cols-4 gap-2">
+            <legend className="sr-only">{t('settings.section.autoAdvance')}</legend>
+            {[30, 40, 50, 60].map(n => (
+              <label
+                key={n}
+                className={`flex items-center justify-center border rounded-lg px-2 py-3 cursor-pointer transition-colors ${
+                  advanceMinutes === n
+                    ? 'border-white bg-nxtup-line/50 text-white'
+                    : 'border-nxtup-line hover:border-nxtup-dim text-nxtup-muted'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="advance-minutes"
+                  value={n}
+                  checked={advanceMinutes === n}
+                  onChange={() => setAdvanceMinutes(n)}
+                  className="sr-only"
+                />
+                <span className="font-bold tabular-nums">{n} min</span>
+              </label>
+            ))}
+          </fieldset>
         </div>
 
         {/* ── Tickets por porcentaje (082) ───────────────────────
