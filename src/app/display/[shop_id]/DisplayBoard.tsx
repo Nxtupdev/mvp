@@ -18,7 +18,7 @@
  * broadcast (070) y la pantalla de cerrado con la próxima apertura.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNow, useNowDate, useViewportWidth } from '@/lib/client-hooks'
 import { Coffee, Phone, UserCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -1130,13 +1130,39 @@ function QueueRow({
  * la primera = sin salto. Respeta `prefers-reduced-motion` vía la
  * regla en globals.css.
  */
+// Velocidad fija del cintillo, legible desde el otro lado del piso.
+const TICKER_PX_PER_SEC = 70
+
 function DisplayMessageTicker({ message }: { message: string | null }) {
   const text = (message ?? '').trim()
+  const trackRef = useRef<HTMLDivElement>(null)
+  // Ancho MEDIDO de una copia (mitad de la pista). La duración ya no
+  // puede salir del largo del texto: con w-max la distancia recorrida es
+  // una copia entera (miles de px) y la fórmula vieja hacía volar el
+  // texto. rAF y ResizeObserver no disparan si la pestaña carga en
+  // segundo plano (TV encendida con el navegador minimizado); el
+  // timeout cubre ese caso.
+  const [copyWidth, setCopyWidth] = useState(0)
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    const measure = () => setCopyWidth(el.scrollWidth / 2)
+    const raf = requestAnimationFrame(measure)
+    const timer = setTimeout(measure, 150)
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(timer)
+      ro.disconnect()
+    }
+  }, [text])
+
   if (!text) return null
 
-  // Velocidad proporcional al largo, mínimo 20s para que un mensaje
-  // corto no pase volando.
-  const durationSec = Math.max(20, Math.round(text.length * 0.4))
+  // 90 s de respaldo hasta medir.
+  const durationSec =
+    copyWidth > 0 ? Math.max(20, Math.round(copyWidth / TICKER_PX_PER_SEC)) : 90
 
   // 6 copias × mensaje llena cualquier pantalla típica; se duplica todo
   // para el loop seamless.
@@ -1145,8 +1171,12 @@ function DisplayMessageTicker({ message }: { message: string | null }) {
 
   return (
     <div className="border-t border-nxtup-line bg-nxtup-bg overflow-hidden flex-shrink-0">
+      {/* w-max OBLIGATORIO (ver globals.css): sin él la pista mide el
+          ancho de la pantalla, -50% corre media pantalla y el loop
+          salta. Se perdió una vez al portar la TV del dealer (068b53d). */}
       <div
-        className="queue-ticker-track flex whitespace-nowrap py-5"
+        ref={trackRef}
+        className="queue-ticker-track flex w-max whitespace-nowrap py-5"
         style={{ animation: `queue-ticker ${durationSec}s linear infinite` }}
       >
         {segments.map(idx => (
