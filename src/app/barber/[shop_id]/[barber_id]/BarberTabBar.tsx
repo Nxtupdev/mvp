@@ -31,6 +31,8 @@ export default function BarberTabBar({
 
   const tabs = [
     { href: base, label: 'Mi panel', Icon: PanelIcon, exact: true },
+    // Mis clientes (25-oct): visible para TODAS las barberías.
+    { href: `${base}/clientes`, label: 'Mis clientes', Icon: ClientsIcon, exact: false },
     ...(ticketsEnabled
       ? [{ href: `${base}/cuenta`, label: 'Mi cuenta', Icon: WalletIcon, exact: false }]
       : []),
@@ -43,7 +45,7 @@ export default function BarberTabBar({
       className="fixed bottom-0 inset-x-0 z-40 bg-nxtup-bg/95 backdrop-blur-md border-t border-nxtup-line pb-[env(safe-area-inset-bottom)]"
     >
       {/* grid-cols estático (Tailwind no acepta clases dinámicas). */}
-      <ul className={`max-w-md mx-auto grid ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      <ul className={`max-w-md mx-auto grid ${tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         {tabs.map(({ href, label, Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href)
           return (
@@ -91,6 +93,18 @@ function PanelIcon({ active }: IconProps) {
       <line x1="20" y1="4" x2="8.12" y2="15.88" />
       <line x1="14.47" y1="14.48" x2="20" y2="20" />
       <line x1="8.12" y1="8.12" x2="12" y2="12" />
+    </svg>
+  )
+}
+
+// Dos personas — sus clientes del día.
+function ClientsIcon({ active }: IconProps) {
+  return (
+    <svg {...svgProps(active)}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5" />
+      <circle cx="17" cy="9" r="2.4" />
+      <path d="M15.8 14.2c2.2.2 3.9 1.8 4.4 4.3" />
     </svg>
   )
 }

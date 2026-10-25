@@ -8,7 +8,6 @@ import {
   type ReportLine,
   type SettlementTotals,
 } from '@/lib/ticket-report'
-import PendingFill from './PendingFill'
 import BarberTabBar from '../BarberTabBar'
 
 export const metadata = { title: 'Mi cuenta — NXTUP' }
@@ -67,28 +66,21 @@ export default async function MiCuentaPage({
 
   const pct = barberPercent(shop.barber_split_percent, barber.split_percent)
 
-  const [{ data: unsettled }, { data: settlements }, { data: services }] =
-    await Promise.all([
-      admin
-        .from('tickets')
-        .select('id, barber_id, service_name, amount, status, created_at')
-        .eq('barber_id', barber_id)
-        .is('settlement_id', null)
-        .order('created_at', { ascending: false })
-        .limit(500),
-      admin
-        .from('settlements')
-        .select('id, created_at, range_start, range_end, totals')
-        .eq('shop_id', shop_id)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      admin
-        .from('services')
-        .select('id, name, price')
-        .eq('shop_id', shop_id)
-        .eq('active', true)
-        .order('sort_order', { ascending: true }),
-    ])
+  const [{ data: unsettled }, { data: settlements }] = await Promise.all([
+    admin
+      .from('tickets')
+      .select('id, barber_id, service_name, amount, status, created_at')
+      .eq('barber_id', barber_id)
+      .is('settlement_id', null)
+      .order('created_at', { ascending: false })
+      .limit(500),
+    admin
+      .from('settlements')
+      .select('id, created_at, range_start, range_end, totals')
+      .eq('shop_id', shop_id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ])
 
   // ── Mi reporte por periodo (solo lo suyo; % congelado en lo liquidado)
   const tz = shop.timezone ?? 'America/New_York'
@@ -132,20 +124,6 @@ export default async function MiCuentaPage({
 
   const rows = (unsettled ?? []) as TicketRow[]
   const totals = barberTotals(rows, pct)
-
-  // Agrupar por día (como el papelito) — en la hora LOCAL de la
-  // barbería: sin timeZone, el servidor (UTC) ponía un corte del
-  // viernes 9pm bajo "sábado" (caso Prueba Barber, 23-oct).
-  const byDay = new Map<string, TicketRow[]>()
-  for (const r of rows) {
-    const day = new Date(r.created_at).toLocaleDateString('es', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-      timeZone: tz,
-    })
-    byDay.set(day, [...(byDay.get(day) ?? []), r])
-  }
 
   // Mi fila dentro de cada comprobante congelado.
   type SettleTotal = {
@@ -285,51 +263,16 @@ export default async function MiCuentaPage({
           </p>
         </div>
         {totals.pending > 0 && (
-          <p className="text-nxtup-break text-xs mb-2">
-            {totals.pending} línea(s) sin servicio — complétalas abajo para que
-            entren al cierre.
-          </p>
+          <Link
+            href={`/barber/${shop_id}/${barber_id}/clientes`}
+            className="block text-nxtup-break text-xs mb-2 underline underline-offset-4"
+          >
+            {totals.pending} servicio(s) sin marcar · complétalos en Mis clientes para
+            que entren al cierre →
+          </Link>
         )}
       </section>
 
-      {/* Líneas por día */}
-      <section className="flex flex-col gap-4">
-        {rows.length === 0 && (
-          <p className="text-nxtup-dim text-sm">
-            Aún no hay servicios sin liquidar. Cierra un cliente y marca qué le
-            hiciste: aparecerá aquí.
-          </p>
-        )}
-        {Array.from(byDay.entries()).map(([day, dayRows]) => (
-          <div key={day}>
-            <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
-              {day}
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {dayRows.map(r =>
-                r.status === 'pending' ? (
-                  <PendingFill
-                    key={r.id}
-                    barberId={barber_id}
-                    ticketId={r.id}
-                    services={services ?? []}
-                  />
-                ) : (
-                  <div
-                    key={r.id}
-                    className="flex items-center justify-between border border-nxtup-line rounded-lg px-3 py-2"
-                  >
-                    <span className="text-sm text-white">{r.service_name ?? '—'}</span>
-                    <span className="text-sm font-bold tabular-nums">
-                      ${Number(r.amount)}
-                    </span>
-                  </div>
-                ),
-              )}
-            </div>
-          </div>
-        ))}
-      </section>
 
       {/* Liquidaciones */}
       <section>

@@ -34,6 +34,9 @@ export type TicketRow = {
   amount: number
   status: string
   created_at: string
+  // null = línea registrada A MANO (Mis clientes, 083): sin turno de la
+  // cola. Opcional para no romper a quien no la seleccione.
+  entry_id?: string | null
 }
 
 /** Totales de un conjunto de líneas confirmadas para UN barbero. */

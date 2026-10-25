@@ -68,7 +68,7 @@ export default async function CuentasPage() {
         .order('name'),
       supabase
         .from('tickets')
-        .select('id, barber_id, service_name, amount, status, created_at')
+        .select('id, barber_id, service_name, amount, status, created_at, entry_id')
         .eq('shop_id', shop.id)
         .is('settlement_id', null)
         .order('created_at', { ascending: false })
@@ -88,6 +88,21 @@ export default async function CuentasPage() {
     ])
 
   const rows = (unsettled ?? []) as TicketRow[]
+
+  // Auditoría de líneas MANUALES (083): las registradas por el barbero
+  // sin turno de la cola llevan etiqueta y el nombre que puso. El nombre
+  // va en una lectura aparte y fail-open (sin la 083, solo la etiqueta).
+  const manualNames = new Map<string, string>()
+  const manualIds = rows.filter(r => !r.entry_id).map(r => r.id)
+  if (manualIds.length > 0) {
+    const { data: nameRows } = await supabase
+      .from('tickets')
+      .select('id, client_name')
+      .in('id', manualIds)
+    for (const n of (nameRows ?? []) as { id: string; client_name: string | null }[]) {
+      if (n.client_name) manualNames.set(n.id, n.client_name)
+    }
+  }
   const confirmedCount = rows.filter(r => r.status === 'confirmed').length
   const pendingCount = rows.length - confirmedCount
   const grandTotal =
@@ -249,6 +264,12 @@ export default async function CuentasPage() {
                                   {r.status === 'pending'
                                     ? t('tickets.line.pending')
                                     : r.service_name ?? '—'}
+                                  {!r.entry_id && (
+                                    <span className="ml-2 text-[10px] uppercase tracking-wider font-bold text-nxtup-dim">
+                                      {t('tickets.line.manual')}
+                                      {manualNames.get(r.id) ? ` · ${manualNames.get(r.id)}` : ''}
+                                    </span>
+                                  )}
                                 </span>
                                 <span className="flex items-center gap-3">
                                   <span className="text-sm font-bold tabular-nums">

@@ -49,14 +49,32 @@ export async function POST(
 
   let entryId: string | null = null
   let serviceIds: string[] = []
+  // Nombre opcional (083): solo para líneas registradas a mano desde
+  // "Mis clientes" (citas que no pasaron por la cola).
+  let clientName: string | null = null
   try {
     const body = await request.json()
     entryId = typeof body?.entry_id === 'string' ? body.entry_id : null
     serviceIds = Array.isArray(body?.service_ids)
       ? body.service_ids.filter((s: unknown) => typeof s === 'string').slice(0, 10)
       : []
+    const rawName = typeof body?.client_name === 'string' ? body.client_name.trim() : ''
+    clientName = rawName ? rawName.slice(0, 40) : null
   } catch {
     return Response.json({ error: 'Body inválido' }, { status: 400 })
+  }
+
+  // Un turno de la cola solo se vincula si es de ESTE barbero y shop; si
+  // no, la línea queda como manual (nunca se cuelga de un turno ajeno).
+  if (entryId) {
+    const { data: entry } = await admin
+      .from('queue_entries')
+      .select('id')
+      .eq('id', entryId)
+      .eq('barber_id', barber.id)
+      .eq('shop_id', shop.id)
+      .maybeSingle()
+    if (!entry) entryId = null
   }
 
   // Hoja cerrada sin elegir → UNA línea pendiente (badge; se completa luego).
@@ -94,8 +112,17 @@ export async function POST(
     service_name: s.name,
     amount: s.price ?? 0,
     status: 'confirmed',
+    ...(clientName ? { client_name: clientName } : {}),
   }))
-  const { error } = await admin.from('tickets').insert(rows)
+  let { error } = await admin.from('tickets').insert(rows)
+  // 42703 = columna inexistente: la 083 aún no corre. La línea vale más
+  // que el nombre — se guarda sin él antes que perder el servicio.
+  if (error?.code === '42703' && clientName) {
+    console.error('[barbers/tickets] client_name sin migrar (083), guardando sin nombre')
+    ;({ error } = await admin
+      .from('tickets')
+      .insert(rows.map(({ client_name: _omit, ...r }) => r)))
+  }
   if (error) {
     console.error('[barbers/tickets] insert failed', error)
     return Response.json({ error: 'No se pudo guardar' }, { status: 500 })
