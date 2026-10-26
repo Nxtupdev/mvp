@@ -101,7 +101,7 @@ export default function TicketItemsPicker({
           {items.map((it, idx) => (
             <li
               key={`${it.serviceId ?? 'otro'}-${idx}`}
-              className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 ${
+              className={`flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2 ${
                 it.amount > 0 && needsReview(it.amount, it.listPrice)
                   ? 'border-nxtup-break/70'
                   : 'border-nxtup-line'
@@ -112,15 +112,19 @@ export default function TicketItemsPicker({
                   {it.name}
                 </span>
               ) : (
-                <input
-                  value={it.name}
-                  onChange={e => update(idx, { name: e.target.value })}
-                  onBlur={e => update(idx, { name: normalizeCustomName(e.target.value) })}
-                  maxLength={CUSTOM_NAME_MAX}
-                  placeholder="¿Qué fue? Ej. Tinte"
-                  aria-label="Nombre del servicio"
-                  className="flex-1 min-w-0 bg-nxtup-line text-white rounded-lg px-2.5 py-2 text-sm border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
-                />
+                <>
+                  {/* Nombre propio en su fila: a lo ancho de un teléfono no cabe junto al precio. */}
+                  <input
+                    value={it.name}
+                    onChange={e => update(idx, { name: e.target.value })}
+                    onBlur={e => update(idx, { name: normalizeCustomName(e.target.value) })}
+                    maxLength={CUSTOM_NAME_MAX}
+                    placeholder="¿Qué fue? Ej. Tinte de pelo"
+                    aria-label="Nombre del servicio"
+                    className="basis-full min-w-0 bg-nxtup-line text-white rounded-lg px-2.5 py-2 text-sm border border-nxtup-dim focus:border-white focus:outline-none placeholder:text-nxtup-dim"
+                  />
+                  <span className="flex-1" aria-hidden />
+                </>
               )}
               <button
                 type="button"
