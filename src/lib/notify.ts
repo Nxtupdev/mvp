@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { signedMamacitaPost } from '@/lib/mamacita'
 
 /**
  * Notificaciones al CLIENTE por SMS / WhatsApp (Twilio).
@@ -13,7 +14,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
  *     pantalla de éxito viéndolo en vivo.
  *
  * Canal único elegido por env (sin fallback automático en v1):
- *   NOTIFY_CHANNEL = 'off' | 'sms' | 'whatsapp'   (ausente = off)
+ *   NOTIFY_CHANNEL = 'off' | 'sms' | 'whatsapp' | 'mamacita'   (ausente = off)
+ *
+ * 'mamacita' (25-oct, decisión de Francisco tras el rechazo del 1-800):
+ * el SMS sale por el número A2P aprobado de Softmedia. NXTUP no tiene
+ * las llaves de Twilio de Softmedia — manda los DATOS del aviso firmados
+ * (mismo HMAC x-nxtup-*) a MAMACITA_SMS_SEND_URL y Mamacita redacta el
+ * texto conforme a su campaña registrada y lo envía. Payload:
+ *   { event: 'customer_sms', kind: 'checkin_confirmed' | 'barber_ready',
+ *     nxtup_shop_id, to (E.164), language, idempotency_key,
+ *     vars: { customer_name, shop_name, position?, wait?, barber_name? } }
+ * idempotency_key = `${entry_id}:${kind}`: un reintento no duplica el SMS.
  *
  * Credenciales / remitentes:
  *   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
@@ -41,11 +52,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 type Lang = 'es' | 'en'
 
-type Channel = 'sms' | 'whatsapp'
+type Channel = 'sms' | 'whatsapp' | 'mamacita'
+
+type Kind = 'checkin_confirmed' | 'barber_ready'
 
 function getChannel(): Channel | null {
   const raw = process.env.NOTIFY_CHANNEL
-  if (raw === 'sms' || raw === 'whatsapp') return raw
+  if (raw === 'sms' || raw === 'whatsapp' || raw === 'mamacita') return raw
   return null
 }
 
@@ -100,18 +113,67 @@ async function twilioSend(params: Record<string, string>): Promise<void> {
   }
 }
 
+/** Envío vía Mamacita (canal 'mamacita'): solo datos, el texto es suyo. */
+async function mamacitaSend(opts: {
+  kind: Kind
+  to: string
+  lang: Lang
+  shopId: string
+  entryId: string
+  vars: Record<string, string | number>
+}): Promise<void> {
+  const url = process.env.MAMACITA_SMS_SEND_URL
+  if (!url) {
+    console.error('[notify] NOTIFY_CHANNEL=mamacita pero falta MAMACITA_SMS_SEND_URL')
+    return
+  }
+  try {
+    const { status, body } = await signedMamacitaPost(
+      url,
+      {
+        event: 'customer_sms',
+        kind: opts.kind,
+        nxtup_shop_id: opts.shopId,
+        to: opts.to,
+        language: opts.lang,
+        idempotency_key: `${opts.entryId}:${opts.kind}`,
+        vars: opts.vars,
+      },
+      5000,
+    )
+    if (status < 200 || status >= 300) {
+      console.error(`[notify] mamacita send failed ${status}`, JSON.stringify(body).slice(0, 300))
+    }
+  } catch (err) {
+    console.error('[notify] mamacita send error', err)
+  }
+}
+
 /**
  * Despacha un mensaje por el canal configurado. `smsBody` es el texto
- * libre del SMS; `contentSid` + `variables` son la plantilla WhatsApp.
+ * libre del SMS; `contentSid` + `variables` son la plantilla WhatsApp;
+ * `mamacita` son los datos crudos para el canal 'mamacita'.
  */
 async function dispatch(opts: {
   to: string
   smsBody: string
   contentSid: string | undefined
   variables: Record<string, string>
+  mamacita: {
+    kind: Kind
+    lang: Lang
+    shopId: string
+    entryId: string
+    vars: Record<string, string | number>
+  }
 }): Promise<void> {
   const channel = getChannel()
   if (!channel) return
+
+  if (channel === 'mamacita') {
+    await mamacitaSend({ to: opts.to, ...opts.mamacita })
+    return
+  }
 
   if (channel === 'sms') {
     const from = process.env.TWILIO_SMS_FROM
@@ -148,6 +210,8 @@ export async function notifyCheckinConfirmed(opts: {
   position: number
   etaMin: number
   etaMax: number
+  shopId: string
+  entryId: string
 }): Promise<void> {
   try {
     if (!getChannel()) return
@@ -172,6 +236,18 @@ export async function notifyCheckinConfirmed(opts: {
         '2': opts.shopName,
         '3': String(opts.position),
         '4': wait,
+      },
+      mamacita: {
+        kind: 'checkin_confirmed',
+        lang: opts.lang,
+        shopId: opts.shopId,
+        entryId: opts.entryId,
+        vars: {
+          customer_name: opts.name,
+          shop_name: opts.shopName,
+          position: opts.position,
+          wait,
+        },
       },
     })
   } catch (err) {
@@ -230,6 +306,13 @@ export async function notifyBarberReady(opts: {
           ? process.env.TWILIO_CONTENT_READY_EN
           : process.env.TWILIO_CONTENT_READY_ES,
       variables: { '1': name, '2': opts.barberName, '3': shop.name },
+      mamacita: {
+        kind: 'barber_ready',
+        lang,
+        shopId: opts.shopId,
+        entryId: opts.entryId,
+        vars: { customer_name: name, shop_name: shop.name, barber_name: opts.barberName },
+      },
     })
   } catch (err) {
     console.error('[notify] barber_ready failed', err)

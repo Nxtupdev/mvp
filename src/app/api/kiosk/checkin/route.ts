@@ -583,6 +583,8 @@ export async function POST(request: NextRequest) {
       position: queuePosition,
       etaMin: etaMinutes.min,
       etaMax: etaMinutes.max,
+      shopId: shop.id,
+      entryId: entry.id,
     })
   }
 
