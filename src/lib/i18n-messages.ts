@@ -139,6 +139,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'kiosk.phone.title': 'Tu número de teléfono',
     'kiosk.phone.hint': 'Te buscaremos en nuestro sistema',
+    'kiosk.phone.smsConsent':
+      'Al continuar aceptas recibir mensajes de texto sobre tu turno. Pueden aplicar tarifas de mensajes. Responde STOP para cancelar.',
     'kiosk.phone.continue': 'Continuar',
     'kiosk.phone.invalid': 'Necesitamos 10 dígitos para continuar',
 
@@ -1049,6 +1051,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'kiosk.phone.title': 'Your phone number',
     'kiosk.phone.hint': 'We\'ll look you up in our system',
+    'kiosk.phone.smsConsent':
+      'By continuing you agree to receive text messages about your turn. Msg & data rates may apply. Reply STOP to opt out.',
     'kiosk.phone.continue': 'Continue',
     'kiosk.phone.invalid': 'We need 10 digits to continue',
 

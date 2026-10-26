@@ -59,6 +59,9 @@ type PhoneScreenProps = {
    *  (e.g., returning customers might be a different N). */
   currentStep?: number
   totalSteps?: number
+  /** SMS de la cola encendidos (NOTIFY_CHANNEL): muestra el aviso de
+   *  consentimiento que exigen las operadoras (A2P) bajo el campo. */
+  smsConsent?: boolean
 }
 
 function interpolate(template: string, vars: Record<string, string | number>): string {
@@ -74,6 +77,7 @@ export function PhoneScreen({
   serverError = null,
   currentStep = 1,
   totalSteps = 3,
+  smsConsent = false,
 }: PhoneScreenProps) {
   const { t } = useLocale()
   const shouldReduceMotion = useReducedMotion()
@@ -164,6 +168,11 @@ export function PhoneScreen({
           >
             {t('kiosk.phone.hint')}
           </motion.p>
+          {smsConsent && (
+            <p className="mt-2 max-w-md text-xs text-zinc-500 sm:text-sm">
+              {t('kiosk.phone.smsConsent')}
+            </p>
+          )}
         </div>
 
         {/* Phone input */}

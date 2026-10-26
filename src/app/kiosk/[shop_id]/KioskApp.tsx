@@ -99,6 +99,7 @@ type KioskAppProps = {
   shop: Shop
   initialWaitingCount: number
   barbers: KioskBarber[]
+  smsEnabled: boolean
 }
 
 const INITIAL_FORM: NewCustomerFormState = {
@@ -137,7 +138,7 @@ async function readServerError(res: Response, fallback: string): Promise<string>
 // ────────────────────────────────────────────────────────────────────
 // Component
 
-export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) {
+export function KioskApp({ shop, initialWaitingCount, barbers, smsEnabled }: KioskAppProps) {
   const { locale, setLocale } = useLocale()
   const [step, setStep] = useState<Step>('splash')
 
@@ -413,6 +414,7 @@ export function KioskApp({ shop, initialWaitingCount, barbers }: KioskAppProps) 
                 serverError={lookupError}
                 currentStep={1}
                 totalSteps={3}
+                smsConsent={smsEnabled}
               />
             </ScreenContainer>
           )}

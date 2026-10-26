@@ -132,6 +132,7 @@ export default async function KioskPage({
       shop={shop}
       initialWaitingCount={waitingCount ?? 0}
       barbers={barbers ?? []}
+      smsEnabled={['sms', 'whatsapp', 'mamacita'].includes(process.env.NOTIFY_CHANNEL ?? '')}
     />
   )
 }

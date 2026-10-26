@@ -24,7 +24,7 @@ import { signedMamacitaPost } from '@/lib/mamacita'
  *   { event: 'customer_sms', kind: 'checkin_confirmed' | 'barber_ready',
  *     nxtup_shop_id, to (E.164), language, idempotency_key,
  *     vars: { customer_name, shop_name, position?, wait?, barber_name? } }
- * idempotency_key = `${entry_id}:${kind}`: un reintento no duplica el SMS.
+ * idempotency_key = `${entry_id}:${kind}` (trazabilidad en los logs de Mamacita).
  *
  * Credenciales / remitentes:
  *   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
