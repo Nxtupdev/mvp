@@ -1,12 +1,18 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizeCustomName, parseAmount } from '@/lib/ticket-items'
 
 /**
  * Corrección de una línea de ticket — SOLO el dueño (082, decisión de
  * Francisco: el barbero corrige antes de Terminar; después, el dueño).
- * Sin tachados en la UI: PATCH cambia el servicio, DELETE la quita;
- * ambos dejan rastro en activity_log para disputas.
+ * Sin tachados en la UI: PATCH corrige, DELETE la quita; ambos dejan
+ * rastro en activity_log para disputas.
+ *
+ * PATCH { amount?, service_id?, name? } (085, precio libre): conciliar
+ * con el barbero el 650 que era 65. service_id cambia el servicio (y su
+ * precio de lista); name lo vuelve categoría propia; amount ausente con
+ * service_id = precio de lista del servicio nuevo. Marca corrected_at.
  *
  * Solo líneas SIN liquidar: un comprobante cerrado no se reescribe.
  */
@@ -56,32 +62,62 @@ export async function PATCH(
   }
   const { admin, ticket } = ctx
 
-  let serviceId = ''
+  let body: { amount?: unknown; service_id?: unknown; name?: unknown }
   try {
-    const body = await request.json()
-    serviceId = String(body?.service_id ?? '')
+    body = (await request.json()) ?? {}
   } catch {
     return Response.json({ error: 'Body inválido' }, { status: 400 })
   }
-  // Precio SIEMPRE del server, igual que en la captura del barbero.
-  const { data: service } = await admin
-    .from('services')
-    .select('id, name, price')
-    .eq('id', serviceId)
-    .eq('shop_id', ticket.shop_id)
-    .maybeSingle()
-  if (!service) return Response.json({ error: 'Servicio inválido' }, { status: 400 })
 
-  const { error } = await admin
+  const now = new Date().toISOString()
+  const update: Record<string, unknown> = { status: 'confirmed', updated_at: now }
+
+  if (typeof body.service_id === 'string' && body.service_id) {
+    const { data: service } = await admin
+      .from('services')
+      .select('id, name, price')
+      .eq('id', body.service_id)
+      .eq('shop_id', ticket.shop_id)
+      .maybeSingle()
+    if (!service) return Response.json({ error: 'Servicio inválido' }, { status: 400 })
+    update.service_id = service.id
+    update.service_name = service.name
+    update.list_price = service.price == null ? null : Number(service.price)
+    update.amount = parseAmount(service.price)
+  } else if (typeof body.name === 'string') {
+    const name = normalizeCustomName(body.name)
+    if (!name) return Response.json({ error: 'Ponle nombre al servicio' }, { status: 400 })
+    update.service_id = null
+    update.service_name = name
+    update.list_price = null
+  }
+
+  if (body.amount !== undefined) {
+    const amount = parseAmount(body.amount)
+    if (amount == null) return Response.json({ error: 'Monto inválido' }, { status: 400 })
+    update.amount = amount
+  }
+  if (update.amount == null) {
+    // Una pendiente necesita servicio + monto; una confirmada conserva el suyo.
+    if (ticket.status === 'pending') {
+      return Response.json({ error: 'Ponle el precio' }, { status: 400 })
+    }
+    delete update.amount
+  }
+  if (update.service_name === undefined && ticket.status === 'pending') {
+    return Response.json({ error: 'Elige el servicio' }, { status: 400 })
+  }
+
+  let { error } = await admin
     .from('tickets')
-    .update({
-      service_id: service.id,
-      service_name: service.name,
-      amount: service.price ?? 0,
-      status: 'confirmed',
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...update, corrected_at: now })
     .eq('id', ticket.id)
+  // 42703: la 085 no corre aún — se corrige igual, sin las marcas.
+  if (error?.code === '42703') {
+    console.error('[tickets] 085 sin migrar, corrigiendo sin list_price/corrected_at')
+    const { list_price: _l, ...rest } = update
+    ;({ error } = await admin.from('tickets').update(rest).eq('id', ticket.id))
+  }
   if (error) {
     console.error('[tickets] owner patch failed', error)
     return Response.json({ error: 'No se pudo guardar' }, { status: 500 })
@@ -94,7 +130,10 @@ export async function PATCH(
     metadata: {
       ticket_id: ticket.id,
       from: { service: ticket.service_name, amount: ticket.amount },
-      to: { service: service.name, amount: service.price ?? 0 },
+      to: {
+        service: update.service_name ?? ticket.service_name,
+        amount: update.amount ?? ticket.amount,
+      },
     },
   })
   return Response.json({ ok: true })

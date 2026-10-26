@@ -1,22 +1,117 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { barberPercent, barberTotals, type TicketRow } from '@/lib/tickets'
+import { normalizeCustomName, parseAmount } from '@/lib/ticket-items'
 
 /**
  * Tickets del barbero (082) — mismo modelo de acceso que su panel: el
- * link del barbero es su identidad (sin cuenta), y el daño posible es
- * mínimo porque los PRECIOS se resuelven SERVER-side de la tabla
- * services (el cliente solo manda ids) y el toggle del shop gatea todo.
+ * link del barbero es su identidad (sin cuenta) y el toggle del shop
+ * gatea todo.
  *
- * POST  { entry_id?, service_ids: uuid[] } → una línea confirmada por
- *       servicio elegido en "¿Qué le hiciste?". service_ids vacío =
- *       UNA línea 'pending' (cerró la hoja sin elegir; se completa
- *       después con PATCH o la corrige el dueño).
- * PATCH { ticket_id, service_ids } → completa UNA pending propia:
- *       primer servicio reemplaza la línea, extras crean líneas nuevas.
+ * Precio LIBRE desde la 085 (decisión de Francisco + dueños, 25-oct):
+ * el barbero manda el monto de cada línea. El servidor valida el tope
+ * por línea (MAX_LINE_AMOUNT) y guarda el precio de lista como
+ * snapshot (list_price) para que Cuentas marque "revisar" lo que se
+ * aleje; el dueño corrige antes del cierre.
+ *
+ * POST  { entry_id?, items: [{ service_id, amount } | { name, amount }] }
+ *       → una línea confirmada por item. items vacío = UNA línea
+ *       'pending' (cerró la hoja sin elegir; se completa después con
+ *       PATCH o la corrige el dueño). Acepta también el formato viejo
+ *       { service_ids } con el precio de lista (PWA en caché).
+ * PATCH { ticket_id, items } → completa UNA pending propia: el primer
+ *       item reemplaza la línea, los demás crean líneas nuevas.
  * GET   ?from=ISO&to=ISO → sus líneas del rango + su % + totales
  *       ("Mi cuenta"). Solo lo SUYO: jamás números de otros barberos.
  */
+
+type LineDraft = {
+  service_id: string | null
+  service_name: string
+  amount: number
+  list_price: number | null
+}
+
+/**
+ * Body → líneas listas para guardar, o un error para el barbero. Los
+ * servicios se resuelven contra el MISMO shop (un id ajeno no existe
+ * aquí) y de ahí salen el nombre y el precio de lista.
+ */
+async function resolveItems(
+  admin: ReturnType<typeof createAdminClient>,
+  shopId: string,
+  body: unknown,
+): Promise<{ lines: LineDraft[] } | { error: string }> {
+  const b = (body ?? {}) as { items?: unknown; service_ids?: unknown }
+  type Raw = { service_id?: unknown; name?: unknown; amount?: unknown }
+  let raw: Raw[]
+  if (Array.isArray(b.items)) {
+    raw = (b.items as Raw[]).slice(0, 10)
+  } else if (Array.isArray(b.service_ids)) {
+    raw = (b.service_ids as unknown[])
+      .filter((s): s is string => typeof s === 'string')
+      .slice(0, 10)
+      .map(id => ({ service_id: id }))
+  } else {
+    raw = []
+  }
+  if (raw.length === 0) return { lines: [] }
+
+  const ids = raw.map(r => r.service_id).filter((s): s is string => typeof s === 'string')
+  const byId = new Map<string, { id: string; name: string; price: number | null }>()
+  if (ids.length > 0) {
+    const { data: services } = await admin
+      .from('services')
+      .select('id, name, price')
+      .eq('shop_id', shopId)
+      .in('id', ids)
+    for (const s of services ?? []) byId.set(s.id, s)
+  }
+
+  const lines: LineDraft[] = []
+  for (const r of raw) {
+    if (typeof r.service_id === 'string') {
+      const s = byId.get(r.service_id)
+      if (!s) return { error: 'Servicio inválido' }
+      const listPrice = s.price == null ? null : Number(s.price)
+      // Formato viejo (sin amount) = precio de lista.
+      const amount = r.amount === undefined ? parseAmount(listPrice) : parseAmount(r.amount)
+      if (amount == null) return { error: `Revisa el precio de ${s.name}` }
+      lines.push({ service_id: s.id, service_name: s.name, amount, list_price: listPrice })
+    } else {
+      const name = normalizeCustomName(typeof r.name === 'string' ? r.name : '')
+      if (!name) return { error: 'Ponle nombre al servicio' }
+      const amount = parseAmount(r.amount)
+      if (amount == null) return { error: `Revisa el precio de ${name}` }
+      lines.push({ service_id: null, service_name: name, amount, list_price: null })
+    }
+  }
+  return { lines }
+}
+
+/**
+ * Inserta tolerando migraciones sin correr (42703 = columna
+ * inexistente): la línea vale más que sus extras, así que se reintenta
+ * sin list_price (085) y luego sin client_name (083).
+ */
+async function insertLines(
+  admin: ReturnType<typeof createAdminClient>,
+  rows: Record<string, unknown>[],
+) {
+  let { error } = await admin.from('tickets').insert(rows)
+  if (error?.code === '42703') {
+    console.error('[barbers/tickets] list_price sin migrar (085), guardando sin él')
+    const noList = rows.map(({ list_price: _l, ...r }) => r)
+    ;({ error } = await admin.from('tickets').insert(noList))
+    if (error?.code === '42703') {
+      console.error('[barbers/tickets] client_name sin migrar (083), guardando sin nombre')
+      ;({ error } = await admin
+        .from('tickets')
+        .insert(noList.map(({ client_name: _c, ...r }) => r)))
+    }
+  }
+  return error
+}
 
 async function loadBarberShop(barberId: string) {
   const admin = createAdminClient()
@@ -48,21 +143,21 @@ export async function POST(
   }
 
   let entryId: string | null = null
-  let serviceIds: string[] = []
+  let body: unknown
   // Nombre opcional (083): solo para líneas registradas a mano desde
   // "Mis clientes" (citas que no pasaron por la cola).
   let clientName: string | null = null
   try {
-    const body = await request.json()
-    entryId = typeof body?.entry_id === 'string' ? body.entry_id : null
-    serviceIds = Array.isArray(body?.service_ids)
-      ? body.service_ids.filter((s: unknown) => typeof s === 'string').slice(0, 10)
-      : []
-    const rawName = typeof body?.client_name === 'string' ? body.client_name.trim() : ''
+    body = await request.json()
+    const b = body as { entry_id?: unknown; client_name?: unknown }
+    entryId = typeof b?.entry_id === 'string' ? b.entry_id : null
+    const rawName = typeof b?.client_name === 'string' ? b.client_name.trim() : ''
     clientName = rawName ? rawName.slice(0, 40) : null
   } catch {
     return Response.json({ error: 'Body inválido' }, { status: 400 })
   }
+  const resolved = await resolveItems(admin, shop.id, body)
+  if ('error' in resolved) return Response.json({ error: resolved.error }, { status: 400 })
 
   // Un turno de la cola solo se vincula si es de ESTE barbero y shop; si
   // no, la línea queda como manual (nunca se cuelga de un turno ajeno).
@@ -78,7 +173,7 @@ export async function POST(
   }
 
   // Hoja cerrada sin elegir → UNA línea pendiente (badge; se completa luego).
-  if (serviceIds.length === 0) {
+  if (resolved.lines.length === 0) {
     const { error } = await admin.from('tickets').insert({
       shop_id: shop.id,
       barber_id: barber.id,
@@ -93,36 +188,15 @@ export async function POST(
     return Response.json({ ok: true, pending: true })
   }
 
-  // Precios SIEMPRE del server: los ids se resuelven contra services
-  // del MISMO shop; un id ajeno o inventado simplemente no existe aquí.
-  const { data: services } = await admin
-    .from('services')
-    .select('id, name, price')
-    .eq('shop_id', shop.id)
-    .in('id', serviceIds)
-  if (!services || services.length === 0) {
-    return Response.json({ error: 'Servicios inválidos' }, { status: 400 })
-  }
-
-  const rows = services.map(s => ({
+  const rows = resolved.lines.map(l => ({
     shop_id: shop.id,
     barber_id: barber.id,
     entry_id: entryId,
-    service_id: s.id,
-    service_name: s.name,
-    amount: s.price ?? 0,
+    ...l,
     status: 'confirmed',
     ...(clientName ? { client_name: clientName } : {}),
   }))
-  let { error } = await admin.from('tickets').insert(rows)
-  // 42703 = columna inexistente: la 083 aún no corre. La línea vale más
-  // que el nombre — se guarda sin él antes que perder el servicio.
-  if (error?.code === '42703' && clientName) {
-    console.error('[barbers/tickets] client_name sin migrar (083), guardando sin nombre')
-    ;({ error } = await admin
-      .from('tickets')
-      .insert(rows.map(({ client_name: _omit, ...r }) => r)))
-  }
+  const error = await insertLines(admin, rows)
   if (error) {
     console.error('[barbers/tickets] insert failed', error)
     return Response.json({ error: 'No se pudo guardar' }, { status: 500 })
@@ -143,18 +217,17 @@ export async function PATCH(
   }
 
   let ticketId = ''
-  let serviceIds: string[] = []
+  let body: unknown
   try {
-    const body = await request.json()
-    ticketId = String(body?.ticket_id ?? '')
-    serviceIds = Array.isArray(body?.service_ids)
-      ? body.service_ids.filter((s: unknown) => typeof s === 'string').slice(0, 10)
-      : []
+    body = await request.json()
+    ticketId = String((body as { ticket_id?: unknown })?.ticket_id ?? '')
   } catch {
     return Response.json({ error: 'Body inválido' }, { status: 400 })
   }
-  if (!ticketId || serviceIds.length === 0) {
-    return Response.json({ error: 'ticket_id y service_ids requeridos' }, { status: 400 })
+  const resolved = await resolveItems(admin, shop.id, body)
+  if ('error' in resolved) return Response.json({ error: resolved.error }, { status: 400 })
+  if (!ticketId || resolved.lines.length === 0) {
+    return Response.json({ error: 'ticket_id e items requeridos' }, { status: 400 })
   }
 
   // Solo UNA pending PROPIA y sin liquidar — el barbero no toca
@@ -169,44 +242,39 @@ export async function PATCH(
     return Response.json({ error: 'Esa línea no se puede completar' }, { status: 400 })
   }
 
-  const { data: services } = await admin
-    .from('services')
-    .select('id, name, price')
-    .eq('shop_id', shop.id)
-    .in('id', serviceIds)
-  if (!services || services.length === 0) {
-    return Response.json({ error: 'Servicios inválidos' }, { status: 400 })
-  }
-
-  const [first, ...rest] = services
+  const [first, ...rest] = resolved.lines
   const now = new Date().toISOString()
-  const { error: updErr } = await admin
+  const fill = { ...first, status: 'confirmed', updated_at: now }
+  let { error: updErr } = await admin
     .from('tickets')
-    .update({
-      service_id: first.id,
-      service_name: first.name,
-      amount: first.price ?? 0,
-      status: 'confirmed',
-      updated_at: now,
-    })
+    .update(fill)
     .eq('id', ticket.id)
     .eq('status', 'pending')
+  if (updErr?.code === '42703') {
+    console.error('[barbers/tickets] list_price sin migrar (085), completando sin él')
+    const { list_price: _l, ...noList } = fill
+    ;({ error: updErr } = await admin
+      .from('tickets')
+      .update(noList)
+      .eq('id', ticket.id)
+      .eq('status', 'pending'))
+  }
   if (updErr) {
     console.error('[barbers/tickets] pending fill failed', updErr)
     return Response.json({ error: 'No se pudo guardar' }, { status: 500 })
   }
   if (rest.length > 0) {
-    await admin.from('tickets').insert(
-      rest.map(s => ({
+    const error = await insertLines(
+      admin,
+      rest.map(l => ({
         shop_id: shop.id,
         barber_id: barber.id,
         entry_id: ticket.entry_id,
-        service_id: s.id,
-        service_name: s.name,
-        amount: s.price ?? 0,
+        ...l,
         status: 'confirmed',
       })),
     )
+    if (error) console.error('[barbers/tickets] pending extras failed', error)
   }
   return Response.json({ ok: true })
 }

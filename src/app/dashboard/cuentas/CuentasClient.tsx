@@ -226,29 +226,52 @@ export function BarberSplit({
   )
 }
 
-/** Acciones del dueño sobre una línea: cambiar servicio o eliminarla. */
+/**
+ * Acciones del dueño sobre una línea: corregir monto y/o servicio, o
+ * eliminarla. Precio libre (085): el dueño concilia con el barbero el
+ * error de dedo (650 → 65) antes del cierre.
+ */
 export function TicketLineAdmin({
   ticketId,
   services,
   isPending,
+  amount,
 }: {
   ticketId: string
   services: Service[]
   isPending: boolean
+  amount: number
 }) {
   const { t } = useLocale()
   const [editing, setEditing] = useState(false)
   const [serviceId, setServiceId] = useState('')
+  const [value, setValue] = useState(isPending ? '' : String(amount))
   const [busy, setBusy] = useState(false)
 
+  const typed = Number(value)
+  const amountOk = value.trim() !== '' && Number.isFinite(typed) && typed > 0
+  const amountChanged = amountOk && typed !== amount
+  // Pendiente: necesita servicio y monto. Confirmada: basta un cambio.
+  const canSave = isPending ? Boolean(serviceId) && amountOk : Boolean(serviceId) || amountChanged
+
+  function pickService(id: string) {
+    setServiceId(id)
+    const s = services.find(x => x.id === id)
+    // Al elegir un servicio se propone su precio de lista; el dueño lo ajusta.
+    if (s?.price != null) setValue(String(Number(s.price)))
+  }
+
   async function savePatch() {
-    if (busy || !serviceId) return
+    if (busy || !canSave) return
     setBusy(true)
     try {
       const res = await fetch(`/api/tickets/${ticketId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service_id: serviceId }),
+        body: JSON.stringify({
+          ...(serviceId ? { service_id: serviceId } : {}),
+          ...(amountOk ? { amount: typed } : {}),
+        }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -284,23 +307,35 @@ export function TicketLineAdmin({
 
   if (editing) {
     return (
-      <span className="flex items-center gap-2 print:hidden">
+      <span className="flex flex-wrap items-center justify-end gap-2 print:hidden">
         <select
           value={serviceId}
-          onChange={e => setServiceId(e.target.value)}
-          className="bg-nxtup-line text-white text-xs rounded px-2 py-1 border border-nxtup-dim"
+          onChange={e => pickService(e.target.value)}
+          className="bg-nxtup-line text-white text-xs rounded px-2 py-1 border border-nxtup-dim max-w-[11rem]"
         >
-          <option value="">{t('tickets.line.pick')}</option>
+          <option value="">{isPending ? t('tickets.line.pick') : t('tickets.line.keepService')}</option>
           {services.map(s => (
             <option key={s.id} value={s.id} className="bg-nxtup-bg">
               {s.name} · ${Number(s.price ?? 0)}
             </option>
           ))}
         </select>
+        <label className="flex items-center rounded bg-nxtup-line border border-nxtup-dim focus-within:border-white px-1.5">
+          <span className="text-nxtup-muted text-xs">$</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            aria-label={t('tickets.line.amount')}
+            className="w-16 bg-transparent text-white text-xs font-bold tabular-nums text-right py-1 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </label>
         <button
           type="button"
           onClick={savePatch}
-          disabled={busy || !serviceId}
+          disabled={busy || !canSave}
           className="text-xs font-bold text-nxtup-active disabled:opacity-40"
         >
           {t('tickets.line.save')}

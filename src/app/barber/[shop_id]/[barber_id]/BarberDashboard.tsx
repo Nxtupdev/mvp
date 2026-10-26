@@ -14,6 +14,13 @@ import {
   type ShopAvatar,
 } from '@/components/avatars'
 import { InstallButton } from '@/components/InstallButton'
+import TicketItemsPicker, {
+  confirmOutliers,
+  itemsPayload,
+  itemsProblem,
+  itemsTotal,
+} from '@/components/TicketItemsPicker'
+import type { TicketItem } from '@/lib/ticket-items'
 import {
   buildBarberOrder,
   buildHeldPositions,
@@ -1016,10 +1023,11 @@ function ActionButton({
 // Hoja de ticket "¿Qué le hiciste?" (082)
 //
 // Aparece ENCIMA tras cerrar un cliente (el estado ya cambió; esto
-// jamás bloquea el piso). Botones de SELECCIÓN con el precio heredado
-// del servicio — el precio nunca se teclea. Multi-select con total
-// visible y un solo "Terminar". Cerrar sin elegir = línea pendiente
-// (se completa después en Mi cuenta o la corrige el dueño).
+// jamás bloquea el piso). Precio libre desde la 085: cada servicio
+// entra con su precio de lista y se ajusta (±5 o tecleado); "Otro"
+// agrega una categoría propia. Total visible y un solo "Terminar".
+// Cerrar sin elegir = línea pendiente (se completa después en Mi
+// cuenta o la corrige el dueño).
 // ──────────────────────────────────────────────────────────────
 
 function TicketSheet({
@@ -1035,34 +1043,42 @@ function TicketSheet({
   services: { id: string; name: string; price: number | null }[]
   onClose: () => void
 }) {
-  const [picked, setPicked] = useState<string[]>([])
+  const [items, setItems] = useState<TicketItem[]>([])
   const [sending, setSending] = useState(false)
 
-  const total = services
-    .filter(s => picked.includes(s.id))
-    .reduce((sum, s) => sum + (s.price ?? 0), 0)
+  const total = itemsTotal(items)
+  const problem = itemsProblem(items)
 
-  async function send(serviceIds: string[]) {
+  async function send(picked: TicketItem[]) {
     if (sending) return
+    if (picked.length > 0 && !confirmOutliers(picked)) return
     setSending(true)
+    let res: Response | null = null
     try {
-      await fetch(`/api/barbers/${barberId}/tickets`, {
+      res = await fetch(`/api/barbers/${barberId}/tickets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entry_id: entryId, service_ids: serviceIds }),
+        body: JSON.stringify({ entry_id: entryId, items: itemsPayload(picked) }),
       })
     } catch {
       // Mejor esfuerzo: el corte ya cerró; si el guardado falla, la
       // línea se repone después (pendiente del dueño es peor que nada,
       // pero bloquear al barbero aquí es peor que todo).
-    } finally {
-      onClose()
     }
+    // Un precio rechazado por el servidor se corrige aquí mismo: la
+    // hoja sigue abierta con lo que puso.
+    if (res?.status === 400 && picked.length > 0) {
+      const j = await res.json().catch(() => ({}))
+      window.alert(j.error ?? 'Revisa los precios')
+      setSending(false)
+      return
+    }
+    onClose()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-nxtup-line bg-nxtup-bg p-5 flex flex-col gap-4">
+      <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl border border-nxtup-line bg-nxtup-bg p-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-white font-black text-xl">¿Qué le hiciste?</p>
@@ -1081,49 +1097,18 @@ function TicketSheet({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {services.map(s => {
-            const on = picked.includes(s.id)
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() =>
-                  setPicked(p =>
-                    on ? p.filter(x => x !== s.id) : [...p, s.id],
-                  )
-                }
-                className={`rounded-xl border px-3 py-4 text-left transition-colors ${
-                  on
-                    ? 'border-nxtup-active bg-nxtup-active/10'
-                    : 'border-nxtup-line hover:border-white'
-                }`}
-              >
-                <p className={`font-bold text-sm ${on ? 'text-nxtup-active' : 'text-white'}`}>
-                  {s.name}
-                </p>
-                <p className="text-nxtup-muted text-sm tabular-nums">
-                  ${Number(s.price ?? 0)}
-                </p>
-              </button>
-            )
-          })}
-        </div>
+        <TicketItemsPicker services={services} items={items} onChange={setItems} />
 
         <button
           type="button"
-          onClick={() => send(picked)}
-          disabled={sending || picked.length === 0}
+          onClick={() => send(items)}
+          disabled={sending || problem !== null}
           className="w-full rounded-xl bg-nxtup-active text-black px-5 py-4 text-base font-black uppercase tracking-wider disabled:opacity-40 transition active:scale-[0.98]"
         >
-          {sending
-            ? 'Guardando…'
-            : picked.length === 0
-              ? 'Elige el servicio'
-              : `Terminar · $${Math.round(total * 100) / 100}`}
+          {sending ? 'Guardando…' : problem ?? `Terminar · $${total}`}
         </button>
         <p className="text-nxtup-dim text-xs text-center">
-          ¿Te equivocaste? Toca de nuevo para cambiar antes de Terminar.
+          Ajusta el precio con − y + si cobraste distinto.
         </p>
       </div>
     </div>

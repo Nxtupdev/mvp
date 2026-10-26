@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getServerI18n } from '@/lib/i18n-server'
 import { barberPercent, barberTotals, type TicketRow } from '@/lib/tickets'
+import { needsReview } from '@/lib/ticket-items'
 import { SettleButton, PrintButton, SplitRow, TicketLineAdmin } from './CuentasClient'
 
 export const metadata = { title: 'Cuentas — NXTUP' }
@@ -102,6 +103,31 @@ export default async function CuentasPage() {
     for (const n of (nameRows ?? []) as { id: string; client_name: string | null }[]) {
       if (n.client_name) manualNames.set(n.id, n.client_name)
     }
+  }
+  // Auditoría del precio libre (085): precio de lista y corrección del
+  // dueño, en una lectura aparte y fail-open (sin la 085, sin marcas).
+  const audit = new Map<string, { list_price: number | null; corrected_at: string | null }>()
+  if (rows.length > 0) {
+    const { data: auditRows } = await supabase
+      .from('tickets')
+      .select('id, list_price, corrected_at')
+      .in('id', rows.map(r => r.id))
+    for (const a of (auditRows ?? []) as {
+      id: string
+      list_price: number | null
+      corrected_at: string | null
+    }[]) {
+      audit.set(a.id, {
+        list_price: a.list_price == null ? null : Number(a.list_price),
+        corrected_at: a.corrected_at,
+      })
+    }
+  }
+  const lineFlag = (r: TicketRow): 'corrected' | 'review' | null => {
+    const a = audit.get(r.id)
+    if (!a || r.status !== 'confirmed') return null
+    if (a.corrected_at) return 'corrected'
+    return needsReview(Number(r.amount), a.list_price) ? 'review' : null
   }
   const confirmedCount = rows.filter(r => r.status === 'confirmed').length
   const pendingCount = rows.length - confirmedCount
@@ -272,13 +298,33 @@ export default async function CuentasPage() {
                                   )}
                                 </span>
                                 <span className="flex items-center gap-3">
-                                  <span className="text-sm font-bold tabular-nums">
+                                  {lineFlag(r) === 'review' && (
+                                    <span
+                                      title={t('tickets.line.reviewHint', {
+                                        price: `$${audit.get(r.id)?.list_price ?? '—'}`,
+                                      })}
+                                      className="text-[10px] uppercase tracking-wider font-bold text-nxtup-break border border-nxtup-break/60 rounded px-1.5 py-0.5"
+                                    >
+                                      {t('tickets.line.review')}
+                                    </span>
+                                  )}
+                                  {lineFlag(r) === 'corrected' && (
+                                    <span className="text-[10px] uppercase tracking-wider font-bold text-nxtup-dim">
+                                      {t('tickets.line.corrected')}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`text-sm font-bold tabular-nums ${
+                                      lineFlag(r) === 'review' ? 'text-nxtup-break' : ''
+                                    }`}
+                                  >
                                     ${Number(r.amount)}
                                   </span>
                                   <TicketLineAdmin
                                     ticketId={r.id}
                                     services={services ?? []}
                                     isPending={r.status === 'pending'}
+                                    amount={Number(r.amount)}
                                   />
                                 </span>
                               </div>
