@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { barberPercent, barberTotals, type TicketRow } from '@/lib/tickets'
-import { normalizeCustomName, parseAmount } from '@/lib/ticket-items'
+import { isMissingColumn, normalizeCustomName, parseAmount } from '@/lib/ticket-items'
 
 /**
  * Tickets del barbero (082) — mismo modelo de acceso que su panel: el
@@ -90,7 +90,7 @@ async function resolveItems(
 }
 
 /**
- * Inserta tolerando migraciones sin correr (42703 = columna
+ * Inserta tolerando migraciones sin correr (columna
  * inexistente): la línea vale más que sus extras, así que se reintenta
  * sin list_price (085) y luego sin client_name (083).
  */
@@ -99,11 +99,11 @@ async function insertLines(
   rows: Record<string, unknown>[],
 ) {
   let { error } = await admin.from('tickets').insert(rows)
-  if (error?.code === '42703') {
+  if (isMissingColumn(error)) {
     console.error('[barbers/tickets] list_price sin migrar (085), guardando sin él')
     const noList = rows.map(({ list_price: _l, ...r }) => r)
     ;({ error } = await admin.from('tickets').insert(noList))
-    if (error?.code === '42703') {
+    if (isMissingColumn(error)) {
       console.error('[barbers/tickets] client_name sin migrar (083), guardando sin nombre')
       ;({ error } = await admin
         .from('tickets')
@@ -250,7 +250,7 @@ export async function PATCH(
     .update(fill)
     .eq('id', ticket.id)
     .eq('status', 'pending')
-  if (updErr?.code === '42703') {
+  if (isMissingColumn(updErr)) {
     console.error('[barbers/tickets] list_price sin migrar (085), completando sin él')
     const { list_price: _l, ...noList } = fill
     ;({ error: updErr } = await admin

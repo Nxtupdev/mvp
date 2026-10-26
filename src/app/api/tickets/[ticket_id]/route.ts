@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { normalizeCustomName, parseAmount } from '@/lib/ticket-items'
+import { isMissingColumn, normalizeCustomName, parseAmount } from '@/lib/ticket-items'
 
 /**
  * Corrección de una línea de ticket — SOLO el dueño (082, decisión de
@@ -112,8 +112,8 @@ export async function PATCH(
     .from('tickets')
     .update({ ...update, corrected_at: now })
     .eq('id', ticket.id)
-  // 42703: la 085 no corre aún — se corrige igual, sin las marcas.
-  if (error?.code === '42703') {
+  // Columna inexistente: la 085 no corre aún — se corrige igual, sin las marcas.
+  if (isMissingColumn(error)) {
     console.error('[tickets] 085 sin migrar, corrigiendo sin list_price/corrected_at')
     const { list_price: _l, ...rest } = update
     ;({ error } = await admin.from('tickets').update(rest).eq('id', ticket.id))

@@ -51,6 +51,15 @@ export function normalizeCustomName(raw: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
 }
 
+/**
+ * ¿El error es "esa columna no existe" (migración sin correr)? Postgres
+ * da 42703, pero en insert/update PostgREST responde PGRST204 antes de
+ * llegar a la base.
+ */
+export function isMissingColumn(error: { code?: string } | null | undefined): boolean {
+  return error?.code === '42703' || error?.code === 'PGRST204'
+}
+
 /** Monto válido para guardar: número > 0 y ≤ tope, redondeado a centavos. null = inválido. */
 export function parseAmount(raw: unknown): number | null {
   const n = typeof raw === 'number' ? raw : Number(raw)
