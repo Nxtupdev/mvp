@@ -464,9 +464,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.barbero.desc': 'Disponible, ocupado y break: así se trabaja el turno.',
     'help.v.citas.title': 'Citas',
     'help.v.citas.desc': 'Qué pasa cuando un cliente llega con cita desde el kiosko.',
+    'help.v.cobroBarbero.title': 'Registra lo que cobraste',
+    'help.v.cobroBarbero.desc': 'Al tocar AVAILABLE: el servicio, el precio con − y +, y Otro.',
+    'help.v.cuentas.title': 'Cuentas: revisar, corregir y cerrar',
+    'help.v.cuentas.desc': 'Lo de cada barbero, las líneas a revisar, reportes y el cierre.',
     'help.barberPage.title': 'Tu panel en video',
     'help.barberPage.subtitle':
-      'Dos videos cortos: cómo trabajar tu turno y qué pasa con las citas.',
+      'Videos cortos: cómo trabajar tu turno, registrar lo que cobraste y qué pasa con las citas.',
 
     // ── Número de Julie (/dashboard/julie, 077) ─────────────────
     'julieNum.manageLink': 'Configura el número que contesta',
@@ -1369,9 +1373,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.barbero.desc': 'Available, busy and break: how to work your shift.',
     'help.v.citas.title': 'Appointments',
     'help.v.citas.desc': 'What happens when a client arrives with an appointment at the kiosk.',
+    'help.v.cobroBarbero.title': 'Log what you charged',
+    'help.v.cobroBarbero.desc': 'When you tap AVAILABLE: the service, the price with − and +, and Other.',
+    'help.v.cuentas.title': 'Accounts: review, fix and close',
+    'help.v.cuentas.desc': "Each barber's share, lines to check, reports and closing.",
     'help.barberPage.title': 'Your panel on video',
     'help.barberPage.subtitle':
-      'Two short videos: how to work your shift and how appointments behave.',
+      'Short videos: how to work your shift, log what you charged and how appointments behave.',
 
     // ── Julie's number (/dashboard/julie, 077) ──────────────────
     'julieNum.manageLink': 'Set up the number she answers',
