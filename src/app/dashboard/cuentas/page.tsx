@@ -280,7 +280,7 @@ export default async function CuentasPage() {
                             {dayRows.map(r => (
                               <div
                                 key={r.id}
-                                className="flex items-center justify-between gap-3 border border-nxtup-line rounded-lg px-3 py-1.5"
+                                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-nxtup-line rounded-lg px-3 py-1.5"
                               >
                                 <span
                                   className={`text-sm ${
@@ -297,7 +297,9 @@ export default async function CuentasPage() {
                                     </span>
                                   )}
                                 </span>
-                                <span className="flex items-center gap-3">
+                                {/* flex-wrap: al Corregir, los controles van en su
+                                    propia fila (en el teléfono no caben al lado). */}
+                                <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
                                   {lineFlag(r) === 'review' && (
                                     <span
                                       title={t('tickets.line.reviewHint', {

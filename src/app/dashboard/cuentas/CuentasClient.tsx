@@ -307,7 +307,7 @@ export function TicketLineAdmin({
 
   if (editing) {
     return (
-      <span className="flex flex-wrap items-center justify-end gap-2 print:hidden">
+      <span className="w-full flex flex-wrap items-center justify-end gap-2 print:hidden">
         <select
           value={serviceId}
           onChange={e => pickService(e.target.value)}
