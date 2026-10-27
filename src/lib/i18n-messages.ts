@@ -468,6 +468,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.cobroBarbero.desc': 'Al tocar AVAILABLE: el servicio, el precio con − y +, y Otro.',
     'help.v.cuentas.title': 'Cuentas: revisar, corregir y cerrar',
     'help.v.cuentas.desc': 'Lo de cada barbero, las líneas a revisar, reportes y el cierre.',
+    'help.v.julie.title': 'Activa Julie y su número',
+    'help.v.julie.desc': 'El add-on en Suscripción y el número que contesta: nuevo, desvío o porte.',
     'help.barberPage.title': 'Tu panel en video',
     'help.barberPage.subtitle':
       'Videos cortos: cómo trabajar tu turno, registrar lo que cobraste y qué pasa con las citas.',
@@ -1377,6 +1379,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'help.v.cobroBarbero.desc': 'When you tap AVAILABLE: the service, the price with − and +, and Other.',
     'help.v.cuentas.title': 'Accounts: review, fix and close',
     'help.v.cuentas.desc': "Each barber's share, lines to check, reports and closing.",
+    'help.v.julie.title': 'Turn on Julie and her number',
+    'help.v.julie.desc': 'The add-on in Subscription and the number she answers: new, forwarding or port.',
     'help.barberPage.title': 'Your panel on video',
     'help.barberPage.subtitle':
       'Short videos: how to work your shift, log what you charged and how appointments behave.',

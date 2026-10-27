@@ -23,6 +23,7 @@ const SECTIONS: {
       { file: 'tutorial-config.mp4', key: 'config', duration: '1:19' },
       { file: 'tutorial-live.mp4', key: 'live', duration: '1:26' },
       { file: 'tutorial-cuentas.mp4', key: 'cuentas', duration: '1:18' },
+      { file: 'tutorial-julie.mp4', key: 'julie', duration: '1:00' },
       { file: 'tutorial-cobro.mp4', key: 'cobro', duration: '1:30' },
     ],
   },
