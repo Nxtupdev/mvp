@@ -20,7 +20,7 @@ const SECTIONS: {
   {
     headingKey: 'help.owner',
     videos: [
-      { file: 'tutorial-config.mp4', key: 'config', duration: '1:19' },
+      { file: 'tutorial-config.mp4', key: 'config', duration: '1:28' },
       { file: 'tutorial-live.mp4', key: 'live', duration: '1:26' },
       { file: 'tutorial-cuentas.mp4', key: 'cuentas', duration: '1:18' },
       { file: 'tutorial-julie.mp4', key: 'julie', duration: '1:00' },
@@ -30,7 +30,7 @@ const SECTIONS: {
   {
     headingKey: 'help.barber',
     videos: [
-      { file: 'tutorial-barbero.mp4', key: 'barbero', duration: '1:01' },
+      { file: 'tutorial-barbero.mp4', key: 'barbero', duration: '1:14' },
       { file: 'tutorial-cobro-barbero.mp4', key: 'cobroBarbero', duration: '1:07' },
       { file: 'tutorial-citas.mp4', key: 'citas', duration: '1:00' },
     ],

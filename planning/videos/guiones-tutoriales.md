@@ -132,6 +132,46 @@ verdad): esas pantallas se muestran, no se confirman.
 
 ---
 
+## VIDEO 1 (v2, oct-2026) · Barbero: Tu app de barbero (75 segundos)
+
+Reemplaza al video 1. Cambios: la barra de abajo nueva, el aviso de que
+AVAILABLE también abre "¿Qué le hiciste?", y qué hace OFFLINE (caso José/
+Darwin: tocarlo con un cliente asignado se lo pasa a otro barbero).
+
+| # | Dur | Qué se ve | El dedo | Texto en pantalla |
+|---|-----|-----------|---------|-------------------|
+| 1 | 0–4s | El panel | nada | **Tu app de barbero · en 75 segundos** |
+| 2 | 4–12s | El cartel "Instalar app" arriba | toca **Instalar app** | **Instálala UNA vez: abre como app, sin navegador** |
+| 3 | 12–22s | Un cliente llamado: la tarjeta con su nombre | nada | **El sistema te llama un cliente · te sale AQUÍ** |
+| 4 | 22–32s | El panel llamado | toca **BUSY** | **Siéntalo y toca BUSY · si se te olvida, a los 2 minutos se marca solo** |
+| 5 | 32–42s | El panel ocupado | toca **AVAILABLE** | **¿Terminaste? AVAILABLE · registras lo que cobraste y pasas al próximo** |
+| 6 | 42–50s | Botón BREAK | toca **BREAK** | **¿Break? Tócalo ANTES de irte · tu turno queda guardado** |
+| 7 | 50–60s | Botón OFFLINE | se señala **OFFLINE** | **OFFLINE es irte del día · si tenías un cliente, se lo pasa a otro barbero** |
+| 8 | 60–70s | La barra de abajo | se señalan las 4 pestañas | **Abajo: Mi panel · Mis clientes · Mi cuenta · Ayuda** |
+| 9 | 70–75s | Cierre | nada | **BUSY al sentar · AVAILABLE al terminar · BREAK antes de salir** |
+
+---
+
+## VIDEO 4 (v2, oct-2026) · Dueño: Configura tu barbería (85 segundos)
+
+Reemplaza al video 4. Configuración ahora va en 4 pestañas (Barbería ·
+Horario · Equipo · Accesos) con la barra "Guardar cambios" fija abajo.
+
+| # | Dur | Qué se ve | El dedo | Texto en pantalla |
+|---|-----|-----------|---------|-------------------|
+| 1 | 0–4s | Configuración | nada | **Configura tu barbería · en 85 segundos** |
+| 2 | 4–13s | El cartel "Instalar app" del dashboard | toca **Instalar app** | **Instala NXTUP UNA vez · y si algo se ve raro, ciérrala y ábrela** |
+| 3 | 13–22s | Los accesos de arriba | se señalan **Servicios** y **Tutoriales** | **Arriba: tus servicios con precio y estos tutoriales** |
+| 4 | 22–34s | Pestaña **Barbería** | toca **Barbería** | **Barbería: nombre, dirección, el mensaje de la TV y tu logo** |
+| 5 | 34–45s | Pestaña **Horario** | toca **Horario** | **Horario: ponlo UNA vez y la barbería abre y cierra SOLA** |
+| 6 | 45–57s | Pestaña **Equipo**: breaks y llegada tarde | toca **Equipo** | **Equipo: los breaks y la regla de llegada tarde** |
+| 7 | 57–67s | Equipo: Citas en cadena + Cuentas por porcentaje | scroll | **Las citas en cadena y las cuentas por porcentaje, con el % de cada barbero** |
+| 8 | 67–76s | Pestaña **Accesos** | toca **Accesos** | **Accesos: el link de tu encargado · lo quitas cuando quieras** |
+| 9 | 76–82s | La barra fija abajo | se señala **Guardar cambios** | **¿Cambiaste algo? Guardar cambios · siempre abajo** |
+| 10 | 82–85s | Cierre | nada | **Configúrala una vez · y olvídate** |
+
+---
+
 ## Notas de producción
 
 - **Demo como estudio**: login demo@getnxtup.com; resetear con el botón "Resetear demo" antes de grabar para arrancar con el piso lleno.

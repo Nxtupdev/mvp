@@ -8,7 +8,7 @@ import TutorialList from '@/components/TutorialList'
  * sin barra del navegador). Lista con "Ver" (TutorialList).
  */
 const VIDEOS: { file: string; key: string; duration: string }[] = [
-  { file: 'tutorial-barbero.mp4', key: 'barbero', duration: '1:01' },
+  { file: 'tutorial-barbero.mp4', key: 'barbero', duration: '1:14' },
   { file: 'tutorial-cobro-barbero.mp4', key: 'cobroBarbero', duration: '1:07' },
   { file: 'tutorial-citas.mp4', key: 'citas', duration: '1:00' },
 ]
