@@ -76,6 +76,62 @@ Audiencia: dueños. Pantallas: instalación PWA + /dashboard/settings.
 
 ---
 
+## VIDEO 6 · Barbero: Registra lo que cobraste (65 segundos)
+
+Audiencia: barberos. Pantalla: la app del barbero en el teléfono, barbería
+con "Cuentas por porcentaje" encendida.
+
+| # | Dur | Qué se ve | El dedo | Texto en pantalla |
+|---|-----|-----------|---------|-------------------|
+| 1 | 0–5s | El panel, con un cliente en la silla | nada | **Lo que cobraste · en 60 segundos** |
+| 2 | 5–14s | El panel ocupado con su cliente | toca **AVAILABLE** | **¿Terminaste el corte? Toca AVAILABLE, como siempre** |
+| 3 | 14–25s | Sale la hoja "¿Qué le hiciste?" | toca **Corte** | **Toca lo que le hiciste · el precio sale solo** |
+| 4 | 25–35s | La línea del Corte con − y + | toca **+** una vez ($25 → $30) | **¿Una rayita, una gelatina? Ajusta con − y + · de $5 en $5** |
+| 5 | 35–46s | Botón "+ Otro" | toca **+ Otro**, escribe "Tinte", sube el precio | **¿Algo que no está en la lista? + Otro: le pones nombre y precio** |
+| 6 | 46–53s | El botón de abajo con el total | toca **TERMINAR** | **TERMINAR · y quedó en tus cuentas** |
+| 7 | 53–61s | La pestaña Mi cuenta: su total y su parte | toca **Mi cuenta** abajo | **Tu dinero del día, siempre en Mi cuenta** |
+| 8 | 61–65s | Cierre | nada | **Se registra UNA sola vez: cuando tocas AVAILABLE** |
+
+---
+
+## VIDEO 7 · Dueño: Cuentas · revisar, corregir y cerrar (75 segundos)
+
+Audiencia: dueños. Pantalla: /dashboard → pestaña Cuentas en el teléfono.
+
+| # | Dur | Qué se ve | El dedo | Texto en pantalla |
+|---|-----|-----------|---------|-------------------|
+| 1 | 0–5s | La pestaña Cuentas | nada | **Tus cuentas · en 75 segundos** |
+| 2 | 5–15s | "Por liquidar": total y una tarjeta por barbero | se señala una tarjeta | **Lo de cada barbero, con su parte y la tuya · se llena solo** |
+| 3 | 15–27s | El detalle de un barbero: sus servicios del día | toca la tarjeta | **Toca un barbero y ves cada servicio que registró** |
+| 4 | 27–38s | Una línea marcada **Revisar** ($60 en un Corte de $25) | se señala | **"Revisar" = muy lejos del precio normal · llama al barbero y confírmalo** |
+| 5 | 38–50s | Corregir: el monto se cambia y queda **Corregido** | toca **Corregir**, pone 25, **Guardar** | **¿Fue un error? Corregir · el antes y el después quedan en Actividad** |
+| 6 | 50–60s | Reportes: Hoy / Esta semana / Este mes | toca **Reportes**, luego **Esta semana** | **Reportes: el día, la semana o el mes · por barbero y por servicio** |
+| 7 | 60–70s | El botón Cerrar cuentas | se señala **Cerrar cuentas** | **¿Pagaste? Cerrar cuentas · y el comprobante queda guardado** |
+| 8 | 70–75s | Cierre | nada | **Corrige ANTES de cerrar · lo cerrado ya no se toca** |
+
+Nota: el % de cada barbero vive en Configuración → Equipo; se menciona solo
+si el tiempo da (escena 2 lo muestra en la tarjeta).
+
+---
+
+## VIDEO 8 · Dueño: Activa Julie y su número (60 segundos)
+
+Audiencia: dueños. Pantallas: Suscripción + /dashboard/julie. **Nunca se
+toca "Quiero el…" ni "Iniciar el porte" al grabar** (compran o portan de
+verdad): esas pantallas se muestran, no se confirman.
+
+| # | Dur | Qué se ve | El dedo | Texto en pantalla |
+|---|-----|-----------|---------|-------------------|
+| 1 | 0–5s | La card de Julie en Suscripción | nada | **Julie contesta tu teléfono · actívala en 60 segundos** |
+| 2 | 5–15s | La card "Julie · Addon" | se señala **Activar Julie** | **En Suscripción: Activar Julie · se suma a tu plan** |
+| 3 | 15–25s | Julie activa → link "Configura el número que contesta" | toca el link | **Luego, el número que va a contestar** |
+| 4 | 25–37s | Las tres opciones | se señalan una por una | **Uno nuevo · el tuyo con desvío · o portar el tuyo** |
+| 5 | 37–48s | Comprar: buscar por código de área y la lista | escribe 919, **Buscar números** | **¿Uno nuevo? Pones tu código de área y eliges el que te guste** |
+| 6 | 48–56s | Desvío: tu número de siempre | se señala el campo | **¿Quieres conservar tu número? Desvío: tus clientes marcan el de siempre** |
+| 7 | 56–60s | Cierre | nada | **Julie atiende · tú cortas** |
+
+---
+
 ## Notas de producción
 
 - **Demo como estudio**: login demo@getnxtup.com; resetear con el botón "Resetear demo" antes de grabar para arrancar con el piso lleno.
