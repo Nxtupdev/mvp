@@ -512,12 +512,11 @@ export default function ShopSettings({
       {tab === 'team' && (
         <div className="flex flex-col gap-6">
         <Field label={t('settings.field.maxQueue')} hint={t('settings.hint.maxQueue')}>
-          <input
-            type="number"
+          <NumberInput
             min={1}
             max={100}
             value={maxQueue}
-            onChange={e => setMaxQueue(Number(e.target.value))}
+            onChange={setMaxQueue}
             className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
           />
         </Field>
@@ -589,22 +588,20 @@ export default function ShopSettings({
           </p>
           <div className="grid grid-cols-2 gap-4">
             <Field label={t('settings.field.firstBreak')} hint={t('settings.hint.firstBreak')}>
-              <input
-                type="number"
+              <NumberInput
                 min={1}
                 max={180}
                 value={firstBreak}
-                onChange={e => setFirstBreak(Number(e.target.value))}
+                onChange={setFirstBreak}
                 className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
               />
             </Field>
             <Field label={t('settings.field.nextBreak')} hint={t('settings.hint.nextBreak')}>
-              <input
-                type="number"
+              <NumberInput
                 min={1}
                 max={120}
                 value={nextBreak}
-                onChange={e => setNextBreak(Number(e.target.value))}
+                onChange={setNextBreak}
                 className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
               />
             </Field>
@@ -647,12 +644,11 @@ export default function ShopSettings({
               label={t('settings.field.grace')}
               hint={t('settings.hint.grace')}
             >
-              <input
-                type="number"
+              <NumberInput
                 min={0}
                 max={60}
                 value={graceMinutes}
-                onChange={e => setGraceMinutes(Number(e.target.value))}
+                onChange={setGraceMinutes}
                 className="w-full bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
               />
             </Field>
@@ -752,16 +748,12 @@ export default function ShopSettings({
                 </fieldset>
                 {customMode && (
                   <div className="mt-3 flex items-center gap-2">
-                    <input
-                      type="number"
+                    <NumberInput
                       inputMode="decimal"
                       min={0.25}
                       step={0.25}
-                      value={Number.isFinite(lateHours) ? lateHours : ''}
-                      onChange={e => {
-                        const parsed = parseFloat(e.target.value)
-                        setLateHours(Number.isFinite(parsed) ? parsed : 0)
-                      }}
+                      value={lateHours}
+                      onChange={setLateHours}
                       className="w-28 bg-nxtup-line text-white rounded-lg px-4 py-3 border border-nxtup-dim focus:border-white focus:outline-none tabular-nums"
                     />
                     <span className="text-nxtup-muted text-sm">{t('settings.hoursUnit')}</span>
@@ -1193,6 +1185,40 @@ function Field({
       {children}
       {hint && <p className="text-nxtup-dim text-xs mt-1.5">{hint}</p>}
     </div>
+  )
+}
+
+// Guarda el texto aparte del número: con value={número} y Number(''),
+// borrar el último dígito dejaba un 0 imposible de quitar ("09").
+// Vacío mientras se escribe; al salir del campo vuelve al último valor.
+function NumberInput({
+  value,
+  onChange,
+  ...rest
+}: {
+  value: number
+  onChange: (n: number) => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>) {
+  const [text, setText] = useState(String(value))
+  const [prev, setPrev] = useState(value)
+  if (value !== prev) {
+    setPrev(value)
+    setText(String(value))
+  }
+  return (
+    <input
+      {...rest}
+      type="number"
+      value={text}
+      onChange={e => {
+        setText(e.target.value)
+        const n = Number(e.target.value)
+        if (e.target.value.trim() !== '' && Number.isFinite(n)) onChange(n)
+      }}
+      onBlur={() => {
+        if (text.trim() === '' || !Number.isFinite(Number(text))) setText(String(value))
+      }}
+    />
   )
 }
 
