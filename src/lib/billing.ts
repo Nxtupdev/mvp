@@ -48,12 +48,12 @@ export function priceIdForAddon(addon: AddonKey): string | null {
 // el narrowing de TS no marque ramas como inalcanzables.
 export const JULIE_LAUNCHED: boolean = true
 
-// Porte del número de Julie. ENCENDIDO el 19-oct-2026: contrato final
-// con Mamacita (opción A de Francisco) construido por ambos lados —
-// NXTUP captura lo no sensible, el dueño completa cuenta/PIN/factura
-// en el enlace seguro de Mamacita (intake_url), ops somete el porte a
-// mano y el estado se consulta con mamacita-port-status al cargar la
-// página. Un solo flip enciende la opción del wizard Y la ruta.
+// Porte del número de Julie. ENCENDIDO el 19-oct-2026. Desde nov-2026
+// es manual asistido: NXTUP captura lo no sensible, la solicitud sale
+// en /admin y ops contacta al dueño por cuenta/PIN/factura (el enlace
+// de intake de Mamacita quedó retirado); ops somete el porte a mano y
+// el estado se consulta con mamacita-port-status. Un solo flip enciende
+// la opción del wizard Y la ruta.
 export const JULIE_PORT_ENABLED: boolean = true
 
 /** Estados de Stripe que cuentan como "acceso activo". */

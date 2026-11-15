@@ -2,6 +2,66 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isAdminUser } from '@/lib/admin-auth'
+import { syncPortStatus } from '@/lib/julie-port'
+
+const PORT_PENDING = ['info_required', 'submitted', 'porting_in_progress']
+const PORT_STATUS_LABEL: Record<string, string> = {
+  info_required: 'Contactar al dueño',
+  submitted: 'Sometido al operador',
+  porting_in_progress: 'Porte con fecha',
+}
+
+type PortRequest = {
+  shopId: string
+  shopName: string
+  number: string | null
+  status: string
+  requestedAt: string
+  ownerEmail: string | null
+  ownerWhatsapp: string | null
+}
+
+// Porte manual asistido (nov-2026): el dueño pide portar en /dashboard/julie
+// y el aviso vive aquí. Solo admins: muestra contacto del dueño. Refresca
+// cada pendiente contra Mamacita para que los ya completados salgan solos.
+async function loadPortRequests(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<PortRequest[]> {
+  const { data } = await admin
+    .from('julie_numbers')
+    .select('shop_id, current_number, status, updated_at, shops(name, owner_id, owner_whatsapp)')
+    .eq('choice', 'port')
+    .in('status', PORT_PENDING)
+    .order('updated_at', { ascending: true })
+  const rows = (data ?? []) as unknown as {
+    shop_id: string
+    current_number: string | null
+    status: string
+    updated_at: string
+    shops: { name: string; owner_id: string; owner_whatsapp: string | null } | null
+  }[]
+  const out = await Promise.all(
+    rows.map(async r => {
+      const fresh = await syncPortStatus(r.shop_id)
+      const status = fresh?.status ?? r.status
+      if (!PORT_PENDING.includes(status)) return null
+      const ownerId = r.shops?.owner_id
+      const { data: owner } = ownerId
+        ? await admin.auth.admin.getUserById(ownerId)
+        : { data: null }
+      return {
+        shopId: r.shop_id,
+        shopName: r.shops?.name ?? r.shop_id,
+        number: r.current_number,
+        status,
+        requestedAt: r.updated_at,
+        ownerEmail: owner?.user?.email ?? null,
+        ownerWhatsapp: r.shops?.owner_whatsapp ?? null,
+      }
+    }),
+  )
+  return out.filter((r): r is PortRequest => r !== null)
+}
 
 // ============================================================
 // /admin — Home del super-admin
@@ -52,6 +112,8 @@ export default async function AdminHomePage() {
       .gt('expires_at', new Date().toISOString()),
   ])
 
+  const portRequests = isAdmin ? await loadPortRequests(admin) : []
+
   const shops = shopsResp.data ?? []
   const totalShops = shops.length
   const openShops = shops.filter(s => s.is_open).length
@@ -94,6 +156,46 @@ export default async function AdminHomePage() {
         Resumen del sistema
       </p>
       <h1 className="text-3xl font-black tracking-tight mb-8">Admin</h1>
+
+      {portRequests.length > 0 && (
+        <section className="rounded-2xl border border-nxtup-break/60 bg-nxtup-break/10 p-5 mb-8">
+          <p className="text-nxtup-break text-[10px] uppercase tracking-[0.3em] font-bold mb-1">
+            Solicitudes de porte ({portRequests.length})
+          </p>
+          <p className="text-nxtup-muted text-xs mb-4">
+            El dueño quiere portar su número a Julie. Contáctalo para pedir cuenta, PIN y factura,
+            y somete el porte en Twilio.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {portRequests.map(p => (
+              <li
+                key={p.shopId}
+                className="rounded-xl border border-nxtup-line bg-nxtup-bg/40 p-4 flex flex-col gap-1"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-white font-bold">{p.shopName}</p>
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-nxtup-break">
+                    {PORT_STATUS_LABEL[p.status] ?? p.status}
+                  </span>
+                </div>
+                <p className="text-white text-lg font-black tabular-nums">{p.number ?? 'Sin número'}</p>
+                <p className="text-nxtup-muted text-xs">
+                  {[p.ownerEmail, p.ownerWhatsapp].filter(Boolean).join(' · ') || 'Sin contacto guardado'}
+                </p>
+                <p className="text-nxtup-dim text-xs">
+                  Último cambio: {new Date(p.requestedAt).toLocaleString('es-US', {
+                    timeZone: 'America/New_York',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
         {stats.map(stat => {

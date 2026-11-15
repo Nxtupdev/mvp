@@ -510,15 +510,12 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.port.cta': 'Iniciar el porte',
     'julieNum.port.sending': 'Enviando…',
     'julieNum.port.infoNote':
-      'El porte tarda varios días y tu línea sigue funcionando mientras tanto. Al continuar te damos un enlace seguro para completar los datos de tu operador (cuenta, PIN y factura) — necesitamos el dato exacto o el operador rechaza el porte.',
+      'El porte tarda varios días y tu línea sigue funcionando mientras tanto. Al continuar, nuestro equipo te contacta para pedirte los datos de tu operador (cuenta, PIN y factura). Necesitamos el dato exacto o el operador rechaza el porte.',
     'julieNum.port.carrierLabel': 'Tu operador actual (opcional)',
     'julieNum.port.authorizedLabel': 'Nombre del titular de la cuenta (opcional)',
     'julieNum.portFlow.title': 'Porte en proceso',
-    'julieNum.portFlow.intakeIntro':
-      'Falta un paso: completa los datos de tu línea (cuenta, PIN del operador y factura) en este enlace seguro. Sin eso el porte no puede arrancar.',
-    'julieNum.portFlow.intakeCta': 'Completar mis datos',
-    'julieNum.portFlow.intakeNote':
-      'El enlace es de un solo uso y expira en 7 días. Tus datos van directo al equipo del porte; no se guardan en NXTUP.',
+    'julieNum.portFlow.contactUs':
+      'Recibimos tu solicitud. Te contactamos para completar el porte: te pediremos la cuenta, el PIN del operador y una factura de tu línea.',
     'julieNum.portFlow.submitted':
       'Datos recibidos. Estamos sometiendo el porte con tu operador; esto toma varios días y te avisamos cuando haya fecha.',
     'julieNum.portFlow.scheduled':
@@ -1420,15 +1417,12 @@ export const MESSAGES: Record<Locale, Messages> = {
     'julieNum.port.cta': 'Start the port',
     'julieNum.port.sending': 'Sending…',
     'julieNum.port.infoNote':
-      "Porting takes several days and your line keeps working in the meantime. When you continue we'll give you a secure link to complete your carrier details (account, PIN and bill) — the data must be exact or the carrier rejects the port.",
+      'Porting takes several days and your line keeps working in the meantime. When you continue, our team will contact you for your carrier details (account, PIN and bill). The data must be exact or the carrier rejects the port.',
     'julieNum.port.carrierLabel': 'Your current carrier (optional)',
     'julieNum.port.authorizedLabel': 'Account holder name (optional)',
     'julieNum.portFlow.title': 'Port in progress',
-    'julieNum.portFlow.intakeIntro':
-      'One step left: complete your line details (account, carrier PIN and bill) on this secure link. The port cannot start without it.',
-    'julieNum.portFlow.intakeCta': 'Complete my details',
-    'julieNum.portFlow.intakeNote':
-      'The link is single-use and expires in 7 days. Your details go straight to the porting team; nothing is stored in NXTUP.',
+    'julieNum.portFlow.contactUs':
+      'We received your request. We will contact you to complete the port and ask for your account number, carrier PIN and a bill for your line.',
     'julieNum.portFlow.submitted':
       'Details received. We are submitting the port with your carrier; this takes several days and we will let you know when there is a date.',
     'julieNum.portFlow.scheduled':

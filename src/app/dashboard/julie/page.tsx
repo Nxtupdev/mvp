@@ -73,16 +73,16 @@ export default async function JuliePage() {
     fwd?.instructions?.es ??
     null
 
-  // Porte (080): enlace seguro + fecha de corte, en select APARTE y
-  // fail-open (pre-migración la página sigue). El estado del porte lo
-  // AVANZA ops del lado Mamacita, así que al cargar se consulta su
-  // port-status y se refresca el espejo (best-effort).
+  // Porte (080): fecha de corte, en select APARTE y fail-open
+  // (pre-migración la página sigue). El estado del porte lo AVANZA ops
+  // del lado Mamacita, así que al cargar se consulta su port-status y
+  // se refresca el espejo (best-effort). Desde nov-2026 el porte es
+  // manual asistido: ops contacta al dueño, ya no hay enlace de intake.
   const { data: portRow } = await supabase
     .from('julie_numbers')
-    .select('intake_url, foc_date')
+    .select('foc_date')
     .eq('shop_id', shop.id)
     .maybeSingle()
-  let intakeUrl = (portRow as { intake_url?: string | null } | null)?.intake_url ?? null
   let focDate = (portRow as { foc_date?: string | null } | null)?.foc_date ?? null
 
   let displayStatus = numStatus
@@ -98,7 +98,6 @@ export default async function JuliePage() {
       focDate = fresh.focDate ?? focDate
       if (fresh.rejectReason) failReason = fresh.rejectReason
       if (fresh.number) displayNumber = fresh.number
-      if (fresh.status === 'completed' || fresh.status === 'failed') intakeUrl = null
     }
   }
   const focDateLabel = focDate
@@ -161,18 +160,9 @@ export default async function JuliePage() {
           <p className="text-nxtup-break text-[10px] uppercase tracking-[0.3em] font-bold">
             {t('julieNum.portFlow.title')}
           </p>
-          {displayStatus === 'info_required' && intakeUrl ? (
+          {displayStatus === 'info_required' ? (
             <>
-              <p className="text-sm text-nxtup-muted">{t('julieNum.portFlow.intakeIntro')}</p>
-              <a
-                href={intakeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-nxtup-active text-black px-5 py-3 text-sm font-bold uppercase tracking-wider hover:brightness-110 transition"
-              >
-                {t('julieNum.portFlow.intakeCta')} →
-              </a>
-              <p className="text-xs text-nxtup-dim">{t('julieNum.portFlow.intakeNote')}</p>
+              <p className="text-sm text-nxtup-muted">{t('julieNum.portFlow.contactUs')}</p>
               {/* Salida de emergencia (caso NuevaYol 21-oct): mientras
                   solo falten los datos, abandonar el porte es gratis y
                   devuelve al wizard (comprar / desvío). */}
