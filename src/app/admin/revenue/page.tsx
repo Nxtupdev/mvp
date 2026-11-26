@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { evaluateAccess } from '@/lib/billing-access'
-import { priceIdForPlan, type BillingMode } from '@/lib/billing'
+import { priceIdForAddon, priceIdForPlan, type BillingMode } from '@/lib/billing'
 import { getStripe } from '@/lib/stripe'
 
 // ============================================================
@@ -67,7 +67,7 @@ export default async function AdminRevenuePage() {
       .order('created_at', { ascending: true }),
     admin
       .from('subscriptions')
-      .select('shop_id, status, billing_mode, current_period_end, cancel_at_period_end'),
+      .select('shop_id, status, billing_mode, current_period_end, cancel_at_period_end, julie_active'),
   ])
 
   const shops = (shopsRaw ?? []) as {
@@ -85,6 +85,7 @@ export default async function AdminRevenuePage() {
       billing_mode: BillingMode | null
       current_period_end: string | null
       cancel_at_period_end: boolean
+      julie_active: boolean | null
     }
   >()
   for (const s of subsRaw ?? []) {
@@ -94,21 +95,26 @@ export default async function AdminRevenuePage() {
       billing_mode: BillingMode | null
       current_period_end: string | null
       cancel_at_period_end: boolean
+      julie_active: boolean | null
     }
     subByShop.set(row.shop_id, row)
   }
 
-  // Precio mensual desde Stripe (live). null → KPIs sin monto.
-  let monthlyAmount: number | null = null
-  try {
-    const priceId = priceIdForPlan('pro')
-    if (priceId) {
+  // Precios mensuales desde Stripe (live). null → KPIs sin monto.
+  const livePrice = async (priceId: string | null): Promise<number | null> => {
+    if (!priceId) return null
+    try {
       const price = await getStripe().prices.retrieve(priceId)
-      if (typeof price.unit_amount === 'number') monthlyAmount = price.unit_amount / 100
+      return typeof price.unit_amount === 'number' ? price.unit_amount / 100 : null
+    } catch (err) {
+      console.error('[admin/revenue] no se pudo leer el precio de Stripe', priceId, err)
+      return null
     }
-  } catch (err) {
-    console.error('[admin/revenue] no se pudo leer el precio de Stripe', err)
   }
+  const [monthlyAmount, julieAmount] = await Promise.all([
+    livePrice(priceIdForPlan('pro')),
+    livePrice(priceIdForAddon('julie')),
+  ])
 
   const rows = shops.map(shop => {
     const sub = subByShop.get(shop.id) ?? null
@@ -156,7 +162,13 @@ export default async function AdminRevenuePage() {
         detail = 'Sin información de cobro'
     }
 
-    return { shop, category, detail, cancelPending: !!sub?.cancel_at_period_end }
+    return {
+      shop,
+      category,
+      detail,
+      cancelPending: !!sub?.cancel_at_period_end,
+      julie: sub?.julie_active === true,
+    }
   })
 
   rows.sort(
@@ -165,7 +177,14 @@ export default async function AdminRevenuePage() {
 
   const count = (c: Category) => rows.filter(r => r.category === c).length
   const paying = count('paying')
-  const mrr = monthlyAmount !== null ? paying * monthlyAmount : null
+  // Julie solo suma al MRR en shops que pagan por Stripe; en cortesía o
+  // contrato el add-on puede estar activo sin cobro.
+  const payingJulie = rows.filter(r => r.category === 'paying' && r.julie).length
+  const withJulie = rows.filter(r => r.julie).length
+  const mrr =
+    monthlyAmount !== null && (payingJulie === 0 || julieAmount !== null)
+      ? paying * monthlyAmount + payingJulie * (julieAmount ?? 0)
+      : null
   const nextTrialEnd = rows
     .filter(r => r.category === 'trial' && r.shop.trial_ends_at)
     .map(r => r.shop.trial_ends_at as string)
@@ -177,8 +196,17 @@ export default async function AdminRevenuePage() {
       value: mrr !== null ? `$${mrr}` : '·',
       sub:
         monthlyAmount !== null
-          ? `${paying} pagando × $${monthlyAmount}/mes`
+          ? `${paying} × $${monthlyAmount}` +
+            (payingJulie > 0 && julieAmount !== null ? ` + ${payingJulie} Julie × $${julieAmount}` : '')
           : `${paying} pagando`,
+    },
+    {
+      label: 'Con Julie',
+      value: String(withJulie),
+      sub:
+        withJulie > payingJulie
+          ? `${payingJulie} pagando · ${withJulie - payingJulie} sin cobro`
+          : `${payingJulie} pagando`,
     },
     {
       label: 'En prueba',
@@ -204,12 +232,12 @@ export default async function AdminRevenuePage() {
       </p>
       <h1 className="text-3xl font-black tracking-tight mb-2">Ingresos</h1>
       <p className="text-nxtup-muted text-sm mb-8 max-w-prose">
-        Suscripciones de NXTUP Queue por barbería: quién paga, quién está en
-        prueba y quién quedó pausado. Es la misma regla que abre o cierra el
-        kiosko — lo que ves aquí es lo que el sistema hace.
+        Suscripciones por barbería: qué tiene cada una (NXTUP o NXTUP + Julie),
+        quién paga, quién está en prueba y quién quedó pausado. Es la misma
+        regla que abre o cierra el kiosko: lo que ves aquí es lo que el sistema hace.
       </p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {kpis.map(k => (
           <div key={k.label} className="rounded-2xl border border-nxtup-line p-5">
             <p className="text-nxtup-muted text-[10px] uppercase tracking-[0.3em] font-bold mb-2">
@@ -222,19 +250,20 @@ export default async function AdminRevenuePage() {
       </div>
 
       <div className="rounded-2xl border border-nxtup-line bg-nxtup-line/30 overflow-hidden">
-        <div className="hidden md:grid grid-cols-[2.5fr_1.2fr_2fr] gap-4 px-5 py-3 border-b border-nxtup-line text-nxtup-muted text-[10px] uppercase tracking-widest font-bold">
+        <div className="hidden md:grid grid-cols-[2.2fr_1.3fr_1.2fr_2fr] gap-4 px-5 py-3 border-b border-nxtup-line text-nxtup-muted text-[10px] uppercase tracking-widest font-bold">
           <div>Barbería</div>
+          <div>Suscripción</div>
           <div>Cobro</div>
           <div>Detalle</div>
         </div>
 
         <ul>
-          {rows.map(({ shop, category, detail }) => {
+          {rows.map(({ shop, category, detail, julie }) => {
             const badge = CATEGORY_BADGE[category]
             return (
               <li
                 key={shop.id}
-                className="md:grid md:grid-cols-[2.5fr_1.2fr_2fr] md:gap-4 md:items-center px-5 py-4 border-b border-nxtup-line last:border-b-0 flex flex-col gap-3"
+                className="md:grid md:grid-cols-[2.2fr_1.3fr_1.2fr_2fr] md:gap-4 md:items-center px-5 py-4 border-b border-nxtup-line last:border-b-0 flex flex-col gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   {shop.logo_url ? (
@@ -252,6 +281,10 @@ export default async function AdminRevenuePage() {
                     </div>
                   )}
                   <p className="text-white text-sm font-bold truncate">{shop.name}</p>
+                </div>
+
+                <div className="text-sm text-white">
+                  NXTUP{julie && <span className="text-nxtup-active font-bold"> + Julie</span>}
                 </div>
 
                 <div>

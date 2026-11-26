@@ -98,8 +98,11 @@ export async function POST(request: Request) {
     try {
       // Suscripción borrada = todo muerto, Julie incluida (los items
       // siguen viniendo en el payload del deleted, por eso el status).
+      // unpaid = Stripe agotó los reintentos: el Queue ya cerró la puerta
+      // y Julie también se apaga; vuelve sola si el pago entra (active).
       const julieActive =
         sub.status !== 'canceled' &&
+        sub.status !== 'unpaid' &&
         (sub.items?.data ?? []).some(it => it.price?.id === juliePriceId)
 
       const lookup = admin.from('subscriptions').select('shop_id, julie_active')

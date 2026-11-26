@@ -81,6 +81,20 @@ export default async function DashboardLayout({
           </Link>
         </div>
       )}
+      {access.pastDue && (
+        <div className="print:hidden bg-nxtup-break/15 border-b border-nxtup-break/30 px-4 sm:px-6 py-2.5 text-sm">
+          <span className="font-bold text-nxtup-break">
+            {t('billing.banner.pastDueTitle')}
+          </span>{' '}
+          <span className="text-nxtup-muted">{t('billing.banner.pastDueBody')}</span>{' '}
+          <Link
+            href="/dashboard/billing"
+            className="font-bold underline underline-offset-2"
+          >
+            {t('billing.banner.pastDueCta')}
+          </Link>
+        </div>
+      )}
       {access.allowed && access.reason === 'trial' && trialEndLabel && (
         <div className="print:hidden bg-nxtup-break/15 border-b border-nxtup-break/30 px-4 sm:px-6 py-2.5 text-sm">
           <span className="text-nxtup-muted">

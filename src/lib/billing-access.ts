@@ -23,6 +23,8 @@ export type ShopAccess = {
   allowed: boolean
   reason: 'subscription' | 'trial' | 'blocked' | 'unknown'
   trialEndsAt: string | null
+  /** Cobro fallido y Stripe reintentando: el acceso sigue, el dueño debe ver el aviso. */
+  pastDue?: boolean
 }
 
 const FAIL_OPEN: ShopAccess = { allowed: true, reason: 'unknown', trialEndsAt: null }
@@ -40,7 +42,12 @@ export function evaluateAccess(
   const mode = sub?.billing_mode ?? 'stripe'
   const status = sub?.status ?? null
   if (hasActiveAccess(mode, status) || status === 'past_due') {
-    return { allowed: true, reason: 'subscription', trialEndsAt: null }
+    return {
+      allowed: true,
+      reason: 'subscription',
+      trialEndsAt: null,
+      pastDue: mode === 'stripe' && status === 'past_due',
+    }
   }
 
   if (!trialEndsAt) return FAIL_OPEN

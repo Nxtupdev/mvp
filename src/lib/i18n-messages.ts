@@ -630,6 +630,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'billing.banner.blockedBody':
       'Se necesita una suscripción activa; tu cola actual sigue funcionando.',
     'billing.banner.reactivate': 'Reactivar',
+    'billing.banner.pastDueTitle': 'No pudimos cobrar tu suscripción.',
+    'billing.banner.pastDueBody':
+      'Actualiza tu método de pago para que el check-in no se pause.',
+    'billing.banner.pastDueCta': 'Actualizar pago',
     'admin.exit': 'Salir',
     'admin.title.admin': 'Admin',
     'admin.title.panel': 'Panel',
@@ -1537,6 +1541,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'billing.banner.blockedBody':
       'An active subscription is needed; your current queue keeps working.',
     'billing.banner.reactivate': 'Reactivate',
+    'billing.banner.pastDueTitle': "We couldn't charge your subscription.",
+    'billing.banner.pastDueBody':
+      'Update your payment method so check-in is not paused.',
+    'billing.banner.pastDueCta': 'Update payment',
     'admin.exit': 'Sign out',
     'admin.title.admin': 'Admin',
     'admin.title.panel': 'Panel',
